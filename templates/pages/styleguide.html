@@ -1,0 +1,200 @@
+{% extends "main.html" %} {% import "ui.html" as ui %} {% block content %} {%
+let heading_text = "About" %}
+
+<section class="l-contain l-skinny">
+  <h1>Styleguide (h1)</h1>
+  <br />
+  <br />
+  <br />
+
+  <h2>Text, lists, and links (h2)</h2>
+  <hr />
+  <p>
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur id massa
+    quam.
+  </p>
+  <p>
+    Vestibulum ut libero risus. Ut ac nulla vitae sapien iaculis euismod eu quis
+    massa. Aliquam <a href="/">condimentum vitae</a> dolor vel laoreet.
+    Phasellus mattis molestie commodo. Praesent et nibh odio. Pellentesque eget
+    fermentum lacus. Praesent laoreet velit <a href="/">non posuere euismod</a>.
+  </p>
+
+  <ul>
+    <li>Etiam accumsan leo eget</li>
+    <li>Maecenas tempus volutpat justo</li>
+    <li>Vivamus ipsum tortor</li>
+    <li>Aliquam at velit a tortor viverra commodo in non dolor</li>
+  </ul>
+
+  <br />
+  <br />
+
+  <h2>Buttons</h2>
+  <hr />
+  <br />
+  {% call ui::button() %}Primary button{% endcall %}
+  <br />
+  {% call ui::button(busy = true) %}Busy button{% endcall %}
+  <br />
+  {% call ui::button(disabled = true) %}Disabled button{% endcall %}
+  <br />
+  {% call ui::button(size = "sm") %}Small button{% endcall %}
+  <br />
+  {% call ui::button(size = "md") %}Medium button{% endcall %}
+  <br />
+  {% call ui::button(size = "lg") %}Large button{% endcall %}
+  <br />
+  {% call ui::button(variant = "secondary", size = "lg") %}Secondary button{%
+  endcall %}
+  <br />
+  {% call ui::button(variant = "secondary", size = "md") %}Secondary button{%
+  endcall %}
+  <br />
+  {% call ui::button(variant = "secondary", size = "sm") %}Secondary button{%
+  endcall %}
+  <br />
+  <br />
+
+  <h2>Notices</h2>
+  <hr />
+  <br />
+  {% call ui::notice(kind = "success") %}Success! This is a notice.{% endcall %}
+  <br />
+  {% call ui::notice(kind = "warning") %}Warning! This is a notice.{% endcall %}
+  <br />
+  {% call ui::notice(kind = "error") %}Error! This is a notice.{% endcall %}
+  <br />
+  {% call ui::notice(kind = "info") %}Info: This is a notice.{% endcall %}
+  <br />
+  {% call ui::notice(kind = "info", dismissible = true) %} Info: This is a
+  dismissible notice. {% endcall %}
+  <br />
+  <br />
+  <h2>Toaster</h2>
+  <hr />
+  <br />
+  {% call ui::button(xData = "{}", onClick = "$dispatch('toast')") %}Show
+  toast{% endcall %}
+  {% call ui::toaster(kind = "success") %}Success! This is a toaster
+  notice.{% endcall %}
+  <br />
+  <br />
+
+  <h2>Forms</h2>
+  <hr />
+  <br />
+
+  <a-form>
+    <a-form-group>
+      <a-form-label for="firstName">First name</a-form-label>
+      <a-form-input
+        id="firstName"
+        name="firstName"
+        type="text"
+        placeholder="Andrew"
+      />
+    </a-form-group>
+
+    <a-form-group>
+      <a-form-label for="email">Email</a-form-label>
+      <a-form-input
+        id="email"
+        name="email"
+        type="email"
+        placeholder="hello@andrewrobbins.dev"
+      />
+    </a-form-group>
+
+    <a-form-group-row>
+      <a-form-group-col size="half">
+        <a-form-group>
+          <a-form-label for="password">New password</a-form-label>
+          <a-form-input
+            id="password"
+            name="password"
+            type="password"
+            placeholder="Enter a password"
+            required
+          />
+        </a-form-group>
+      </a-form-group-col>
+
+      <a-form-group-col size="half">
+        <a-form-group>
+          <a-form-label for="confirmPassword">Confirm password</a-form-label>
+          <a-form-input
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            placeholder="Confirm your password"
+            required
+          />
+        </a-form-group>
+      </a-form-group-col>
+    </a-form-group-row>
+
+    <a-button type="submit">Submit</a-button>
+  </a-form>
+  <br />
+  <br />
+
+  <h2>Modal</h2>
+  <hr />
+  <br />
+  <a-button command="show-modal" commandfor="my-dialog">Open modal</a-button>
+  <a-modal id="my-dialog" closedby="any" heading="Update profile">
+    <a-form>
+      <a-form-group>
+        <a-form-label for="firstName">First name</a-form-label>
+        <a-form-input
+          id="firstName"
+          name="firstName"
+          type="text"
+          placeholder="Andrew"
+        />
+      </a-form-group>
+
+      <a-form-group>
+        <a-form-label for="email">Email</a-form-label>
+        <a-form-input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="hello@andrewrobbins.dev"
+        />
+      </a-form-group>
+
+      <a-form-group-row>
+        <a-form-group-col size="half">
+          <a-form-group>
+            <a-form-label for="password">New password</a-form-label>
+            <a-form-input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter a password"
+              required
+            />
+          </a-form-group>
+        </a-form-group-col>
+
+        <a-form-group-col size="half">
+          <a-form-group>
+            <a-form-label for="confirmPassword">Confirm password</a-form-label>
+            <a-form-input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              placeholder="Confirm your password"
+              required
+            />
+          </a-form-group>
+        </a-form-group-col>
+      </a-form-group-row>
+
+      <a-button type="submit">Submit</a-button>
+    </a-form>
+  </a-modal>
+</section>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "main.html" %} {% block content %} {% let heading_text =
+"WebTransport" %}
+
+<section class="l-contain l-skinny">
+  {% include "partials/page-heading.html" %}
+
+  <p>Connect to the Rust-powered WebTransport server below.</p>
+  <a-button
+    id="connect-button"
+    x-data="{ isLoading: false }"
+    x-on:click="isLoading = true"
+    :disabled="isLoading"
+    :busy="isLoading"
+  >
+    <span x-text="isLoading ? 'Connecting ...' : 'Connect'">Connect</span>
+  </a-button>
+</section>
+{% endblock %}

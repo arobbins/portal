@@ -1,0 +1,228 @@
+body[class*="page-account"] .header,
+body[class*="page-account"] .footer {
+  display: none;
+}
+
+body[class*="page-account"] main {
+  max-width: 100%;
+  padding: 0;
+}
+
+body[class*="page-account"] .page-heading {
+  text-align: left;
+  font-size: 30px;
+  margin-bottom: 0;
+}
+
+.account {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.account__header {
+  margin: 0px;
+  padding-bottom: 10px;
+  border: none;
+  border-bottom: 1px solid var(--border-lines);
+  margin-bottom: 15px;
+}
+
+.account__sub-nav {
+  min-width: 240px;
+  padding: 15px;
+  border-right: 1px solid var(--border-lines);
+}
+
+.account__sub-nav .nav__list {
+  margin-top: 0;
+}
+
+.account__sub-nav .nav__link {
+  font-size: 16px;
+  padding: 5px 15px;
+  border-radius: var(--border-radius);
+  transition: background ease 0.15s;
+  color: var(--color-primary-light-bright);
+
+  &:hover {
+    color: var(--color-primary-light-bright);
+    background-color: var(--color-surface-hover);
+    opacity: 1;
+  }
+}
+
+.account__sub-nav .nav__link + .nav__list {
+  padding-left: 10px;
+}
+
+.account__sub-nav .nav__link + .nav__list .nav__link {
+  color: var(--color-primary-light-offset);
+  font-family: "Diatype";
+  text-transform: capitalize;
+
+  &:hover {
+    color: var(--color-primary-light-bright);
+    background-color: var(--color-surface-hover);
+    opacity: 1;
+  }
+}
+
+.account__sub-nav .nav__link--active:hover {
+  opacity: 1;
+  color: var(--color-primary-light-bright);
+  background-color: var(--color-surface-hover);
+}
+
+.account__content {
+  padding: 40px 100px;
+  background-color: var(--color-primary-dark);
+  flex: 1;
+}
+
+.account__content h1 {
+  font-size: 50px;
+}
+
+.account__content h2 {
+  font-size: 40px;
+}
+
+.account__content h3 {
+  font-size: 20px;
+}
+
+.account__profile-dropdown {
+  width: 100%;
+  background: none;
+  border: none;
+  margin: 0;
+  anchor-name: --menu-button;
+  align-items: center;
+  font-size: 16px;
+  padding: 5px 10px;
+  border-radius: var(--border-radius);
+  text-shadow: none;
+  color: var(--color-primary-light-bright);
+
+  &:hover {
+    background-color: var(--color-primary-dark-offset);
+  }
+}
+
+.account__profile-dropdown-photo {
+  border-radius: 50%;
+  width: 25px;
+  height: 25px;
+  margin-right: 10px;
+  outline: 1px solid var(--color-primary-light-bright);
+}
+
+.account__profile-dropdown-photo-fallback {
+  background: #3b3630;
+  padding: 5px;
+  border-radius: 50%;
+  width: 25px;
+  height: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+}
+
+.account__profile-dropdown-name + svg {
+  margin-left: 10px;
+}
+
+.nav__list-item-group {
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border-lines);
+  padding-bottom: 10px;
+}
+
+.nav__list-item-group > a {
+  text-transform: uppercase;
+}
+
+.account__content-card {
+  border: 1px solid var(--border-lines);
+  background-color: var(--color-bg);
+  border-radius: var(--border-radius);
+}
+
+.account__content-card-header {
+  border-bottom: 1px solid var(--border-lines);
+  padding: 10px 15px;
+  color: var(--color-primary-light-bright);
+  font-size: 20px;
+}
+
+.account__content-card-details {
+  padding: 10px 15px;
+}
+
+.account__menu {
+  position-anchor: --menu-button;
+  padding: 0;
+  border: none;
+  border-radius: var(--border-radius);
+  background-color: var(--color-primary-dark-offset);
+  box-shadow: none;
+  color: var(--color-primary-light-offset);
+  inset: auto;
+  margin: 0;
+  top: anchor(bottom);
+  left: anchor(left);
+  margin-top: 6px;
+  max-width: 240px;
+  width: 100%;
+
+  transition:
+    opacity 0.25s,
+    translate 0.25s,
+    overlay 0.25s allow-discrete,
+    display 0.25s allow-discrete;
+  opacity: 0;
+  translate: 0 -1em;
+
+  &:popover-open {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@starting-style {
+  .account__menu {
+    &:popover-open {
+      opacity: 0;
+      translate: 0 -1em;
+    }
+  }
+}
+
+.account__menu .nav__list {
+  margin: 0;
+}
+
+.account__menu .nav__list .nav__link {
+  border-radius: 0;
+  border-bottom: 1px solid var(--border-lines-strong);
+  padding: 10px 15px;
+  color: var(--color-primary-light-bright);
+  font-size: 15px;
+  font-family: "Diatype";
+  text-transform: capitalize;
+
+  &:hover {
+    background: none;
+    opacity: 0.8;
+  }
+}
+
+.account__menu .nav__list li:last-of-type .nav__link {
+  border-bottom: 0;
+}
+
+.account__menu .nav__list .nav__link svg {
+  margin-right: 10px;
+}

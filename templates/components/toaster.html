@@ -1,0 +1,8 @@
+<div
+  x-data="{ isHidden: false }"
+  class="toaster toaster--is-success toaster--is-dismissible l-flex l-flex-center-col"
+  :class="{ 'toaster--is-open': !isHidden }"
+  @click="isHidden = true"
+>
+  {% include "../../assets/icons/checkmark.svg"%} Saved successfully!
+</div>

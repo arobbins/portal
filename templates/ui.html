@@ -1,0 +1,52 @@
+{# Reusable UI component macros. Import with: {% import "ui.html" as ui %} #}
+
+{% macro notice(kind = "info", dismissible = false) %}
+<div
+  class="a-notice a-notice--{{ kind }}{% if dismissible %} a-notice--is-dismissible{% endif %}"
+  {% if dismissible %}
+  x-data
+  @click="$el.classList.add('a-notice--is-dismissing')"
+  @transitionend="if ($el.classList.contains('a-notice--is-dismissing')) $el.remove()"
+  {% endif %}
+>
+  {{ caller() }}
+</div>
+{% endmacro %}
+
+{% macro toaster(kind = "success", event = "toast", duration = 4000) %}
+<div
+  class="a-toaster"
+  x-data="{
+    isOpen: false,
+    timer: null,
+    show() {
+      this.isOpen = true;
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => (this.isOpen = false), {{ duration }});
+    },
+  }"
+  :class="{ 'a-toaster--is-open': isOpen }"
+  x-on:{{ event }}.window="show()"
+  x-on:click="isOpen = false"
+>
+  {# Inlined notice markup: caller() can't be forwarded into a nested
+     {% call notice() %} block (askama limitation), so the toast renders
+     the same BEM classes directly. Keep in sync with the notice macro. #}
+  <div class="a-notice a-notice--{{ kind }}">{{ caller() }}</div>
+</div>
+{% endmacro %}
+
+{% macro button(variant = "primary", size = "md", busy = false, disabled = false, command = "", commandfor = "", onClick = "", label = "", xText = "", xData = "") %}
+<button
+  class="a-button a-button--{{ variant }} a-button--{{ size }}{% if busy %} a-button--is-busy{% endif %}"
+  {% if !xData.is_empty() %}x-data="{{ xData }}"{% endif %}
+  {% if disabled %}disabled{% endif %}
+  {% if !command.is_empty() %}command="{{ command }}"{% endif %}
+  {% if !commandfor.is_empty() %}commandfor="{{ commandfor }}"{% endif %}
+  {% if !onClick.is_empty() %}x-on:click="{{ onClick }}"{% endif %}
+  {% if !xText.is_empty() %}x-text="{{ xText }}"{% endif %}
+>
+  {% if !label.is_empty() %}{{ label }}{% endif %}
+  {{ caller() }}
+</button>
+{% endmacro %}

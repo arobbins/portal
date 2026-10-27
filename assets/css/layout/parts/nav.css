@@ -1,0 +1,25 @@
+.nav__list {
+  list-style: none;
+}
+
+.nav__list--flush-left {
+  padding: 0;
+}
+
+.nav__link {
+  padding: 15px;
+  font-size: 17px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  font-family: "Berkeley Mono", arial, monospace;
+  text-transform: uppercase;
+
+  &:hover {
+    color: var(--color-primary-light-offset);
+  }
+}
+
+.nav__link-external svg {
+  color: var(--color-primary-light-offset);
+}

@@ -1,0 +1,74 @@
+html,
+body {
+  background-color: var(--color-bg);
+  color: var(--color-primary-light);
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Diatype";
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 1.3;
+}
+
+a {
+  color: var(--color-primary-light);
+  transition: opacity ease 0.2s;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--color-accent);
+
+  &:hover {
+    opacity: 0.7;
+  }
+}
+
+p::search-text {
+  color: var(--color-primary-dark);
+  background-color: var(--color-primary-light);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Berkeley Mono", arial, monospace;
+  font-optical-sizing: auto;
+  font-style: normal;
+  margin-top: 0;
+  color: var(--color-primary-light-bright);
+  text-transform: uppercase;
+}
+
+h1 {
+  text-align: center;
+  font-size: 60px;
+  margin-bottom: 25px;
+  /* text-shadow: 0 calc(1em / 7) var(--color-tertiary); */
+}
+
+hr {
+  border-color: #383838;
+  margin-top: -10px;
+}
+
+.heading-xl {
+  font-size: 200px;
+}
+
+.htmx-indicator {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 200ms ease-in;
+}

@@ -1,0 +1,61 @@
+{% extends "main.html" %} {% block content %} {% let heading_text = "Register"
+%}
+<section class="l-contain l-skinny">
+  {% include "partials/page-heading.html" %}
+
+  <form
+    hx-post="/user/register"
+    hx-target=".response-message"
+    hx-swap="innerHTML"
+    class="form form--skinny"
+    action=""
+    method="post"
+  >
+    <div class="l-flex-col form__field-group">
+      <label class="form__field-label" for="name">Name</label>
+      <input
+        class="form__field-input"
+        type="text"
+        placeholder="Name"
+        id="name"
+        name="name"
+      />
+    </div>
+    <div class="l-flex-col form__field-group">
+      <label class="form__field-label" for="email">Email</label>
+      <input
+        class="form__field-input"
+        type="email"
+        placeholder="Email"
+        id="email"
+        name="email"
+      />
+    </div>
+    <div class="l-flex-col form__field-group">
+      <label class="form__field-label" for="new-password">New password</label>
+      <input
+        class="form__field-input"
+        type="password"
+        placeholder="Enter a password"
+        id="new-password"
+        name="new_password"
+      />
+    </div>
+    <div class="l-flex-col form__field-group">
+      <label class="form__field-label" for="confirm-password"
+        >Confirm New password</label
+      >
+      <input
+        class="form__field-input"
+        type="password"
+        placeholder="Confirm password"
+        id="confirm-password"
+        name="confirm_password"
+      />
+    </div>
+    <button class="form__submit" type="submit">Register account</button>
+    <div class="response-message"></div>
+  </form>
+</section>
+
+{% endblock %}

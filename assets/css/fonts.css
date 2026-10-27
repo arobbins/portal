@@ -1,0 +1,23 @@
+@font-face {
+  font-family: "Diatype";
+  src: url("../fonts/ABCDiatypeTrial-Regular.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "MDIO";
+  src: url("../fonts/MDIOTrial-Semibold.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Berkeley Mono";
+  src: url("../fonts/BerkeleyMono.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Hello world</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+      rel="stylesheet"
+    />
+
+    <link href="../assets/dist/app.css" rel="stylesheet" />
+  </head>
+  <body class="l-flex-col {{ globals.current_slug }}">
+    {% include "partials/header.html" %}
+
+    <main class="l-contain l-flex-1">
+      {% block content %}
+      <p>Placeholder content</p>
+      {% endblock %}
+    </main>
+
+    {% include "partials/footer.html" %}
+
+    <script src="../assets/js/vendor/alpine.min.js"></script>
+    <script src="../assets/js/vendor/htmx.min.js"></script>
+    <script src="../assets/js/app.js" type="module"></script>
+  </body>
+</html>

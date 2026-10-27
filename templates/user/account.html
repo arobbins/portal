@@ -1,0 +1,197 @@
+{% extends "main.html" %} {% block content %} {% let heading_text = "Account" %}
+
+<section class="account">
+  <div class="l-flex l-flex-1">
+    <nav class="account__sub-nav nav">
+      <div
+        class="l-flex l-flex-space-between l-flex-align-items-center account__header"
+      >
+        <div class="l-flex l-flex-1 l-flex-align-items-center">
+          <button
+            popovertarget="my-popover-menu"
+            class="account__profile-dropdown l-flex"
+          >
+            {% if let Some(photo) = user.photo.as_ref() %}<img
+              src="{{ photo }}"
+              alt="Profile photo of {{ user.name }}"
+              class="account__profile-dropdown-photo"
+            />{% else %}
+            <div class="account__profile-dropdown-photo-fallback">
+              {% include "../../assets/icons/user.svg" %}
+            </div>
+            {% endif %}
+            <span class="account__profile-dropdown-name">{{ user.name }}</span>
+
+            {% include "../../assets/icons/chevron-down.svg" %}
+          </button>
+
+          <!-- The Popover Content -->
+          <div id="my-popover-menu" class="account__menu" popover>
+            <ul class="nav__list nav__list--flush-left l-flex-col">
+              <li class="nav__list-item">
+                <a class="nav__link" href="/account/billing#subscriptions"
+                  >{% include "../../assets/icons/credit-card.svg" %} Manage
+                  Subscription</a
+                >
+              </li>
+              <li class="nav__list-item">
+                <a class="nav__link" hx-post="/user/logout" href="/user/logout"
+                  >{% include "../../assets/icons/logout.svg" %} Logout</a
+                >
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <ul
+        class="nav__list nav__list--flush-left l-flex-col"
+        x-data="{ isActive: '{{ active_tab }}' }"
+      >
+        <li class="nav__list-item nav__list-item-group">
+          <a
+            href="/account/profile"
+            class="nav__link"
+            :class="{ 'nav__link--active': isActive === 'profile' }"
+            @click="isActive = 'profile'"
+            hx-get="/account/profile"
+            hx-target="#account__content"
+            hx-swap="innerHTML"
+            hx-push-url="true"
+            >Profile</a
+          >
+          <ul class="nav__list">
+            <li class="nav__list-item">
+              <a href="/account/profile#password" class="nav__link"
+                >Reset password</a
+              >
+            </li>
+          </ul>
+        </li>
+        <li class="nav__list-item nav__list-item-group">
+          <a
+            href="/account/security"
+            class="nav__link"
+            :class="{ 'nav__link--active': isActive === 'security' }"
+            @click="isActive = 'security'"
+            hx-get="/account/security"
+            hx-target="#account__content"
+            hx-swap="innerHTML"
+            hx-push-url="true"
+            >Security</a
+          >
+          <ul class="nav__list">
+            <li class="nav__list-item">
+              <a href="/account/security#2fa" class="nav__link"
+                >Two-factor authentication</a
+              >
+            </li>
+            <li class="nav__list-item">
+              <a href="/account/security#sso" class="nav__link"
+                >Single sign-on</a
+              >
+            </li>
+          </ul>
+        </li>
+        <li class="nav__list-item nav__list-item-group">
+          <a
+            href="/account/billing"
+            class="nav__link"
+            :class="{ 'nav__link--active': isActive === 'billing' }"
+            @click="isActive = 'billing'"
+            hx-get="/account/billing"
+            hx-target="#account__content"
+            hx-swap="innerHTML"
+            hx-push-url="true"
+            >Billing</a
+          >
+          <ul class="nav__list">
+            <li class="nav__list-item">
+              <a href="/account/billing#subscriptions" class="nav__link"
+                >Subscriptions</a
+              >
+            </li>
+            <li class="nav__list-item">
+              <a href="/account/billing#invoices" class="nav__link">Invoices</a>
+            </li>
+            <li class="nav__list-item">
+              <a href="/account/billing#payment-methods" class="nav__link"
+                >Payment methods</a
+              >
+            </li>
+          </ul>
+        </li>
+        <li class="nav__list-item nav__list-item-group">
+          <a
+            href="/account/settings"
+            class="nav__link"
+            :class="{ 'nav__link--active': isActive === 'settings' }"
+            @click="isActive = 'settings'"
+            hx-get="/account/settings"
+            hx-target="#account__content"
+            hx-swap="innerHTML"
+            hx-push-url="true"
+            >Settings</a
+          >
+          <ul class="nav__list">
+            <li class="nav__list-item">
+              <a href="/account/settings#notifications" class="nav__link"
+                >Notifications</a
+              >
+            </li>
+          </ul>
+        </li>
+        <li class="nav__list-item nav__list-item-group">
+          <a
+            href="/account/developer"
+            class="nav__link"
+            :class="{ 'nav__link--active': isActive === 'developer' }"
+            @click="isActive = 'developer'"
+            hx-get="/account/developer"
+            hx-target="#account__content"
+            hx-swap="innerHTML"
+            hx-push-url="true"
+            >Developer</a
+          >
+        </li>
+        <li class="nav__list-item">
+          <a href="/support" class="nav__link nav__link-external"
+            >Support {% include "../../assets/icons/external-link.svg" %}</a
+          >
+        </li>
+        <li class="nav__list-item">
+          <a href="/docs" class="nav__link nav__link-external"
+            >Documentation {% include "../../assets/icons/external-link.svg"
+            %}</a
+          >
+        </li>
+        <li class="nav__list-item">
+          <a href="/status" class="nav__link nav__link-external"
+            >System status {% include "../../assets/icons/external-link.svg" %}
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <section class="account__content" id="account__content">
+      {% if active_tab == "security" %} {% include "user/account-security.html"
+      %} {% else %} {% include "user/account-profile.html" %} {% endif %}
+    </section>
+  </div>
+</section>
+
+<dialog id="my-dialog" closedby="any">
+  <form action="/submit-profile" method="post">
+    <fieldset>
+      <legend>Edit profile details</legend>
+
+      <label for="fname">First Name:</label>
+      <input type="text" id="fname" name="fname" />
+
+      <label for="lname">Last Name:</label>
+      <input type="text" id="lname" name="lname" />,/ >
+    </fieldset>
+  </form>
+  <button commandfor="my-dialog" command="close">Close</button>
+</dialog>
+
+{% endblock %}

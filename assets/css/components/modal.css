@@ -1,0 +1,35 @@
+.a-modal {
+  color: var(--color-primary-light);
+  border: none;
+  border-radius: var(--border-radius);
+  padding: 24px;
+  max-width: 500px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  margin-top: 20vh;
+  background-color: var(--color-primary-dark);
+  border: 1px solid var(--color-primary-dark-offset);
+  overflow: visible;
+  min-width: 500px;
+}
+
+.a-modal::backdrop {
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(3px);
+}
+
+.a-modal__close-icon {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--color-primary-light);
+  padding: 15px;
+  font-size: 20px;
+  position: absolute;
+  top: 0;
+  right: 0;
+
+  &:hover {
+    color: var(--color-primary-light-offset);
+    cursor: pointer;
+  }
+}

@@ -1,0 +1,39 @@
+{% extends "main.html" %} {% block content %} {% let heading_text = "Login" %}
+
+<section class="l-contain l-skinny">
+  {% include "partials/page-heading.html" %}
+
+  <form
+    hx-post="/user/login"
+    hx-target=".response-message"
+    hx-swap="innerHTML"
+    class="form form--skinny"
+    action=""
+    method="post"
+  >
+    <div class="l-flex-col form__field-group">
+      <label class="form__field-label" for="email">Email</label>
+      <input
+        class="form__field-input"
+        type="email"
+        placeholder="Enter email"
+        id="email"
+        name="email"
+      />
+    </div>
+    <div class="l-flex-col form__field-group">
+      <label class="form__field-label" for="password">Password</label>
+      <input
+        class="form__field-input"
+        type="password"
+        placeholder="Enter password"
+        id="password"
+        name="password"
+      />
+    </div>
+    <button class="form__submit" type="submit">Login</button>
+    <div class="response-message"></div>
+  </form>
+</section>
+
+{% endblock %}

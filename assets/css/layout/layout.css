@@ -1,0 +1,43 @@
+.l-contain {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 10px;
+}
+
+.l-skinny {
+  max-width: 800px;
+}
+
+.l-flex {
+  display: flex;
+}
+
+.l-flex-gap {
+  gap: 10px;
+}
+
+.l-flex-center-col {
+  align-items: center;
+}
+
+.l-flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.l-flex-1 {
+  flex: 1;
+}
+
+.l-flex-space-between {
+  justify-content: space-between;
+}
+
+.l-flex-align-items-center {
+  align-items: center;
+}
+
+.spacing-fixed-m-left {
+  margin-left: var(--spacing-fixed-m);
+}
