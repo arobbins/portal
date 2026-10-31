@@ -7,9 +7,11 @@
 @import "./layout/parts/header.css";
 @import "./layout/parts/footer.css";
 @import "./layout/parts/nav.css";
+@import "./components/icon.css";
 @import "./components/button.css";
 @import "./components/form.css";
 @import "./components/notice.css";
 @import "./components/toaster.css";
 @import "./components/modal.css";
 @import "./account.css";
+@import "./styleguide.css";

@@ -1,0 +1,13 @@
+use leptos::prelude::*;
+
+#[component]
+pub fn AccountSecurity() -> impl IntoView {
+    view! {
+        <div class="account__sub-page-content">
+            <h2>"Security"</h2>
+            <p>
+                "Ut pellentesque lectus sit amet tellus interdum tincidunt. Praesent laoreet velit non posuere euismod. Integer egestas, eros in aliquet porta, purus lacus eleifend sapien, a scelerisque."
+            </p>
+        </div>
+    }
+}

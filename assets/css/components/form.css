@@ -36,12 +36,21 @@
   -webkit-text-fill-color: var(--color-primary-light-bright) !important;
 }
 
-a-form-group-col {
+.a-form {
+  width: 100%;
+}
+
+.a-form-row {
+  display: flex;
+  gap: 1em;
+}
+
+.a-form-col {
   display: flex;
   flex-direction: column;
 }
 
-a-form-group-col[size="half"] {
+.a-form-col--half {
   flex: 1;
 }
 

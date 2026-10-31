@@ -41,6 +41,10 @@
     translate 0.25s;
 }
 
+.a-notice--is-dismissed {
+  display: none;
+}
+
 .a-notice--success {
   border: 1px solid #74d464;
   background-color: #417339;

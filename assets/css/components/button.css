@@ -1,7 +1,3 @@
-a-button:not(:defined) {
-  visibility: hidden;
-}
-
 .a-button {
   appearance: none;
   background-color: var(--color-surface-hover);

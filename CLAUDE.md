@@ -1,54 +1,66 @@
 # Webserver Project
 
-Rust web server app: axum + Askama server-side rendering, HTMX for client/server
-communication, Alpine for minor interactivity. Postgres via sqlx (with
-migrations), tower-sessions, argon2 auth. CSS is bundled/minified by Lightning
-CSS in `build.rs` (`assets/css/` → `assets/dist/app.css`).
+Rust web app: axum + Leptos 0.8 in **islands mode**. Pages are server-rendered
+Leptos components; only `#[island]` components ship WASM and hydrate in the
+browser. Postgres via sqlx (with migrations), tower-sessions, argon2 auth. CSS
+is bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
+`assets/dist/app.css`, served from `/assets`).
 
 ## Architecture principles
 
-- **Compile-time safety first**: Askama templates and sqlx queries are checked
-  by `cargo build`. Prefer patterns that keep errors at compile time.
+- **Compile-time safety first**: components, props, routes, server functions and
+  sqlx queries are all checked by the compiler. Component variants are Rust
+  enums (`ButtonSize::Sm`), never strings.
 - **Native platform over JS**: use native HTML/CSS features where they exist —
   `<dialog>` + `command`/`commandfor` for modals, `popover`, CSS transitions.
-- **State lives at the lowest rung that works**: server state → HTMX round-trips;
-  widget-local state → `x-data` inside the component macro; no shared client
-  state (no Alpine stores — deliberately rejected); hand-written web components
-  only for genuinely rich widgets (currently none).
+- **State lives at the lowest rung that works**: server data → server-rendered
+  components and `#[server]` functions; interactive widget state → signals
+  inside the smallest possible `#[island]`; cross-island communication → window
+  events (e.g. `dispatch_toast("toast")`), not shared client state.
 - **BEM classes are the styling contract**: components emit stable class names
-  (e.g. `a-notice--success`); CSS targets only those, never element/tag structure.
+  (e.g. `a-notice--success`); CSS targets only those, never element/tag structure
+  (the one exception: `leptos-island, leptos-children { display: contents }`).
 
-## Migration status (web components → Askama macros)
+## Layout
 
-- Ported to `ui.html` macros: `notice`, `toaster`, `button` (styleguide's
-  Buttons section still uses `<a-button>` tags, though).
-- Still web components: button, form, modal (`assets/js/components/`, registered
-  in `app.js`); `utils.js` and the `:not(:defined)` FOUC CSS hacks go when they do.
-- Not yet wired: server-driven toasts — toaster listens for a `toast` window
-  event; handlers should fire it via `HX-Trigger` response headers. The old
-  Alpine partial `templates/components/toaster.html` (account page) should fold
-  into the macro.
+- `src/main.rs` — server binary (`ssr` only): sessions, db pool, router.
+- `src/lib.rs` — crate root + `hydrate()` WASM entry point.
+- `src/app.rs` — `shell` (HTML document) and `App` (`<Routes>`; the list of pages).
+- `src/components/` — reusable UI, one file per component; each has a matching
+  CSS file in `assets/css/components/` and a demo in `src/pages/styleguide/`.
+- `src/layout/` — header, nav, footer, logo, page heading.
+- `src/pages/` — general pages; `src/pages/styleguide/` — one section per component.
+- `src/user/` — `api.rs` (`#[server]` functions), `pages/` (components),
+  plus server-only `auth`, `queries`, `service`, `controller` (email verify link).
+- `src/web.rs` — `AppState`, `GlobalState` + `use_globals()`, `inject_globals` middleware.
+
+## Leptos gotchas
+
+- The crate builds twice: `ssr` (server binary) and `hydrate` (WASM lib).
+  Server-only deps are `optional` and enabled by `ssr`; gate server-only code
+  with `#[cfg(feature = "ssr")]` or put it inside a `#[server]` fn body.
+- Event handlers (`on:click`) only work inside an `#[island]`; in a plain
+  `#[component]` they're silently dropped (it never runs in the browser).
+- Island props must be `Serialize + Deserialize`, and can't use `default = expr`
+  or `optional` on non-`Option` types. Pattern: a public `#[component]` with
+  friendly defaults that renders a private `#[island]` (see `Toaster`).
+- Island `children` are opaque server HTML: render them unconditionally and hide
+  with CSS rather than `<Show>`.
+- `leptos_axum::redirect()` only works before headers are sent: use
+  `ssr=SsrMode::Async` on the route or `<Await blocking=true>`.
+- Server function return values are sent to the browser — return narrow DTOs
+  (`AccountUser`), never `User` (it holds the password hash).
+- Deep `view!` trees can hit the type recursion limit; `lib.rs` sets
+  `recursion_limit = "256"`; `.into_any()` also erases types at a boundary.
 
 ## Development
 
 Run the dev watch loop from `webserver/`:
 
 ```sh
-cargo watch -w src -w templates -w assets -x run
+cargo leptos watch
 ```
 
-This rebuilds and restarts the server whenever `.rs`, `.html`, `.js`, or `.css` files change — `cargo watch` can't filter by extension, so it watches the directories where those files live (`src`, `templates`, `assets`).
-
-## UI components (Askama macros)
-
-Reusable components live in `templates/ui.html` as `{% macro %}`s
-(import per page: `{% import "ui.html" as ui %}`). Conventions and gotchas:
-
-- Every `{% call %}` requires `{% endcall %}`, even with an empty body.
-- `{% if %}` has no string truthiness — use `!arg.is_empty()` (bools/ints coerce, strings don't).
-- A macro **cannot forward its `caller()` body into a nested `{% call %}` block**
-  ("block is not defined for `caller`"), and binding it via `{% let %}` corrupts
-  the output buffer. Composite macros (e.g. `toaster`) inline the child's BEM
-  markup instead of calling the child macro.
-- Alpine-reactive props pass expressions into directives (`xText` → `x-text`,
-  `xData` → `x-data`); a standalone Alpine trigger needs `xData = "{}"` to activate.
+This rebuilds the server binary and the WASM bundle when `src/`, `assets/css`
+or `assets/icons` change. Tests: `cargo test --features ssr`.
+`cargo-leptos` is pinned at 0.3.10 (0.3.11 needs rustc 1.96).

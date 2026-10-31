@@ -1,3 +1,4 @@
+{% import "ui.html" as ui %}
 <div class="account__sub-page-content">
   <h2>Profile</h2>
 
@@ -6,9 +7,11 @@
       class="account__content-card-header l-flex l-flex-center-col l-flex-space-between"
     >
       Account info
-      <button command="show-modal" commandfor="my-dialog">
+
+      {% call ui::button(size = "sm") %}
         {% include "../../assets/icons/edit.svg" %} Edit details
-      </button>
+      {% endcall %}
+
     </header>
     <div class="account__content-card-details">
       <p>Name: {{ user.name }}</p>

@@ -1,24 +1,23 @@
-mod user;
-mod utils;
-mod web;
-mod pages;
-
-use crate::pages::*;
-use crate::user::controller::*;
-use crate::user::view::*;
-use crate::web::inject_globals;
+use webserver::app::{shell, App};
+use webserver::user::controller::verify_user_controller;
+use webserver::web::{inject_globals, AppState};
 
 use std::env;
 use sqlx::PgPool;
 use axum::{
+    extract::Request,
     middleware,
-    routing::{get, post},
+    routing::get,
     Router,
+    ServiceExt,
 };
-use axum_extra::routing::RouterExt;
+use leptos::config::get_configuration;
+use leptos_axum::{generate_route_list, LeptosRoutes};
+use tower::Layer;
 use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions::cookie::{SameSite, time::Duration};
 use tower_sessions_sqlx_store::PostgresStore;
+use tower_http::normalize_path::NormalizePathLayer;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -37,6 +36,9 @@ async fn main() {
 
     dotenvy::dotenv().unwrap();
 
+    let leptos_options = get_configuration(None).unwrap().leptos_options;
+    let site_addr = leptos_options.site_addr;
+
     let db = PgPool::connect(&env::var("DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -50,7 +52,8 @@ async fn main() {
         .with_same_site(SameSite::Lax)
         .with_expiry(Expiry::OnInactivity(Duration::days(1)));
 
-    let app = app(db).layer(session_layer);
+    let app = app(AppState { db, leptos_options }).layer(session_layer);
+    let app = NormalizePathLayer::trim_trailing_slash().layer(app);
 
     let mut listenfd = ListenFd::from_env();
 
@@ -59,32 +62,26 @@ async fn main() {
             listener.set_nonblocking(true).unwrap();
             TcpListener::from_std(listener).unwrap()
         }
-        None => TcpListener::bind("127.0.0.1:3000").await.unwrap(),
+        None => TcpListener::bind(site_addr).await.unwrap(),
     };
 
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
 
-    let _ = axum::serve(listener, app).await;
+    let _ = axum::serve(listener, ServiceExt::<Request>::into_make_service(app)).await;
 }
 
-fn app(db: PgPool) -> Router {
+fn app(state: AppState) -> Router {
+    let routes = generate_route_list(App);
 
     Router::new()
-        .route("/", get(home_template))
-        .route_with_tsr("/about", get(about_template))
-        .route_with_tsr("/register", get(register_template))
-        .route_with_tsr("/login", get(login_template))
-        .route_with_tsr("/account", get(account_template))
-        .route_with_tsr("/webtransport", get(webtransport_template))
-        .route_with_tsr("/styleguide", get(styleguide_template))
-        .route("/account/{page_name}", get(account_page_template))
-        .route("/user/register", post(register_user_controller))
-        .route("/user/login", post(login_user_controller))
-        .route("/user/logout", post(logout_user_controller))
         .route("/user/verify/{token}", get(verify_user_controller))
-        .with_state(db)
+        .leptos_routes(&state, routes, {
+            let leptos_options = state.leptos_options.clone();
+            move || shell(leptos_options.clone())
+        })
         .nest_service("/assets", ServeDir::new("assets"))
-        .fallback(handler_404)
+        .fallback(leptos_axum::file_and_error_handler::<AppState, _>(shell))
+        .with_state(state)
         .layer(middleware::from_fn(inject_globals))
         .layer(TraceLayer::new_for_http())
 }
@@ -104,8 +101,9 @@ mod tests {
         let db = PgPoolOptions::new()
             .connect_lazy("postgres://localhost/unused")
             .unwrap();
+        let leptos_options = get_configuration(None).unwrap().leptos_options;
 
-        app(db).layer(SessionManagerLayer::new(MemoryStore::default()))
+        app(AppState { db, leptos_options }).layer(SessionManagerLayer::new(MemoryStore::default()))
     }
 
     #[tokio::test]

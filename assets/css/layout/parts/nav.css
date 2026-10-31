@@ -20,6 +20,15 @@
   }
 }
 
+.nav__link--button {
+  appearance: none;
+  background: none;
+  border: none;
+  color: inherit;
+  width: 100%;
+  cursor: pointer;
+}
+
 .nav__link-external svg {
   color: var(--color-primary-light-offset);
 }
