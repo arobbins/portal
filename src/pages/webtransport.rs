@@ -1,26 +1,28 @@
-use leptos::prelude::*;
+use topcoat::{
+    Result,
+    context::Cx,
+    router::page,
+    runtime::{Event, signal},
+    view::{View, attributes, view},
+};
 
-use crate::components::Button;
-use crate::layout::PageHeading;
+use crate::components::button::button;
+use crate::layout::page_heading::page_heading;
 
-#[component]
-pub fn WebTransportPage() -> impl IntoView {
-    view! {
+#[page("/webtransport")]
+pub async fn webtransport_page(cx: &Cx) -> Result<impl View> {
+    let is_loading = signal(cx, || false);
+
+    Ok(view! {
         <section class="l-contain l-skinny">
-            <PageHeading text="WebTransport"/>
+            page_heading(text: "WebTransport")
             <p>"Connect to the Rust-powered WebTransport server below."</p>
-            <ConnectButton/>
+            button(
+                busy: $(is_loading.get()),
+                disabled: $(is_loading.get()),
+                attrs: attributes! { @click=$(|_e: Event| is_loading.set(true)) },
+                $(if is_loading.get() { "Connecting ..." } else { "Connect" })
+            )
         </section>
-    }
-}
-
-#[island]
-fn ConnectButton() -> impl IntoView {
-    let is_loading = RwSignal::new(false);
-
-    view! {
-        <Button busy=is_loading disabled=is_loading on:click=move |_| is_loading.set(true)>
-            {move || if is_loading.get() { "Connecting ..." } else { "Connect" }}
-        </Button>
-    }
+    })
 }

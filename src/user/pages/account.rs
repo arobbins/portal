@@ -1,14 +1,18 @@
-use leptos::prelude::*;
-use leptos_router::hooks::use_params_map;
+use topcoat::{
+    Result,
+    context::Cx,
+    router::{page, path_param},
+    view::{View, component, view},
+};
 
-use super::account_nav::AccountNav;
-use super::account_profile::AccountProfile;
-use super::account_security::AccountSecurity;
-use super::profile_menu::ProfileMenu;
-use crate::components::{Notice, NoticeKind};
-use crate::user::api::get_account_user;
-use crate::user::model::AccountUser;
-use crate::web::error_message;
+use super::account_nav::account_nav;
+use super::account_profile::account_profile;
+use super::account_security::account_security;
+use super::profile_menu::profile_menu;
+use crate::user::auth::require_user;
+use crate::user::model::User;
+
+path_param!(tab);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AccountTab {
@@ -20,12 +24,12 @@ pub enum AccountTab {
 }
 
 impl AccountTab {
-    fn from_slug(slug: Option<&str>) -> Self {
+    fn from_slug(slug: &str) -> Self {
         match slug {
-            Some("security") => Self::Security,
-            Some("billing") => Self::Billing,
-            Some("settings") => Self::Settings,
-            Some("developer") => Self::Developer,
+            "security" => Self::Security,
+            "billing" => Self::Billing,
+            "settings" => Self::Settings,
+            "developer" => Self::Developer,
             _ => Self::Profile,
         }
     }
@@ -41,48 +45,41 @@ impl AccountTab {
     }
 }
 
-#[component]
-pub fn AccountPage() -> impl IntoView {
-    let slug = use_params_map().read_untracked().get("page");
-    let tab = AccountTab::from_slug(slug.as_deref());
+#[page("/account")]
+pub async fn account_page(cx: &Cx) -> Result<impl View> {
+    let user = require_user(cx).await?;
 
-    view! {
-        <Await future=get_account_user() blocking=true let:user>
-            {match user.clone() {
-                Ok(Some(user)) => view! { <AccountLayout user=user tab=tab/> }.into_any(),
-                Ok(None) => ().into_any(),
-                Err(error) => {
-                    view! { <Notice kind=NoticeKind::Error>{error_message(&error)}</Notice> }
-                        .into_any()
-                }
-            }}
-        </Await>
-    }
+    Ok(view! { account_layout(user: &user, tab: AccountTab::Profile) })
+}
+
+#[page("/account/{tab}")]
+pub async fn account_tab_page(cx: &Cx) -> Result<impl View> {
+    let user = require_user(cx).await?;
+    let tab = AccountTab::from_slug(path_param::<Tab>(cx));
+
+    Ok(view! { account_layout(user: &user, tab: tab) })
 }
 
 #[component]
-fn AccountLayout(user: AccountUser, tab: AccountTab) -> impl IntoView {
-    let content = match tab {
-        AccountTab::Security => view! { <AccountSecurity/> }.into_any(),
-        _ => view! { <AccountProfile user=user.clone()/> }.into_any(),
-    };
-
-    view! {
+async fn account_layout(user: &User, tab: AccountTab) -> Result<impl View> {
+    Ok(view! {
         <section class="account">
             <div class="l-flex l-flex-1">
                 <nav class="account__sub-nav nav">
                     <div class="l-flex l-flex-space-between l-flex-align-items-center account__header">
                         <div class="l-flex l-flex-1 l-flex-align-items-center">
-                            <ProfileMenu user=user/>
+                            profile_menu(user: user)
                         </div>
                     </div>
-                    <AccountNav active=tab/>
+                    account_nav(active: tab)
                 </nav>
                 <section class="account__content" id="account__content">
-                    {content}
+                    match tab {
+                        AccountTab::Security => account_security(),
+                        _ => account_profile(user: user),
+                    }
                 </section>
             </div>
         </section>
-    }
-    .into_any()
+    })
 }

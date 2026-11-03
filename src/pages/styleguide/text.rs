@@ -1,11 +1,15 @@
-use leptos::prelude::*;
+use topcoat::{
+    Result,
+    view::{View, component, view},
+};
 
-use super::StyleguideSection;
+use super::styleguide_section;
 
 #[component]
-pub fn TextSection() -> impl IntoView {
-    view! {
-        <StyleguideSection title="Text, lists, and links (h2)">
+pub async fn text_section() -> Result<impl View> {
+    Ok(view! {
+        styleguide_section(
+            title: "Text, lists, and links (h2)",
             <p>"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur id massa quam."</p>
             <p>
                 "Vestibulum ut libero risus. Ut ac nulla vitae sapien iaculis euismod eu quis massa. Aliquam "
@@ -19,6 +23,6 @@ pub fn TextSection() -> impl IntoView {
                 <li>"Vivamus ipsum tortor"</li>
                 <li>"Aliquam at velit a tortor viverra commodo in non dolor"</li>
             </ul>
-        </StyleguideSection>
-    }
+        )
+    })
 }

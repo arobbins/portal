@@ -1,7 +1,10 @@
-use leptos::prelude::*;
+use topcoat::{
+    Result,
+    view::{View, component, view},
+};
 
 use super::account::AccountTab;
-use crate::components::{Icon, IconName};
+use crate::components::icon::{IconName, icon};
 
 struct NavSection {
     tab: AccountTab,
@@ -51,60 +54,35 @@ const EXTERNAL_LINKS: &[(&str, &str)] = &[
 ];
 
 #[component]
-pub fn AccountNav(active: AccountTab) -> impl IntoView {
-    let sections = SECTIONS
-        .iter()
-        .map(|section| {
-            let class = if section.tab == active {
-                "nav__link nav__link--active"
-            } else {
-                "nav__link"
-            };
-
-            let links = (!section.links.is_empty()).then(|| {
-                view! {
-                    <ul class="nav__list">
-                        {section
-                            .links
-                            .iter()
-                            .map(|(label, href)| {
-                                view! {
-                                    <li class="nav__list-item">
-                                        <a href=*href class="nav__link">{*label}</a>
-                                    </li>
-                                }
-                            })
-                            .collect_view()}
-                    </ul>
-                }
-            });
-
-            view! {
+pub async fn account_nav(active: AccountTab) -> Result<impl View> {
+    Ok(view! {
+        <ul class="nav__list nav__list--flush-left l-flex-col">
+            for section in SECTIONS {
                 <li class="nav__list-item nav__list-item-group">
-                    <a href=section.tab.href() class=class>{section.label}</a>
-                    {links}
+                    <a
+                        href=(section.tab.href())
+                        class=(if section.tab == active { "nav__link nav__link--active" } else { "nav__link" })
+                    >
+                        (section.label)
+                    </a>
+                    if !section.links.is_empty() {
+                        <ul class="nav__list">
+                            for (label, href) in section.links {
+                                <li class="nav__list-item">
+                                    <a href=(*href) class="nav__link">(*label)</a>
+                                </li>
+                            }
+                        </ul>
+                    }
                 </li>
             }
-        })
-        .collect_view();
-
-    let external = EXTERNAL_LINKS
-        .iter()
-        .map(|(label, href)| {
-            view! {
+            for (label, href) in EXTERNAL_LINKS {
                 <li class="nav__list-item">
-                    <a href=*href class="nav__link nav__link-external">
-                        {*label} " " <Icon name=IconName::ExternalLink/>
+                    <a href=(*href) class="nav__link nav__link-external">
+                        (*label) " " icon(name: IconName::ExternalLink)
                     </a>
                 </li>
             }
-        })
-        .collect_view();
-
-    view! {
-        <ul class="nav__list nav__list--flush-left l-flex-col">
-            {sections}
-            {external}
         </ul>
-    }
+    })
 }

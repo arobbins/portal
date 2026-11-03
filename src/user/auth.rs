@@ -1,55 +1,41 @@
 use crate::user::model::User;
 use crate::user::queries::query_get_user_by_id;
-use axum::extract::{FromRef, FromRequestParts, OptionalFromRequestParts};
-use axum::http::StatusCode;
-use axum::http::request::Parts;
-use axum::response::{IntoResponse, Redirect, Response};
-use sqlx::PgPool;
+use crate::web::{CurrentUser, db, globals, session};
+
+use topcoat::{Result, context::Cx, router::error::redirect};
 use tower_sessions::Session;
 
-pub struct AuthenticatedUser(pub User);
+pub async fn current_user(cx: &Cx) -> Result<Option<User>> {
+    let user_id: Option<i32> = session(cx)?.get("user_id").await?;
 
-impl<S> OptionalFromRequestParts<S> for AuthenticatedUser
-where
-    PgPool: FromRef<S>,
-    S: Send + Sync,
-{
-    type Rejection = Response;
+    let Some(user_id) = user_id else {
+        return Ok(None);
+    };
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Option<Self>, Self::Rejection> {
-        let session = Session::from_request_parts(parts, state)
-            .await
-            .map_err(|e| e.into_response())?;
+    Ok(query_get_user_by_id(&user_id, db(cx)).await?)
+}
 
-        let user_id: Option<i32> = session
-            .get("user_id")
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())?;
-
-        let Some(user_id) = user_id else {
-            return Ok(None);
-        };
-
-        let db = PgPool::from_ref(state);
-
-        let user = query_get_user_by_id(&user_id, &db)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())?;
-
-        Ok(user.map(AuthenticatedUser))
+pub async fn require_user(cx: &Cx) -> Result<User> {
+    match current_user(cx).await? {
+        Some(user) => Ok(user),
+        None => Err(redirect("/login").into()),
     }
 }
 
-impl<S> FromRequestParts<S> for AuthenticatedUser
-where
-    PgPool: FromRef<S>,
-    S: Send + Sync,
-{
-    type Rejection = Response;
-
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        <Self as OptionalFromRequestParts<S>>::from_request_parts(parts, state)
-            .await?
-            .ok_or_else(|| Redirect::to("/login").into_response())
+pub fn redirect_signed_in_users(cx: &Cx) -> Result<()> {
+    if globals(cx).current_user.is_some() {
+        return Err(redirect("/account").into());
     }
+
+    Ok(())
+}
+
+pub async fn sign_in(session: &Session, user: &User) -> Result<()> {
+    session.cycle_id().await?;
+    session.insert("user_id", user.id).await?;
+    session
+        .insert("current_user", CurrentUser { name: user.name.clone() })
+        .await?;
+
+    Ok(())
 }

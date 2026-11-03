@@ -1,12 +1,16 @@
-use leptos::prelude::*;
+use topcoat::{
+    Result,
+    router::page,
+    view::{View, view},
+};
 
-use crate::layout::PageHeading;
+use crate::layout::page_heading::page_heading;
 
-#[component]
-pub fn AboutPage() -> impl IntoView {
-    view! {
+#[page("/about")]
+pub async fn about_page() -> Result<impl View> {
+    Ok(view! {
         <section class="l-contain l-skinny">
-            <PageHeading text="About"/>
+            page_heading(text: "About")
             <p>
                 "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur id massa quam."
             </p>
@@ -30,5 +34,5 @@ pub fn AboutPage() -> impl IntoView {
                 <li>"List threee"</li>
             </ul>
         </section>
-    }
+    })
 }

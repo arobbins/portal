@@ -1,5 +1,20 @@
-use leptos::prelude::ServerFnError;
+use crate::utils::create_body_page_class;
+
+use axum::{
+    extract::Request,
+    http::Uri,
+    middleware::Next,
+    response::Response,
+};
+use chrono::Datelike;
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
+use topcoat::{
+    Error, Result,
+    context::{Cx, app_context},
+    router::request,
+};
+use tower_sessions::Session;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CurrentUser {
@@ -13,68 +28,37 @@ pub struct GlobalState {
     pub current_slug: String,
 }
 
-pub fn use_globals() -> GlobalState {
-    #[cfg(feature = "ssr")]
-    {
-        use axum::http::request::Parts;
-        use leptos::prelude::use_context;
-
-        if let Some(globals) = use_context::<Parts>()
-            .and_then(|parts| parts.extensions.get::<GlobalState>().cloned())
-        {
-            return globals;
-        }
-    }
-
-    GlobalState::default()
+pub fn globals(cx: &Cx) -> GlobalState {
+    request::extensions(cx)
+        .get::<GlobalState>()
+        .cloned()
+        .unwrap_or_default()
 }
 
-pub fn error_message(error: &ServerFnError) -> String {
-    match error {
-        ServerFnError::ServerError(message) => message.clone(),
-        _ => "Something went wrong. Please try again.".to_string(),
-    }
+pub fn session(cx: &Cx) -> Result<Session> {
+    request::extensions(cx)
+        .get::<Session>()
+        .cloned()
+        .ok_or_else(|| Error::msg("session layer is not installed"))
 }
 
-#[cfg(feature = "ssr")]
-pub use server::*;
+pub fn db(cx: &Cx) -> &PgPool {
+    app_context::<PgPool>(cx)
+}
 
-#[cfg(feature = "ssr")]
-mod server {
-    use super::{CurrentUser, GlobalState};
-    use crate::utils::create_body_page_class;
+pub async fn inject_globals(session: Session, uri: Uri, mut req: Request, next: Next) -> Response {
+    let current_user = session
+        .get::<CurrentUser>("current_user")
+        .await
+        .unwrap_or(None);
 
-    use axum::{
-        extract::{FromRef, Request},
-        http::Uri,
-        middleware::Next,
-        response::Response,
-    };
-    use chrono::Datelike;
-    use leptos::config::LeptosOptions;
-    use sqlx::PgPool;
-    use tower_sessions::Session;
+    let current_path = uri.path().trim_start_matches('/').to_string();
 
-    #[derive(Clone, FromRef)]
-    pub struct AppState {
-        pub db: PgPool,
-        pub leptos_options: LeptosOptions,
-    }
+    req.extensions_mut().insert(GlobalState {
+        year: chrono::Local::now().year(),
+        current_user,
+        current_slug: create_body_page_class(current_path),
+    });
 
-    pub async fn inject_globals(session: Session, uri: Uri, mut req: Request, next: Next) -> Response {
-        let current_user = session
-            .get::<CurrentUser>("current_user")
-            .await
-            .unwrap_or(None);
-
-        let current_path = uri.path().trim_start_matches('/').to_string();
-
-        req.extensions_mut().insert(GlobalState {
-            year: chrono::Local::now().year(),
-            current_user,
-            current_slug: create_body_page_class(current_path),
-        });
-
-        next.run(req).await
-    }
+    next.run(req).await
 }

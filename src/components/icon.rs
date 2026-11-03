@@ -1,6 +1,11 @@
-use leptos::prelude::*;
+use topcoat::{
+    Result,
+    context::Cx,
+    view::{NodeViewParts, PartsWriter, View, component, view},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum IconName {
     Checkmark,
     ChevronDown,
@@ -39,7 +44,13 @@ impl IconName {
     }
 }
 
+impl NodeViewParts for IconName {
+    fn into_view_parts(self, _cx: &Cx, parts: &mut PartsWriter<'_>) {
+        parts.push_static_str_unescaped(self.svg());
+    }
+}
+
 #[component]
-pub fn Icon(name: IconName) -> impl IntoView {
-    view! { <span class="a-icon" inner_html=name.svg()></span> }
+pub async fn icon(name: IconName) -> Result<impl View> {
+    Ok(view! { <span class="a-icon">(name)</span> })
 }

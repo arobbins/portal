@@ -1,7 +1,11 @@
-use leptos::prelude::*;
-use serde::{Deserialize, Serialize};
+use topcoat::{
+    Result,
+    context::Cx,
+    runtime::signal,
+    view::{Child, View, ViewExt, component, view},
+};
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum NoticeKind {
     Success,
     Warning,
@@ -22,45 +26,42 @@ impl NoticeKind {
 }
 
 #[component]
-pub fn Notice(
-    #[prop(optional)] kind: NoticeKind,
-    #[prop(optional)] dismissible: bool,
-    children: Children,
-) -> impl IntoView {
-    if dismissible {
-        view! { <DismissibleNotice kind=kind>{children()}</DismissibleNotice> }.into_any()
-    } else {
-        view! { <div class=format!("a-notice {}", kind.modifier())>{children()}</div> }.into_any()
+pub async fn notice(
+    cx: &Cx,
+    #[default] kind: NoticeKind,
+    #[default] dismissible: bool,
+    #[default] child: Child<'_>,
+) -> Result<impl View> {
+    if !dismissible {
+        let class = format!("a-notice {}", kind.modifier());
+        return Ok(view! { <div class=(class)>(child)</div> }.boxed());
     }
-}
 
-#[island]
-fn DismissibleNotice(kind: NoticeKind, children: Children) -> impl IntoView {
-    let is_dismissing = RwSignal::new(false);
-    let is_dismissed = RwSignal::new(false);
+    let is_dismissing = signal(cx, || false);
+    let is_dismissed = signal(cx, || false);
 
-    let class = move || {
-        let mut class = format!("a-notice {} a-notice--is-dismissible", kind.modifier());
-        if is_dismissing.get() {
-            class.push_str(" a-notice--is-dismissing");
-        }
-        if is_dismissed.get() {
-            class.push_str(" a-notice--is-dismissed");
-        }
-        class
-    };
+    let class = format!("a-notice {} a-notice--is-dismissible", kind.modifier());
+    let dismissing_class = format!("{class} a-notice--is-dismissing");
+    let dismissed_class = format!("{dismissing_class} a-notice--is-dismissed");
 
-    view! {
+    Ok(view! {
         <div
-            class=class
-            on:click=move |_| is_dismissing.set(true)
-            on:transitionend=move |_| {
-                if is_dismissing.get_untracked() {
+            :class=$(if is_dismissed.get() {
+                dismissed_class.clone()
+            } else if is_dismissing.get() {
+                dismissing_class.clone()
+            } else {
+                class.clone()
+            })
+            @click=$(|_e| is_dismissing.set(true))
+            @transitionend=$(|_e| {
+                if is_dismissing.get() {
                     is_dismissed.set(true);
                 }
-            }
+            })
         >
-            {children()}
+            (child)
         </div>
     }
+    .boxed())
 }

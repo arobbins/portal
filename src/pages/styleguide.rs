@@ -5,30 +5,34 @@ mod notices;
 mod text;
 mod toaster;
 
-use leptos::prelude::*;
+use topcoat::{
+    Result,
+    router::page,
+    view::{Child, View, component, view},
+};
 
-#[component]
-pub fn StyleguidePage() -> impl IntoView {
-    view! {
+#[page("/styleguide")]
+pub async fn styleguide_page() -> Result<impl View> {
+    Ok(view! {
         <section class="l-contain l-skinny styleguide">
             <h1>"Styleguide (h1)"</h1>
-            <text::TextSection/>
-            <buttons::ButtonsSection/>
-            <notices::NoticesSection/>
-            <toaster::ToasterSection/>
-            <forms::FormsSection/>
-            <modal::ModalSection/>
+            text::text_section()
+            buttons::buttons_section()
+            notices::notices_section()
+            toaster::toaster_section()
+            forms::forms_section()
+            modal::modal_section()
         </section>
-    }
+    })
 }
 
 #[component]
-fn StyleguideSection(#[prop(into)] title: String, children: Children) -> impl IntoView {
-    view! {
+async fn styleguide_section(title: &str, #[default] child: Child<'_>) -> Result<impl View> {
+    Ok(view! {
         <section class="styleguide__section">
-            <h2>{title}</h2>
-            <hr/>
-            <div class="styleguide__examples">{children()}</div>
+            <h2>(title)</h2>
+            <hr>
+            <div class="styleguide__examples">(child)</div>
         </section>
-    }
+    })
 }

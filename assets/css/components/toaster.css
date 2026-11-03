@@ -2,6 +2,7 @@
   position: fixed;
   top: 15px;
   right: 15px;
+  pointer-events: none;
 }
 
 .a-toaster .a-notice {
@@ -14,7 +15,18 @@
     display 0.25s allow-discrete;
 }
 
+.a-toaster--is-open {
+  animation: a-toaster-timer 4s forwards;
+  pointer-events: auto;
+}
+
 .a-toaster--is-open .a-notice {
   opacity: 1;
   translate: 0 0;
+}
+
+@keyframes a-toaster-timer {
+  to {
+    visibility: visible;
+  }
 }

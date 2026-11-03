@@ -1,37 +1,38 @@
-use leptos::prelude::*;
+use topcoat::{
+    Result,
+    context::Cx,
+    view::{View, component, view},
+};
 
-use crate::web::use_globals;
+use crate::web::globals;
 
 #[component]
-fn NavItem(href: &'static str, label: &'static str) -> impl IntoView {
-    view! {
+async fn nav_item(href: &str, label: &str) -> Result<impl View> {
+    Ok(view! {
         <li class="nav__list-item">
-            <a href=href class="nav__link">{label}</a>
+            <a href=(href) class="nav__link">(label)</a>
         </li>
-    }
+    })
 }
 
 #[component]
-pub fn Nav() -> impl IntoView {
-    let is_signed_in = use_globals().current_user.is_some();
+pub async fn nav(cx: &Cx) -> Result<impl View> {
+    let is_signed_in = globals(cx).current_user.is_some();
 
-    view! {
+    Ok(view! {
         <nav class="l-contain l-flex nav">
             <ul class="nav__list l-flex">
-                <NavItem href="/" label="Home"/>
-                <NavItem href="/about" label="About"/>
-                <NavItem href="/webtransport" label="WebTransport"/>
-                <NavItem href="/styleguide" label="Styleguide"/>
-                {if is_signed_in {
-                    view! { <NavItem href="/account" label="Account"/> }.into_any()
+                nav_item(href: "/", label: "Home")
+                nav_item(href: "/about", label: "About")
+                nav_item(href: "/webtransport", label: "WebTransport")
+                nav_item(href: "/styleguide", label: "Styleguide")
+                if is_signed_in {
+                    nav_item(href: "/account", label: "Account")
                 } else {
-                    view! {
-                        <NavItem href="/register" label="Register"/>
-                        <NavItem href="/login" label="Login"/>
-                    }
-                        .into_any()
-                }}
+                    nav_item(href: "/register", label: "Register")
+                    nav_item(href: "/login", label: "Login")
+                }
             </ul>
         </nav>
-    }
+    })
 }

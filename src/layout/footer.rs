@@ -1,14 +1,18 @@
-use leptos::prelude::*;
+use topcoat::{
+    Result,
+    context::Cx,
+    view::{View, component, view},
+};
 
-use crate::web::use_globals;
+use crate::web::globals;
 
 #[component]
-pub fn Footer() -> impl IntoView {
-    let year = use_globals().year;
+pub async fn footer(cx: &Cx) -> Result<impl View> {
+    let year = globals(cx).year;
 
-    view! {
+    Ok(view! {
         <footer class="l-contain footer">
-            <p>"© " {year} " Andrew Robbins / Github / Email"</p>
+            <p>"© " (year) " Andrew Robbins / Github / Email"</p>
         </footer>
-    }
+    })
 }

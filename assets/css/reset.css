@@ -5,8 +5,3 @@
 html {
   scrollbar-gutter: stable;
 }
-
-leptos-island,
-leptos-children {
-  display: contents;
-}

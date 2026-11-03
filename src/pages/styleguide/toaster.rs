@@ -1,19 +1,31 @@
-use leptos::prelude::*;
+use topcoat::{
+    Result,
+    context::Cx,
+    runtime::{Event, signal},
+    view::{View, attributes, component, view},
+};
 
-use super::StyleguideSection;
-use crate::components::{dispatch_toast, Button, NoticeKind, Toaster};
+use super::styleguide_section;
+use crate::components::button::button;
+use crate::components::notice::NoticeKind;
+use crate::components::toaster::toaster;
 
 #[component]
-pub fn ToasterSection() -> impl IntoView {
-    view! {
-        <StyleguideSection title="Toaster">
-            <ShowToastButton/>
-            <Toaster kind=NoticeKind::Success>"Success! This is a toaster notice."</Toaster>
-        </StyleguideSection>
-    }
-}
+pub async fn toaster_section(cx: &Cx) -> Result<impl View> {
+    let is_open = signal(cx, || false);
 
-#[island]
-fn ShowToastButton() -> impl IntoView {
-    view! { <Button on:click=move |_| dispatch_toast("toast")>"Show toast"</Button> }
+    Ok(view! {
+        styleguide_section(
+            title: "Toaster",
+            button(
+                attrs: attributes! { @click=$(|_e: Event| is_open.set(true)) },
+                "Show toast"
+            )
+            toaster(
+                open: &is_open,
+                kind: NoticeKind::Success,
+                "Success! This is a toaster notice."
+            )
+        )
+    })
 }

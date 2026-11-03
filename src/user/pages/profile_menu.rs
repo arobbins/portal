@@ -1,53 +1,47 @@
-use leptos::prelude::*;
+use topcoat::{
+    Result,
+    router::href,
+    view::{View, component, view},
+};
 
-use crate::components::{Icon, IconName};
-use crate::user::api::Logout;
-use crate::user::model::AccountUser;
+use super::logout::logout;
+use crate::components::icon::{IconName, icon};
+use crate::user::model::User;
 
 #[component]
-pub fn ProfileMenu(user: AccountUser) -> impl IntoView {
-    let logout = ServerAction::<Logout>::new();
+pub async fn profile_menu(user: &User) -> Result<impl View> {
+    let photo_alt = format!("Profile photo of {}", user.name);
 
-    let photo = match user.photo {
-        Some(photo) => view! {
-            <img
-                src=photo
-                alt=format!("Profile photo of {}", user.name)
-                class="account__profile-dropdown-photo"
-            />
-        }
-            .into_any(),
-        None => view! {
-            <div class="account__profile-dropdown-photo-fallback">
-                <Icon name=IconName::User/>
-            </div>
-        }
-            .into_any(),
-    };
-
-    view! {
+    Ok(view! {
         <button popovertarget="account-menu" class="account__profile-dropdown l-flex">
-            {photo}
-            <span class="account__profile-dropdown-name">{user.name}</span>
-            <Icon name=IconName::ChevronDown/>
+            match &user.photo {
+                Some(photo) => <img src=(photo) alt=(photo_alt) class="account__profile-dropdown-photo">,
+                None => {
+                    <div class="account__profile-dropdown-photo-fallback">
+                        icon(name: IconName::User)
+                    </div>
+                },
+            }
+            <span class="account__profile-dropdown-name">(&user.name)</span>
+            icon(name: IconName::ChevronDown)
         </button>
         <div id="account-menu" class="account__menu" popover="">
             <ul class="nav__list nav__list--flush-left l-flex-col">
                 <li class="nav__list-item">
                     <a class="nav__link" href="/account/billing#subscriptions">
-                        <Icon name=IconName::CreditCard/>
+                        icon(name: IconName::CreditCard)
                         " Manage Subscription"
                     </a>
                 </li>
                 <li class="nav__list-item">
-                    <ActionForm action=logout>
+                    <form method="post" action=(href!(logout))>
                         <button type="submit" class="nav__link nav__link--button">
-                            <Icon name=IconName::Logout/>
+                            icon(name: IconName::Logout)
                             " Logout"
                         </button>
-                    </ActionForm>
+                    </form>
                 </li>
             </ul>
         </div>
-    }
+    })
 }

@@ -1,12 +1,16 @@
-use leptos::prelude::*;
-use leptos_router::hooks::use_location;
+use topcoat::{
+    Result,
+    context::Cx,
+    router::request,
+    view::{View, component, view},
+};
 
 #[component]
-pub fn NotFoundPage() -> impl IntoView {
-    let path = use_location().pathname.get_untracked();
+pub async fn not_found_page(cx: &Cx) -> Result<impl View> {
+    let path = request::uri(cx).path().to_string();
 
-    view! {
+    Ok(view! {
         <h1>"404"</h1>
-        <p>"You requested " {path} " but we don't have that page!!"</p>
-    }
+        <p>"You requested " (path) " but we don't have that page!!"</p>
+    })
 }

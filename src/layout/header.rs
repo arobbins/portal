@@ -1,17 +1,20 @@
-use leptos::prelude::*;
+use topcoat::{
+    Result,
+    view::{View, component, view},
+};
 
-use super::{Logo, Nav};
+use super::{logo::logo, nav::nav};
 
 #[component]
-pub fn Header() -> impl IntoView {
-    view! {
+pub async fn header() -> Result<impl View> {
+    Ok(view! {
         <header class="l-contain l-flex header">
             <div class="header__logo l-flex l-flex-center-col l-flex-1">
-                <Logo/>
+                logo()
             </div>
             <div class="header__nav">
-                <Nav/>
+                nav()
             </div>
         </header>
-    }
+    })
 }

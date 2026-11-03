@@ -1,7 +1,9 @@
-use leptos::prelude::*;
-use serde::{Deserialize, Serialize};
+use topcoat::{
+    Result,
+    view::{Attributes, Child, View, class, component, view},
+};
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum InputType {
     #[default]
     Text,
@@ -20,75 +22,79 @@ impl InputType {
 }
 
 #[component]
-pub fn Form(children: Children) -> impl IntoView {
-    view! { <form class="a-form">{children()}</form> }
+pub async fn form(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
+    Ok(view! {
+        <form class=(class!("a-form", attrs.remove("class"))) (attrs)>
+            (child)
+        </form>
+    })
 }
 
 #[component]
-pub fn FormGroup(children: Children) -> impl IntoView {
-    view! { <fieldset class="a-form-group">{children()}</fieldset> }
+pub async fn form_group(#[default] child: Child<'_>) -> Result<impl View> {
+    Ok(view! { <fieldset class="a-form-group">(child)</fieldset> })
 }
 
 #[component]
-pub fn FormRow(children: Children) -> impl IntoView {
-    view! { <div class="a-form-row">{children()}</div> }
+pub async fn form_row(#[default] child: Child<'_>) -> Result<impl View> {
+    Ok(view! { <div class="a-form-row">(child)</div> })
 }
 
 #[component]
-pub fn FormCol(#[prop(optional)] half: bool, children: Children) -> impl IntoView {
+pub async fn form_col(#[default] half: bool, #[default] child: Child<'_>) -> Result<impl View> {
     let class = if half { "a-form-col a-form-col--half" } else { "a-form-col" };
 
-    view! { <div class=class>{children()}</div> }
+    Ok(view! { <div class=(class)>(child)</div> })
 }
 
 #[component]
-pub fn FormLabel(#[prop(into)] for_id: String, children: Children) -> impl IntoView {
-    view! { <label class="a-form-label" for=for_id>{children()}</label> }
+pub async fn form_label(for_id: &str, #[default] child: Child<'_>) -> Result<impl View> {
+    Ok(view! { <label class="a-form-label" for=(for_id)>(child)</label> })
 }
 
 #[component]
-pub fn FormInput(
-    #[prop(into)] id: String,
-    #[prop(into)] name: String,
-    #[prop(optional)] input_type: InputType,
-    #[prop(into, optional)] placeholder: MaybeProp<String>,
-    #[prop(into, optional)] value: MaybeProp<String>,
-    #[prop(optional)] required: bool,
-) -> impl IntoView {
-    view! {
+pub async fn form_input(
+    id: &str,
+    name: &str,
+    #[default] input_type: InputType,
+    #[default] placeholder: Option<&str>,
+    #[default] value: Option<&str>,
+    #[default] required: bool,
+) -> Result<impl View> {
+    Ok(view! {
         <input
             class="a-form-input"
-            id=id
-            name=name
-            type=input_type.as_str()
-            placeholder=move || placeholder.get()
-            value=move || value.get()
-            required=required
-        />
-    }
+            id=(id)
+            name=(name)
+            type=(input_type.as_str())
+            placeholder=(placeholder)
+            value=(value)
+            required=(required)
+        >
+    })
 }
 
 #[component]
-pub fn FormField(
-    #[prop(into)] label: String,
-    #[prop(into)] id: String,
-    #[prop(into)] name: String,
-    #[prop(optional)] input_type: InputType,
-    #[prop(into, optional)] placeholder: MaybeProp<String>,
-    #[prop(into, optional)] value: MaybeProp<String>,
-    #[prop(optional)] required: bool,
-) -> impl IntoView {
-    view! {
-        <FormGroup>
-            <FormLabel for_id=id.clone()>{label}</FormLabel>
-            <FormInput
-                id=id
-                name=name
-                input_type=input_type
-                placeholder=placeholder
-                value=value
-                required=required
-            />
-        </FormGroup>
-    }
+pub async fn form_field(
+    label: &str,
+    id: &str,
+    name: &str,
+    #[default] input_type: InputType,
+    #[default] placeholder: Option<&str>,
+    #[default] value: Option<&str>,
+    #[default] required: bool,
+) -> Result<impl View> {
+    Ok(view! {
+        form_group(
+            form_label(for_id: id, (label))
+            form_input(
+                id: id,
+                name: name,
+                input_type: input_type,
+                placeholder: placeholder,
+                value: value,
+                required: required,
+            )
+        )
+    })
 }

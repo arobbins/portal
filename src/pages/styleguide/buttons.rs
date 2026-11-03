@@ -1,25 +1,31 @@
-use leptos::prelude::*;
+use topcoat::{
+    Result,
+    view::{View, component, view},
+};
 
-use super::StyleguideSection;
-use crate::components::{Button, ButtonSize, ButtonVariant, Icon, IconName};
+use super::styleguide_section;
+use crate::components::button::{ButtonSize, ButtonVariant, button};
+use crate::components::icon::{IconName, icon};
 
 #[component]
-pub fn ButtonsSection() -> impl IntoView {
-    view! {
-        <StyleguideSection title="Buttons">
-            <Button>"Primary button"</Button>
-            <Button busy=true>"Busy button"</Button>
-            <Button disabled=true>"Disabled button"</Button>
-            <Button size=ButtonSize::Sm>"Small button"</Button>
-            <Button size=ButtonSize::Md>"Medium button"</Button>
-            <Button size=ButtonSize::Lg>"Large button"</Button>
-            <Button variant=ButtonVariant::Secondary size=ButtonSize::Lg>"Secondary button"</Button>
-            <Button variant=ButtonVariant::Secondary size=ButtonSize::Md>"Secondary button"</Button>
-            <Button variant=ButtonVariant::Secondary size=ButtonSize::Sm>"Secondary button"</Button>
-            <Button size=ButtonSize::Sm>
-                <Icon name=IconName::Edit/>
+pub async fn buttons_section() -> Result<impl View> {
+    Ok(view! {
+        styleguide_section(
+            title: "Buttons",
+            button("Primary button")
+            button(busy: true, "Busy button")
+            button(disabled: true, "Disabled button")
+            button(size: ButtonSize::Sm, "Small button")
+            button(size: ButtonSize::Md, "Medium button")
+            button(size: ButtonSize::Lg, "Large button")
+            button(variant: ButtonVariant::Secondary, size: ButtonSize::Lg, "Secondary button")
+            button(variant: ButtonVariant::Secondary, size: ButtonSize::Md, "Secondary button")
+            button(variant: ButtonVariant::Secondary, size: ButtonSize::Sm, "Secondary button")
+            button(
+                size: ButtonSize::Sm,
+                icon(name: IconName::Edit)
                 "Button with icon"
-            </Button>
-        </StyleguideSection>
-    }
+            )
+        )
+    })
 }

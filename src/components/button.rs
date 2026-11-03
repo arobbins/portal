@@ -1,7 +1,10 @@
-use leptos::prelude::*;
-use serde::{Deserialize, Serialize};
+use topcoat::{
+    Result,
+    runtime::Expr,
+    view::{Attributes, Child, View, component, view},
+};
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ButtonVariant {
     #[default]
     Primary,
@@ -17,7 +20,7 @@ impl ButtonVariant {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ButtonSize {
     Sm,
     #[default]
@@ -35,7 +38,8 @@ impl ButtonSize {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum ButtonType {
     #[default]
     Button,
@@ -54,33 +58,30 @@ impl ButtonType {
 }
 
 #[component]
-pub fn Button(
-    #[prop(optional)] variant: ButtonVariant,
-    #[prop(optional)] size: ButtonSize,
-    #[prop(optional)] button_type: ButtonType,
-    #[prop(into, optional)] busy: Signal<bool>,
-    #[prop(into, optional)] disabled: Signal<bool>,
-    #[prop(optional)] command: Option<&'static str>,
-    #[prop(into, optional)] commandfor: Option<String>,
-    children: Children,
-) -> impl IntoView {
-    let class = move || {
-        let mut class = format!("a-button {} {}", variant.modifier(), size.modifier());
-        if busy.get() {
-            class.push_str(" a-button--is-busy");
-        }
-        class
-    };
+pub async fn button(
+    #[default] variant: ButtonVariant,
+    #[default] size: ButtonSize,
+    #[default] button_type: ButtonType,
+    #[into]
+    #[default(false.into())]
+    busy: Expr<bool>,
+    #[into]
+    #[default(false.into())]
+    disabled: Expr<bool>,
+    #[default] attrs: Attributes,
+    #[default] child: Child<'_>,
+) -> Result<impl View> {
+    let class = format!("a-button {} {}", variant.modifier(), size.modifier());
+    let busy_class = format!("{class} a-button--is-busy");
 
-    view! {
+    Ok(view! {
         <button
-            type=button_type.as_str()
-            class=class
-            disabled=disabled
-            command=command
-            commandfor=commandfor
+            type=(button_type.as_str())
+            :class=$(if busy { busy_class.clone() } else { class.clone() })
+            :disabled=$(disabled)
+            (attrs)
         >
-            {children()}
+            (child)
         </button>
-    }
+    })
 }

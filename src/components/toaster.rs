@@ -1,64 +1,24 @@
-use std::time::Duration;
+use topcoat::{
+    Result,
+    runtime::Signal,
+    view::{Child, View, component, view},
+};
 
-use leptos::prelude::*;
-
-use super::notice::{Notice, NoticeKind};
+use super::notice::{NoticeKind, notice};
 
 #[component]
-pub fn Toaster(
-    #[prop(optional)] kind: NoticeKind,
-    #[prop(optional)] event: Option<&'static str>,
-    #[prop(optional)] duration_ms: Option<u64>,
-    children: Children,
-) -> impl IntoView {
-    view! {
-        <ToasterIsland
-            kind=kind
-            event=event.unwrap_or("toast").to_string()
-            duration_ms=duration_ms.unwrap_or(4000)
-        >
-            {children()}
-        </ToasterIsland>
-    }
-}
-
-#[island]
-fn ToasterIsland(kind: NoticeKind, event: String, duration_ms: u64, children: Children) -> impl IntoView {
-    let is_open = RwSignal::new(false);
-    let timer = StoredValue::new(None::<TimeoutHandle>);
-
-    let show = move || {
-        is_open.set(true);
-        if let Some(handle) = timer.get_value() {
-            handle.clear();
-        }
-        let handle = set_timeout_with_handle(
-            move || is_open.set(false),
-            Duration::from_millis(duration_ms),
-        )
-        .ok();
-        timer.set_value(handle);
-    };
-
-    let listener = window_event_listener_untyped(&event, move |_| show());
-    on_cleanup(move || listener.remove());
-
-    view! {
+pub async fn toaster(
+    open: &Signal<bool>,
+    #[default] kind: NoticeKind,
+    #[default] child: Child<'_>,
+) -> Result<impl View> {
+    Ok(view! {
         <div
-            class=move || if is_open.get() { "a-toaster a-toaster--is-open" } else { "a-toaster" }
-            on:click=move |_| is_open.set(false)
+            :class=$(if open.get() { "a-toaster a-toaster--is-open" } else { "a-toaster" })
+            @click=$(|_e| open.set(false))
+            @animationend=$(|_e| open.set(false))
         >
-            <Notice kind=kind>{children()}</Notice>
+            notice(kind: kind, (child))
         </div>
-    }
-}
-
-pub fn dispatch_toast(event: &str) {
-    #[cfg(feature = "hydrate")]
-    if let Ok(event) = web_sys::Event::new(event) {
-        let _ = window().dispatch_event(&event);
-    }
-
-    #[cfg(not(feature = "hydrate"))]
-    let _ = event;
+    })
 }

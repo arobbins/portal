@@ -1,6 +1,13 @@
-use webserver::app::{shell, App};
-use webserver::user::controller::verify_user_controller;
-use webserver::web::{inject_globals, AppState};
+mod app;
+mod components;
+mod layout;
+mod pages;
+mod user;
+mod utils;
+mod web;
+
+use crate::user::controller::verify_user_controller;
+use crate::web::inject_globals;
 
 use std::env;
 use sqlx::PgPool;
@@ -11,8 +18,8 @@ use axum::{
     Router,
     ServiceExt,
 };
-use leptos::config::get_configuration;
-use leptos_axum::{generate_route_list, LeptosRoutes};
+use topcoat::asset::AssetBundle;
+use topcoat::router::tower::TowerService;
 use tower::Layer;
 use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions::cookie::{SameSite, time::Duration};
@@ -36,9 +43,6 @@ async fn main() {
 
     dotenvy::dotenv().unwrap();
 
-    let leptos_options = get_configuration(None).unwrap().leptos_options;
-    let site_addr = leptos_options.site_addr;
-
     let db = PgPool::connect(&env::var("DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -52,7 +56,10 @@ async fn main() {
         .with_same_site(SameSite::Lax)
         .with_expiry(Expiry::OnInactivity(Duration::days(1)));
 
-    let app = app(AppState { db, leptos_options }).layer(session_layer);
+    let assets = AssetBundle::load()
+        .expect("missing Topcoat asset bundle: run `topcoat dev` or `topcoat asset bundle`");
+
+    let app = app(db, assets).layer(session_layer);
     let app = NormalizePathLayer::trim_trailing_slash().layer(app);
 
     let mut listenfd = ListenFd::from_env();
@@ -62,26 +69,29 @@ async fn main() {
             listener.set_nonblocking(true).unwrap();
             TcpListener::from_std(listener).unwrap()
         }
-        None => TcpListener::bind(site_addr).await.unwrap(),
+        None => TcpListener::bind(bind_address()).await.unwrap(),
     };
 
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
+    topcoat::dev::notify_ready(listener.local_addr().ok()).await;
 
     let _ = axum::serve(listener, ServiceExt::<Request>::into_make_service(app)).await;
 }
 
-fn app(state: AppState) -> Router {
-    let routes = generate_route_list(App);
+fn bind_address() -> String {
+    let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
+    format!("{host}:{port}")
+}
+
+fn app(db: PgPool, assets: AssetBundle) -> Router {
+    let pages = app::router(db.clone(), assets);
 
     Router::new()
         .route("/user/verify/{token}", get(verify_user_controller))
-        .leptos_routes(&state, routes, {
-            let leptos_options = state.leptos_options.clone();
-            move || shell(leptos_options.clone())
-        })
         .nest_service("/assets", ServeDir::new("assets"))
-        .fallback(leptos_axum::file_and_error_handler::<AppState, _>(shell))
-        .with_state(state)
+        .fallback_service(TowerService::new(pages))
+        .with_state(db)
         .layer(middleware::from_fn(inject_globals))
         .layer(TraceLayer::new_for_http())
 }
@@ -101,28 +111,38 @@ mod tests {
         let db = PgPoolOptions::new()
             .connect_lazy("postgres://localhost/unused")
             .unwrap();
-        let leptos_options = get_configuration(None).unwrap().leptos_options;
+        let assets = AssetBundle::load_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target/debug/assets"))
+            .expect("missing asset bundle: run `topcoat asset bundle` before `cargo test`");
 
-        app(AppState { db, leptos_options }).layer(SessionManagerLayer::new(MemoryStore::default()))
+        app(db, assets).layer(SessionManagerLayer::new(MemoryStore::default()))
+    }
+
+    async fn get_status(path: &str) -> StatusCode {
+        test_app()
+            .oneshot(Request::get(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap()
+            .status()
     }
 
     #[tokio::test]
     async fn home_page_renders() {
-        let response = test_app()
-            .oneshot(Request::get("/").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
+        assert_eq!(get_status("/").await, StatusCode::OK);
+    }
 
-        assert_eq!(response.status(), StatusCode::OK);
+    #[tokio::test]
+    async fn styleguide_renders() {
+        assert_eq!(get_status("/styleguide").await, StatusCode::OK);
     }
 
     #[tokio::test]
     async fn unknown_route_returns_404() {
-        let response = test_app()
-            .oneshot(Request::get("/does-not-exist").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
+        assert_eq!(get_status("/does-not-exist").await, StatusCode::NOT_FOUND);
+    }
 
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    #[tokio::test]
+    async fn account_redirects_signed_out_users() {
+        let status = get_status("/account").await;
+        assert!(status.is_redirection(), "expected redirect, got {status}");
     }
 }

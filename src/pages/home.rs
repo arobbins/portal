@@ -1,6 +1,10 @@
-use leptos::prelude::*;
+use topcoat::{
+    Result,
+    router::page,
+    view::{View, view},
+};
 
-#[component]
-pub fn HomePage() -> impl IntoView {
-    view! { <h1 class="heading-xl">"*******"</h1> }
+#[page("/")]
+pub async fn home_page() -> Result<impl View> {
+    Ok(view! { <h1 class="heading-xl">"*******"</h1> })
 }
