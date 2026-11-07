@@ -22,11 +22,12 @@ impl InputType {
 }
 
 #[component]
-pub async fn form(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
+pub async fn form(
+    #[default] mut attrs: Attributes,
+    #[default] child: Child<'_>,
+) -> Result<impl View> {
     Ok(view! {
-        <form class=(class!("a-form", attrs.remove("class"))) (attrs)>
-            (child)
-        </form>
+        <form class=(class!("a-form", attrs.remove("class"))) (attrs)>(child)</form>
     })
 }
 
@@ -42,7 +43,11 @@ pub async fn form_row(#[default] child: Child<'_>) -> Result<impl View> {
 
 #[component]
 pub async fn form_col(#[default] half: bool, #[default] child: Child<'_>) -> Result<impl View> {
-    let class = if half { "a-form-col a-form-col--half" } else { "a-form-col" };
+    let class = if half {
+        "a-form-col a-form-col--half"
+    } else {
+        "a-form-col"
+    };
 
     Ok(view! { <div class=(class)>(child)</div> })
 }
@@ -97,7 +102,7 @@ pub async fn form_field(
                 placeholder: placeholder,
                 value: value,
                 required: required,
-                attrs: input_attrs,
+                attrs: input_attrs
             )
         )
     })

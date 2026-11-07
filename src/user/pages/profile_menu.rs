@@ -16,12 +16,16 @@ pub async fn profile_menu(user: &User, display_name: &Signal<String>) -> Result<
     Ok(view! {
         <button popovertarget="account-menu" class="account__profile-dropdown l-flex">
             match &user.photo {
-                Some(photo) => <img src=(photo) alt=(photo_alt) class="account__profile-dropdown-photo">,
+                Some(photo) => <img
+                    src=(photo)
+                    alt=(photo_alt)
+                    class="account__profile-dropdown-photo"
+                >,
                 None => {
                     <div class="account__profile-dropdown-photo-fallback">
                         icon(name: IconName::User)
                     </div>
-                },
+                }
             }
             <span class="account__profile-dropdown-name">$(display_name.get())</span>
             icon(name: IconName::ChevronDown)

@@ -2,8 +2,17 @@ use crate::user::model::User;
 use crate::user::queries::query_get_user_by_id;
 use crate::web::{CurrentUser, db, globals, session};
 
+use argon2::{Argon2, PasswordHasher};
+use password_hash::SaltString;
 use topcoat::{Result, context::Cx, router::error::redirect};
 use tower_sessions::Session;
+
+pub fn hash_password(password: &str) -> Result<String, password_hash::Error> {
+    let salt = SaltString::generate(rand::thread_rng());
+    Ok(Argon2::default()
+        .hash_password(password.as_bytes(), &salt)?
+        .to_string())
+}
 
 pub async fn current_user(cx: &Cx) -> Result<Option<User>> {
     let user_id: Option<i32> = session(cx)?.get("user_id").await?;
@@ -34,7 +43,12 @@ pub async fn sign_in(session: &Session, user: &User) -> Result<()> {
     session.cycle_id().await?;
     session.insert("user_id", user.id).await?;
     session
-        .insert("current_user", CurrentUser { name: user.name.clone() })
+        .insert(
+            "current_user",
+            CurrentUser {
+                name: user.name.clone(),
+            },
+        )
         .await?;
 
     Ok(())

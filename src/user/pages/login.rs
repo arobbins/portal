@@ -59,14 +59,14 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
                     name: "email",
                     input_type: InputType::Email,
                     placeholder: Some("Enter email"),
-                    value: email.as_deref(),
+                    value: email.as_deref()
                 )
                 form_field(
                     label: "Password",
                     id: "password",
                     name: "password",
                     input_type: InputType::Password,
-                    placeholder: Some("Enter password"),
+                    placeholder: Some("Enter password")
                 )
                 button(
                     button_type: ButtonType::Submit,
@@ -88,7 +88,10 @@ pub async fn login_submit(cx: &Cx, Form(input): Form<LoginInput>) -> Result<SeeO
         Ok(()) => Ok(see_other("/account")),
         Err(message) => Err(rewrite(href!(login_page).resolve(cx), Body::empty())
             .method(Method::GET)
-            .with(LoginFailed { email: input.email, message })
+            .with(LoginFailed {
+                email: input.email,
+                message,
+            })
             .into()),
     }
 }

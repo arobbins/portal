@@ -9,9 +9,7 @@ use crate::web::globals;
 #[component]
 async fn nav_item(href: &str, label: &str) -> Result<impl View> {
     Ok(view! {
-        <li class="nav__list-item">
-            <a href=(href) class="nav__link">(label)</a>
-        </li>
+        <li class="nav__list-item"><a href=(href) class="nav__link">(label)</a></li>
     })
 }
 

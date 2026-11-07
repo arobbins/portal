@@ -12,7 +12,11 @@ pub async fn footer(cx: &Cx) -> Result<impl View> {
 
     Ok(view! {
         <footer class="l-contain footer">
-            <p>"© " (year) " Andrew Robbins / Github / Email"</p>
+            <p>
+                "© "
+                (year)
+                " Andrew Robbins / Github / Email"
+            </p>
         </footer>
     })
 }

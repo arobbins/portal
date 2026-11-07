@@ -20,7 +20,8 @@ pub async fn about_page() -> Result<impl View> {
                 " dolor vel laoreet. Phasellus mattis molestie commodo. Praesent et nibh odio. Pellentesque eget fermentum lacus."
             </p>
             <p>
-                "Etiam accumsan leo eget " <a href="/">"euismod dictum"</a>
+                "Etiam accumsan leo eget "
+                <a href="/">"euismod dictum"</a>
                 ". In euismod a augue vitae accumsan. Quisque ac vestibulum enim."
             </p>
             <p>

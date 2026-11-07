@@ -14,7 +14,11 @@ pub async fn toaster(
 ) -> Result<impl View> {
     Ok(view! {
         <div
-            :class=$(if open.get() { "a-toaster a-toaster--is-open" } else { "a-toaster" })
+            :class=$(if open.get() {
+                "a-toaster a-toaster--is-open"
+            } else {
+                "a-toaster"
+            })
             @click=$(|_e| open.set(false))
             @animationend=$(|_e| open.set(false))
         >

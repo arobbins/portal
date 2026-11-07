@@ -70,15 +70,15 @@ async fn account_layout(cx: &Cx, user: &User, tab: AccountTab) -> Result<impl Vi
         <section class="account">
             <div class="l-flex l-flex-1">
                 <nav class="account__sub-nav nav">
-                    <div class="l-flex l-flex-space-between l-flex-align-items-center account__header">
+                    <div
+                        class="l-flex l-flex-space-between l-flex-align-items-center account__header"
+                    >
                         <div class="l-flex l-flex-1 l-flex-align-items-center">
                             profile_menu(user: user, display_name: &display_name)
                         </div>
                     </div>
                     account_nav(active: tab)
-                    <div class="account__theme">
-                        theme_switcher(compact: true)
-                    </div>
+                    <div class="account__theme">theme_switcher(compact: true)</div>
                 </nav>
                 <section class="account__content" id="account__content">
                     match tab {

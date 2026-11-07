@@ -1,7 +1,5 @@
 use std::env;
 
-use argon2::{Argon2, PasswordHasher};
-use password_hash::SaltString;
 use rand::Rng;
 use rand::distributions::Alphanumeric;
 use serde::Deserialize;
@@ -23,11 +21,11 @@ use crate::components::button::{ButtonType, button};
 use crate::components::form::{InputType, form, form_field};
 use crate::components::notice::{NoticeKind, notice};
 use crate::layout::page_heading::page_heading;
-use crate::user::auth::redirect_signed_in_users;
+use crate::user::auth::{hash_password, redirect_signed_in_users};
 use crate::user::queries::{NewUser, query_insert_email_verification_token, query_insert_user};
-use crate::user::service::send_register_verification_email;
+use crate::user::service::register_verification_email;
 use crate::utils::{get_token_hash_from_token_string, normalize_email};
-use crate::web::db;
+use crate::web::{db, mailer};
 
 #[derive(Deserialize)]
 pub struct RegisterInput {
@@ -77,7 +75,7 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
                     id: "name",
                     name: "name",
                     placeholder: Some("Name"),
-                    value: name.as_deref(),
+                    value: name.as_deref()
                 )
                 form_field(
                     label: "Email",
@@ -85,21 +83,21 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
                     name: "email",
                     input_type: InputType::Email,
                     placeholder: Some("Email"),
-                    value: email.as_deref(),
+                    value: email.as_deref()
                 )
                 form_field(
                     label: "New password",
                     id: "new-password",
                     name: "new_password",
                     input_type: InputType::Password,
-                    placeholder: Some("Enter a password"),
+                    placeholder: Some("Enter a password")
                 )
                 form_field(
                     label: "Confirm new password",
                     id: "confirm-password",
                     name: "confirm_password",
                     input_type: InputType::Password,
-                    placeholder: Some("Confirm password"),
+                    placeholder: Some("Confirm password")
                 )
                 button(
                     button_type: ButtonType::Submit,
@@ -158,12 +156,9 @@ async fn attempt_register(cx: &Cx, input: &RegisterInput) -> Result<Result<(), &
         return Ok(Err("Passwords do not match."));
     }
 
-    let salt = SaltString::generate(rand::thread_rng());
-    let Ok(password_hash) = Argon2::default().hash_password(input.new_password.as_bytes(), &salt)
-    else {
+    let Ok(password_hash) = hash_password(&input.new_password) else {
         return Ok(Err("Failed to hash password."));
     };
-    let password_hash = password_hash.to_string();
 
     let new_user = NewUser {
         name,
@@ -191,15 +186,21 @@ async fn attempt_register(cx: &Cx, input: &RegisterInput) -> Result<Result<(), &
     let token_hash = get_token_hash_from_token_string(&token);
     let expires_at = time::OffsetDateTime::now_utc() + time::Duration::hours(24);
 
-    if let Err(e) = query_insert_email_verification_token(user_id, &token_hash, expires_at, &mut *tx).await {
+    if let Err(e) =
+        query_insert_email_verification_token(user_id, &token_hash, expires_at, &mut *tx).await
+    {
         tracing::error!("Failed to store verification token: {}", e);
         return Ok(Err(FAILED));
     }
 
-    let app_base_url = env::var("APP_BASE_URL").map_err(|e| Error::from(e).context("APP_BASE_URL is not set"))?;
+    let app_base_url =
+        env::var("APP_BASE_URL").map_err(|e| Error::from(e).context("APP_BASE_URL is not set"))?;
     let verify_url = format!("{app_base_url}/user/verify/{token}");
 
-    if let Err(e) = send_register_verification_email(&email, &verify_url).await {
+    if let Err(e) = mailer(cx)
+        .send(&register_verification_email(&email, &verify_url))
+        .await
+    {
         tracing::error!("Failed to send verification email: {}", e);
         return Ok(Err("Could not send verification email. Please try again."));
     }

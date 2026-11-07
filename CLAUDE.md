@@ -95,3 +95,11 @@ Builds the app, bundles Topcoat's browser runtime, starts the server
 changes (including `assets/css`). Tests need the bundle once:
 `topcoat asset bundle && cargo test`. Format view macros with
 `topcoat fmt`. CLI: `cargo install topcoat-cli --version 0.11.0 --locked`.
+
+Behavior tests (Playwright, in `e2e/`, Chromium + Firefox + WebKit) run
+against the dev server: `cd e2e && npm run ui` (dashboard with watch mode),
+`npm test` (headless), `npm run report` (last HTML report). If no server is
+running on :3000, Playwright starts `topcoat dev` itself. Write tests from the
+user's point of view: find elements by role/label/text
+(`getByRole("button", { name: "Show toast" })`), not by CSS class, and assert
+visible behavior. One spec file per feature in `e2e/tests/`.

@@ -1,52 +1,55 @@
 mod app;
 mod components;
 mod layout;
+mod mail;
 mod pages;
+mod seed;
 mod theme;
 mod user;
 mod utils;
 mod web;
 
+use crate::mail::Mailer;
 use crate::user::controller::verify_user_controller;
 use crate::web::inject_globals;
 
-use std::env;
+use axum::{Router, ServiceExt, extract::Request, middleware, routing::get};
+use listenfd::ListenFd;
 use sqlx::PgPool;
-use axum::{
-    extract::Request,
-    middleware,
-    routing::get,
-    Router,
-    ServiceExt,
-};
+use std::env;
+use tokio::net::TcpListener;
 use topcoat::asset::AssetBundle;
 use topcoat::router::tower::TowerService;
 use tower::Layer;
-use tower_sessions::{Expiry, SessionManagerLayer};
-use tower_sessions::cookie::{SameSite, time::Duration};
-use tower_sessions_sqlx_store::PostgresStore;
 use tower_http::normalize_path::NormalizePathLayer;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
+use tower_sessions::cookie::{SameSite, time::Duration};
+use tower_sessions::{Expiry, SessionManagerLayer};
+use tower_sessions_sqlx_store::PostgresStore;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use listenfd::ListenFd;
-use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() {
     tracing_subscriber::registry()
         .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| format!("{}=debug,tower_http=debug", env!("CARGO_CRATE_NAME")).into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                format!("{}=debug,tower_http=debug", env!("CARGO_CRATE_NAME")).into()
+            }),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    dotenvy::dotenv().unwrap();
+    dotenvy::dotenv().ok();
 
-    let db = PgPool::connect(&env::var("DATABASE_URL").unwrap())
-        .await
-        .unwrap();
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    if env::args().nth(1).as_deref() == Some("seed") {
+        seed::run(&database_url).await;
+        return;
+    }
+
+    let db = PgPool::connect(&database_url).await.unwrap();
 
     let session_store = PostgresStore::new(db.clone());
     session_store.migrate().await.unwrap();
@@ -60,7 +63,7 @@ async fn main() {
     let assets = AssetBundle::load()
         .expect("missing Topcoat asset bundle: run `topcoat dev` or `topcoat asset bundle`");
 
-    let app = app(db, assets).layer(session_layer);
+    let app = app(db, Mailer::from_env(), assets).layer(session_layer);
     let app = NormalizePathLayer::trim_trailing_slash().layer(app);
 
     let mut listenfd = ListenFd::from_env();
@@ -85,8 +88,8 @@ fn bind_address() -> String {
     format!("{host}:{port}")
 }
 
-fn app(db: PgPool, assets: AssetBundle) -> Router {
-    let pages = app::router(db.clone(), assets);
+fn app(db: PgPool, mailer: Mailer, assets: AssetBundle) -> Router {
+    let pages = app::router(db.clone(), mailer, assets);
 
     Router::new()
         .route("/user/verify/{token}", get(verify_user_controller))
@@ -112,10 +115,11 @@ mod tests {
         let db = PgPoolOptions::new()
             .connect_lazy("postgres://localhost/unused")
             .unwrap();
-        let assets = AssetBundle::load_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target/debug/assets"))
-            .expect("missing asset bundle: run `topcoat asset bundle` before `cargo test`");
+        let assets =
+            AssetBundle::load_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target/debug/assets"))
+                .expect("missing asset bundle: run `topcoat asset bundle` before `cargo test`");
 
-        app(db, assets).layer(SessionManagerLayer::new(MemoryStore::default()))
+        app(db, Mailer::Log, assets).layer(SessionManagerLayer::new(MemoryStore::default()))
     }
 
     async fn get_status(path: &str) -> StatusCode {

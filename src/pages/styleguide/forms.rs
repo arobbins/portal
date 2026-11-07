@@ -19,14 +19,14 @@ pub async fn example_form_fields(id_prefix: &str) -> Result<impl View> {
             label: "First name",
             id: &first_name_id,
             name: "first_name",
-            placeholder: Some("Andrew"),
+            placeholder: Some("Andrew")
         )
         form_field(
             label: "Email",
             id: &email_id,
             name: "email",
             input_type: InputType::Email,
-            placeholder: Some("hello@andrewrobbins.dev"),
+            placeholder: Some("hello@andrewrobbins.dev")
         )
         form_row(
             form_col(
@@ -37,7 +37,7 @@ pub async fn example_form_fields(id_prefix: &str) -> Result<impl View> {
                     name: "password",
                     input_type: InputType::Password,
                     placeholder: Some("Enter a password"),
-                    required: true,
+                    required: true
                 )
             )
             form_col(
@@ -48,7 +48,7 @@ pub async fn example_form_fields(id_prefix: &str) -> Result<impl View> {
                     name: "confirm_password",
                     input_type: InputType::Password,
                     placeholder: Some("Confirm your password"),
-                    required: true,
+                    required: true
                 )
             )
         )

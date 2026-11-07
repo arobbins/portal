@@ -61,7 +61,11 @@ pub async fn account_nav(active: AccountTab) -> Result<impl View> {
                 <li class="nav__list-item nav__list-item-group">
                     <a
                         href=(section.tab.href())
-                        class=(if section.tab == active { "nav__link nav__link--active" } else { "nav__link" })
+                        class=(if section.tab == active {
+                            "nav__link nav__link--active"
+                        } else {
+                            "nav__link"
+                        })
                     >
                         (section.label)
                     </a>
@@ -79,7 +83,9 @@ pub async fn account_nav(active: AccountTab) -> Result<impl View> {
             for (label, href) in EXTERNAL_LINKS {
                 <li class="nav__list-item">
                     <a href=(*href) class="nav__link nav__link-external">
-                        (*label) " " icon(name: IconName::ExternalLink)
+                        (*label)
+                        " "
+                        icon(name: IconName::ExternalLink)
                     </a>
                 </li>
             }

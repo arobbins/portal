@@ -59,7 +59,8 @@ pub async fn theme_switcher(cx: &Cx, #[default] compact: bool) -> Result<impl Vi
                     @click=$(|e: Event| {
                         e.prevent_default();
                         let _selected = e.current_target.value;
-                        raw!("(() => {
+                        raw!(
+                            "(() => {
                             const theme = String(${_selected});
                             document.documentElement.dataset.theme = theme;
                             document.querySelector('meta[name=color-scheme]').content = theme === 'system' ? 'light dark' : theme;
@@ -67,7 +68,9 @@ pub async fn theme_switcher(cx: &Cx, #[default] compact: bool) -> Result<impl Vi
                             for (const option of document.querySelectorAll('.a-theme-switcher__option')) {
                                 option.setAttribute('aria-pressed', String(option.value === theme));
                             }
-                        })()", ())
+                        })()",
+                            (),
+                        )
                     })
                 >
                     icon(name: theme_icon(theme))
@@ -87,7 +90,9 @@ pub struct ThemeInput {
 }
 
 #[route(POST "/theme")]
-pub async fn set_theme(Form(input): Form<ThemeInput>) -> Result<([(HeaderName, String); 1], SeeOther)> {
+pub async fn set_theme(
+    Form(input): Form<ThemeInput>,
+) -> Result<([(HeaderName, String); 1], SeeOther)> {
     let theme = Theme::from_slug(&input.theme).ok_or_else(|| bad_request("Unknown theme."))?;
 
     Ok((

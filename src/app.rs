@@ -4,21 +4,22 @@ use topcoat::{
     asset::{AssetBundle, RouterBuilderAssetExt},
     context::Cx,
     router::{
-        Router, RouterBuilderDiscoverExt, Slot, StatusCode, error::NotFoundError, layout,
-        not_found,
+        Router, RouterBuilderDiscoverExt, Slot, StatusCode, error::NotFoundError, layout, not_found,
     },
     runtime::RouterBuilderRuntimeExt,
     view::{View, error_boundary, view},
 };
 
 use crate::layout::{footer::footer, header::header};
+use crate::mail::Mailer;
 use crate::pages::not_found::not_found_page;
 use crate::web::globals;
 
-pub fn router(db: PgPool, assets: AssetBundle) -> Router {
+pub fn router(db: PgPool, mailer: Mailer, assets: AssetBundle) -> Router {
     Router::builder()
         .discover()
         .app_context(db)
+        .app_context(mailer)
         .assets(assets)
         .runtime()
         .build()
@@ -51,10 +52,12 @@ async fn root_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                                 return Err(error);
                             }
 
-                            Ok(view! {
-                                (StatusCode::NOT_FOUND)
-                                not_found_page()
-                            })
+                            Ok(
+                                view! {
+                                    (StatusCode::NOT_FOUND)
+                                    not_found_page()
+                                },
+                            )
                         },
                         (slot)
                     )

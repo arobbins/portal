@@ -1,12 +1,8 @@
+use crate::mail::Mailer;
 use crate::theme::Theme;
 use crate::utils::create_body_page_class;
 
-use axum::{
-    extract::Request,
-    http::Uri,
-    middleware::Next,
-    response::Response,
-};
+use axum::{extract::Request, http::Uri, middleware::Next, response::Response};
 use chrono::Datelike;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
@@ -46,6 +42,10 @@ pub fn session(cx: &Cx) -> Result<Session> {
 
 pub fn db(cx: &Cx) -> &PgPool {
     app_context::<PgPool>(cx)
+}
+
+pub fn mailer(cx: &Cx) -> &Mailer {
+    app_context::<Mailer>(cx)
 }
 
 pub async fn inject_globals(session: Session, uri: Uri, mut req: Request, next: Next) -> Response {

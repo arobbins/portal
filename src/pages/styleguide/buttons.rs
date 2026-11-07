@@ -26,9 +26,21 @@ pub async fn buttons_section(cx: &Cx) -> Result<impl View> {
             button(size: ButtonSize::Sm, "Small button")
             button(size: ButtonSize::Md, "Medium button")
             button(size: ButtonSize::Lg, "Large button")
-            button(variant: ButtonVariant::Secondary, size: ButtonSize::Lg, "Secondary button")
-            button(variant: ButtonVariant::Secondary, size: ButtonSize::Md, "Secondary button")
-            button(variant: ButtonVariant::Secondary, size: ButtonSize::Sm, "Secondary button")
+            button(
+                variant: ButtonVariant::Secondary,
+                size: ButtonSize::Lg,
+                "Secondary button"
+            )
+            button(
+                variant: ButtonVariant::Secondary,
+                size: ButtonSize::Md,
+                "Secondary button"
+            )
+            button(
+                variant: ButtonVariant::Secondary,
+                size: ButtonSize::Sm,
+                "Secondary button"
+            )
             button(
                 size: ButtonSize::Sm,
                 icon(name: IconName::Edit)

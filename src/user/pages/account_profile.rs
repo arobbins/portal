@@ -43,7 +43,11 @@ struct ProfileQuery {
 }
 
 #[component]
-pub async fn account_profile(cx: &Cx, user: &User, display_name: &Signal<String>) -> Result<impl View> {
+pub async fn account_profile(
+    cx: &Cx,
+    user: &User,
+    display_name: &Signal<String>,
+) -> Result<impl View> {
     let saved = query_params::<ProfileQuery>(cx)
         .ok()
         .and_then(|query| query.saved)
@@ -52,7 +56,9 @@ pub async fn account_profile(cx: &Cx, user: &User, display_name: &Signal<String>
     let name_value = failed.map_or_else(|| user.name.clone(), |failed| failed.name.clone());
 
     let draft_name = signal(cx, || name_value.clone());
-    let error_message = signal(cx, || failed.map_or_else(String::new, |failed| failed.message.to_string()));
+    let error_message = signal(cx, || {
+        failed.map_or_else(String::new, |failed| failed.message.to_string())
+    });
     let is_saved_open = signal(cx, || saved);
     let is_error_open = signal(cx, || failed.is_some());
     let is_submitting = signal(cx, || false);
@@ -61,7 +67,9 @@ pub async fn account_profile(cx: &Cx, user: &User, display_name: &Signal<String>
         <div class="account__sub-page-content">
             <h2 class="account__sub-page-heading">"Profile"</h2>
             <section class="account__content-card" id="password">
-                <header class="account__content-card-header l-flex l-flex-center-col l-flex-space-between">
+                <header
+                    class="account__content-card-header l-flex l-flex-center-col l-flex-space-between"
+                >
                     "Account info"
                     button(
                         size: ButtonSize::Sm,
@@ -71,8 +79,14 @@ pub async fn account_profile(cx: &Cx, user: &User, display_name: &Signal<String>
                     )
                 </header>
                 <div class="account__content-card-details">
-                    <p>"Name: " $(display_name.get())</p>
-                    <p>"Email: " (&user.email)</p>
+                    <p>
+                        "Name: "
+                        $(display_name.get())
+                    </p>
+                    <p>
+                        "Email: "
+                        (&user.email)
+                    </p>
                 </div>
             </section>
             modal(
@@ -105,9 +119,7 @@ pub async fn account_profile(cx: &Cx, user: &User, display_name: &Signal<String>
                         name: "name",
                         value: Some(name_value.as_str()),
                         required: true,
-                        input_attrs: attributes! {
-                            @input=$(|e: Event| draft_name.set(e.target.value))
-                        },
+                        input_attrs: attributes! { @input=$(|e: Event| draft_name.set(e.target.value)) }
                     )
                     button(
                         button_type: ButtonType::Submit,
@@ -118,7 +130,11 @@ pub async fn account_profile(cx: &Cx, user: &User, display_name: &Signal<String>
                 )
             )
             toaster(open: &is_saved_open, kind: NoticeKind::Success, "Profile saved.")
-            toaster(open: &is_error_open, kind: NoticeKind::Error, $(error_message.get()))
+            toaster(
+                open: &is_error_open,
+                kind: NoticeKind::Error,
+                $(error_message.get())
+            )
         </div>
     })
 }
@@ -126,7 +142,9 @@ pub async fn account_profile(cx: &Cx, user: &User, display_name: &Signal<String>
 #[procedure]
 async fn save_profile_name(cx: &Cx, name: String) -> Result<Result<String, String>> {
     let Some(user) = current_user(cx).await? else {
-        return Ok(Err("Your session has expired. Please log in again.".to_string()));
+        return Ok(Err(
+            "Your session has expired. Please log in again.".to_string()
+        ));
     };
 
     Ok(update_name(cx, &user, &name).await?.map_err(str::to_string))
@@ -142,7 +160,10 @@ pub async fn update_profile(cx: &Cx, Form(input): Form<ProfileInput>) -> Result<
         Ok(_) => Ok(see_other(format!("{PROFILE_URL}?saved=true"))),
         Err(message) => Err(rewrite(PROFILE_URL, Body::empty())
             .method(Method::GET)
-            .with(ProfileUpdateFailed { name: input.name, message })
+            .with(ProfileUpdateFailed {
+                name: input.name,
+                message,
+            })
             .into()),
     }
 }
@@ -160,7 +181,12 @@ async fn update_name(cx: &Cx, user: &User, name: &str) -> Result<Result<String, 
 
     query_update_user_name(user.id, name, db(cx)).await?;
     session(cx)?
-        .insert("current_user", CurrentUser { name: name.to_string() })
+        .insert(
+            "current_user",
+            CurrentUser {
+                name: name.to_string(),
+            },
+        )
         .await?;
 
     Ok(Ok(name.to_string()))

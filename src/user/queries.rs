@@ -1,6 +1,6 @@
+use crate::user::model::User;
 use sqlx::{PgExecutor, PgPool};
 use tower_sessions::cookie::time;
-use crate::user::model::User;
 
 pub struct NewUser<'a> {
     pub name: &'a str,
@@ -8,7 +8,10 @@ pub struct NewUser<'a> {
     pub password_hash: &'a str,
 }
 
-pub async fn query_update_user_verified_time(user_id: i32, db: &PgPool) -> Result<User, sqlx::Error> {
+pub async fn query_update_user_verified_time(
+    user_id: i32,
+    db: &PgPool,
+) -> Result<User, sqlx::Error> {
     let user = sqlx::query_as!(
         User,
         "UPDATE users SET verified_at = now() WHERE id = $1 RETURNING *",
@@ -20,7 +23,11 @@ pub async fn query_update_user_verified_time(user_id: i32, db: &PgPool) -> Resul
     Ok(user)
 }
 
-pub async fn query_update_user_name(user_id: i32, name: &str, db: &PgPool) -> Result<(), sqlx::Error> {
+pub async fn query_update_user_name(
+    user_id: i32,
+    name: &str,
+    db: &PgPool,
+) -> Result<(), sqlx::Error> {
     sqlx::query!(
         "UPDATE users SET name = $1, updated_at = now() WHERE id = $2",
         name,
@@ -32,15 +39,24 @@ pub async fn query_update_user_name(user_id: i32, name: &str, db: &PgPool) -> Re
     Ok(())
 }
 
-pub async fn query_delete_email_verification_token(user_id: i32, db: &PgPool) -> Result<(), sqlx::Error> {
-    sqlx::query!("DELETE FROM email_verification_tokens WHERE user_id = $1", user_id)
-        .execute(db)
-        .await?;
+pub async fn query_delete_email_verification_token(
+    user_id: i32,
+    db: &PgPool,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "DELETE FROM email_verification_tokens WHERE user_id = $1",
+        user_id
+    )
+    .execute(db)
+    .await?;
 
     Ok(())
 }
 
-pub async fn query_get_user_by_email(email: &str, db: &PgPool) -> Result<Option<User>, sqlx::Error> {
+pub async fn query_get_user_by_email(
+    email: &str,
+    db: &PgPool,
+) -> Result<Option<User>, sqlx::Error> {
     let user = sqlx::query_as!(User, "select * from users where email = $1", email)
         .fetch_optional(db)
         .await?;
@@ -49,13 +65,11 @@ pub async fn query_get_user_by_email(email: &str, db: &PgPool) -> Result<Option<
 }
 
 pub async fn query_get_user_by_id(user_id: &i32, db: &PgPool) -> Result<Option<User>, sqlx::Error> {
-
     let user = sqlx::query_as!(User, "select * from users where id = $1", user_id)
         .fetch_optional(db)
         .await?;
 
     Ok(user)
-    
 }
 
 pub async fn query_get_user_id_by_token_hash(
@@ -72,7 +86,10 @@ pub async fn query_get_user_id_by_token_hash(
     Ok(record.map(|r| r.user_id))
 }
 
-pub async fn query_insert_user(new_user: &NewUser<'_>, db: impl PgExecutor<'_>) -> Result<i32, sqlx::Error> {
+pub async fn query_insert_user(
+    new_user: &NewUser<'_>,
+    db: impl PgExecutor<'_>,
+) -> Result<i32, sqlx::Error> {
     let user_id = sqlx::query_scalar!(
         "INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id",
         new_user.name,

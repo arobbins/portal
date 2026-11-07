@@ -11,6 +11,10 @@ pub async fn not_found_page(cx: &Cx) -> Result<impl View> {
 
     Ok(view! {
         <h1>"404"</h1>
-        <p>"You requested " (path) " but we don't have that page!!"</p>
+        <p>
+            "You requested "
+            (path)
+            " but we don't have that page!!"
+        </p>
     })
 }
