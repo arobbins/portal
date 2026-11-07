@@ -1,3 +1,4 @@
+use crate::theme::Theme;
 use crate::utils::create_body_page_class;
 
 use axum::{
@@ -26,6 +27,7 @@ pub struct GlobalState {
     pub year: i32,
     pub current_user: Option<CurrentUser>,
     pub current_slug: String,
+    pub theme: Theme,
 }
 
 pub fn globals(cx: &Cx) -> GlobalState {
@@ -54,10 +56,13 @@ pub async fn inject_globals(session: Session, uri: Uri, mut req: Request, next: 
 
     let current_path = uri.path().trim_start_matches('/').to_string();
 
+    let theme = Theme::from_headers(req.headers());
+
     req.extensions_mut().insert(GlobalState {
         year: chrono::Local::now().year(),
         current_user,
         current_slug: create_body_page_class(current_path),
+        theme,
     });
 
     next.run(req).await

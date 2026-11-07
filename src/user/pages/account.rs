@@ -2,6 +2,7 @@ use topcoat::{
     Result,
     context::Cx,
     router::{page, path_param},
+    runtime::signal,
     view::{View, component, view},
 };
 
@@ -9,6 +10,7 @@ use super::account_nav::account_nav;
 use super::account_profile::account_profile;
 use super::account_security::account_security;
 use super::profile_menu::profile_menu;
+use crate::components::theme_switcher::theme_switcher;
 use crate::user::auth::require_user;
 use crate::user::model::User;
 
@@ -61,22 +63,27 @@ pub async fn account_tab_page(cx: &Cx) -> Result<impl View> {
 }
 
 #[component]
-async fn account_layout(user: &User, tab: AccountTab) -> Result<impl View> {
+async fn account_layout(cx: &Cx, user: &User, tab: AccountTab) -> Result<impl View> {
+    let display_name = signal(cx, || user.name.clone());
+
     Ok(view! {
         <section class="account">
             <div class="l-flex l-flex-1">
                 <nav class="account__sub-nav nav">
                     <div class="l-flex l-flex-space-between l-flex-align-items-center account__header">
                         <div class="l-flex l-flex-1 l-flex-align-items-center">
-                            profile_menu(user: user)
+                            profile_menu(user: user, display_name: &display_name)
                         </div>
                     </div>
                     account_nav(active: tab)
+                    <div class="account__theme">
+                        theme_switcher(compact: true)
+                    </div>
                 </nav>
                 <section class="account__content" id="account__content">
                     match tab {
                         AccountTab::Security => account_security(),
-                        _ => account_profile(user: user),
+                        _ => account_profile(user: user, display_name: &display_name),
                     }
                 </section>
             </div>

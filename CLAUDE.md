@@ -27,6 +27,16 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
   They work without JS; `@submit` only adds the busy state.
 - **BEM classes are the styling contract**: components emit stable class names
   (e.g. `a-notice--success`); CSS targets only those, never element structure.
+- **Colors are role-named variables** in `assets/css/variables.css`
+  (`--color-text`, `--color-surface-card`, `--border-control`, …), each
+  defined once as `light-dark(<light>, <dark>)`. Never hard-code a color in a
+  component file; never name a variable by lightness.
+- **Theming**: `color-scheme` on `<html>` picks the `light-dark()` side.
+  `data-theme` is `light`, `dark` (default) or `system` (follows the OS). The
+  server reads the `theme` cookie in `inject_globals` (`src/theme.rs`) and
+  renders `data-theme` + `<meta name="color-scheme">`, so there's no flash of
+  the wrong theme. `theme_switcher` switches live via JS and falls back to
+  `POST /theme` without JS.
 
 ## Layout
 
@@ -61,6 +71,14 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
   `format!`): precompute class strings on the server and capture them.
 - Every value coming back from the browser (signals, procedure/shard args) is
   user input — validate it. Shards/procedures bypass layout/page guards.
+- `raw!("js", fallback)` quirks: always pass a fallback (`()`), or code after it
+  won't compile; put it last in its block (Topcoat omits the trailing `;`, so a
+  following statement starting with `(` breaks the JS); wrap `${binding}`
+  values in `String(...)` before comparing — bindings are runtime wrapper
+  objects, and handler events are wrapped too (use `e.current_target.value`,
+  not `${e}.target`).
+- Don't use cross-document view transitions (`@view-transition`): Chromium
+  flashes white between pages.
 - A missing asset bundle panics at startup; `topcoat dev` (or
   `topcoat asset bundle`) creates it in `target/<profile>/assets`.
 

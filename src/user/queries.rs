@@ -20,6 +20,18 @@ pub async fn query_update_user_verified_time(user_id: i32, db: &PgPool) -> Resul
     Ok(user)
 }
 
+pub async fn query_update_user_name(user_id: i32, name: &str, db: &PgPool) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "UPDATE users SET name = $1, updated_at = now() WHERE id = $2",
+        name,
+        user_id
+    )
+    .execute(db)
+    .await?;
+
+    Ok(())
+}
+
 pub async fn query_delete_email_verification_token(user_id: i32, db: &PgPool) -> Result<(), sqlx::Error> {
     sqlx::query!("DELETE FROM email_verification_tokens WHERE user_id = $1", user_id)
         .execute(db)

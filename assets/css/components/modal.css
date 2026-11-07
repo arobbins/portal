@@ -1,19 +1,27 @@
 .a-modal {
-  color: var(--color-primary-light);
+  color: var(--color-text);
   border: none;
   border-radius: var(--border-radius);
   padding: 24px;
   max-width: 500px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-modal);
   margin-top: 20vh;
-  background-color: var(--color-primary-dark);
-  border: 1px solid var(--color-primary-dark-offset);
+  background-color: var(--color-surface-modal);
+  border: 1px solid var(--border-lines);
   overflow: visible;
   min-width: 500px;
 }
 
+.a-modal__heading {
+  font-size: 20px;
+  text-transform: initial;
+  border-bottom: 1px solid var(--border-divider);
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
 .a-modal::backdrop {
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--color-backdrop);
   backdrop-filter: blur(5px);
 }
 
@@ -21,7 +29,7 @@
   appearance: none;
   background: none;
   border: none;
-  color: var(--color-primary-light);
+  color: var(--color-text);
   padding: 15px;
   font-size: 20px;
   position: absolute;
@@ -29,7 +37,13 @@
   right: 0;
 
   &:hover {
-    color: var(--color-primary-light-offset);
+    color: var(--color-text-muted);
     cursor: pointer;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: -6px;
+    border-radius: var(--border-radius);
   }
 }

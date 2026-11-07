@@ -60,6 +60,7 @@ pub async fn form_input(
     #[default] placeholder: Option<&str>,
     #[default] value: Option<&str>,
     #[default] required: bool,
+    #[default] attrs: Attributes,
 ) -> Result<impl View> {
     Ok(view! {
         <input
@@ -70,6 +71,7 @@ pub async fn form_input(
             placeholder=(placeholder)
             value=(value)
             required=(required)
+            (attrs)
         >
     })
 }
@@ -83,6 +85,7 @@ pub async fn form_field(
     #[default] placeholder: Option<&str>,
     #[default] value: Option<&str>,
     #[default] required: bool,
+    #[default] input_attrs: Attributes,
 ) -> Result<impl View> {
     Ok(view! {
         form_group(
@@ -94,6 +97,7 @@ pub async fn form_field(
                 placeholder: placeholder,
                 value: value,
                 required: required,
+                attrs: input_attrs,
             )
         )
     })

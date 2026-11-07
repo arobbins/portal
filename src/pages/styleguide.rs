@@ -3,6 +3,7 @@ mod forms;
 mod modal;
 mod notices;
 mod text;
+mod theme_switcher;
 mod toaster;
 
 use topcoat::{
@@ -22,6 +23,7 @@ pub async fn styleguide_page() -> Result<impl View> {
             toaster::toaster_section()
             forms::forms_section()
             modal::modal_section()
+            theme_switcher::theme_switcher_section()
         </section>
     })
 }

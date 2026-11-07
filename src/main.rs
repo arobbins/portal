@@ -2,6 +2,7 @@ mod app;
 mod components;
 mod layout;
 mod pages;
+mod theme;
 mod user;
 mod utils;
 mod web;

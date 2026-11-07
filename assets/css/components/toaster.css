@@ -1,7 +1,10 @@
 .a-toaster {
   position: fixed;
   top: 15px;
-  right: 15px;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: max-content;
+  max-width: calc(100% - 30px);
   pointer-events: none;
 }
 

@@ -13,5 +13,6 @@
 @import "./components/notice.css";
 @import "./components/toaster.css";
 @import "./components/modal.css";
+@import "./components/theme-switcher.css";
 @import "./account.css";
 @import "./styleguide.css";

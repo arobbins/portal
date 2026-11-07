@@ -3,4 +3,5 @@ pub mod form;
 pub mod icon;
 pub mod modal;
 pub mod notice;
+pub mod theme_switcher;
 pub mod toaster;

@@ -12,11 +12,10 @@
   text-decoration: none;
   display: flex;
   align-items: center;
-  font-family: "Berkeley Mono", arial, monospace;
-  text-transform: uppercase;
+  font-family: var(--font-body);
 
   &:hover {
-    color: var(--color-primary-light-offset);
+    color: var(--color-text-muted);
   }
 }
 
@@ -30,5 +29,5 @@
 }
 
 .nav__link-external svg {
-  color: var(--color-primary-light-offset);
+  color: var(--color-text-muted);
 }

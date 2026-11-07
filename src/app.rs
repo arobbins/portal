@@ -15,8 +15,6 @@ use crate::layout::{footer::footer, header::header};
 use crate::pages::not_found::not_found_page;
 use crate::web::globals;
 
-const FONTS_URL: &str = "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap";
-
 pub fn router(db: PgPool, assets: AssetBundle) -> Router {
     Router::builder()
         .discover()
@@ -30,18 +28,17 @@ not_found!("/");
 
 #[layout("/")]
 async fn root_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
-    let body_class = format!("l-flex-col {}", globals(cx).current_slug);
+    let globals = globals(cx);
+    let body_class = format!("l-flex-col {}", globals.current_slug);
+    let theme = globals.theme;
 
     Ok(view! {
         <!DOCTYPE html>
-        <html lang="en">
+        <html lang="en" data-theme=(theme.as_str())>
             <head>
                 <meta charset="utf-8">
-                <meta name="color-scheme" content="dark">
+                <meta name="color-scheme" content=(theme.color_scheme())>
                 <title>"Hello world"</title>
-                <link rel="preconnect" href="https://fonts.googleapis.com">
-                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
-                <link href=(FONTS_URL) rel="stylesheet">
                 <link href="/assets/dist/app.css" rel="stylesheet">
                 topcoat::runtime::script()
             </head>

@@ -1,6 +1,7 @@
 use topcoat::{
     Result,
     router::href,
+    runtime::Signal,
     view::{View, component, view},
 };
 
@@ -9,7 +10,7 @@ use crate::components::icon::{IconName, icon};
 use crate::user::model::User;
 
 #[component]
-pub async fn profile_menu(user: &User) -> Result<impl View> {
+pub async fn profile_menu(user: &User, display_name: &Signal<String>) -> Result<impl View> {
     let photo_alt = format!("Profile photo of {}", user.name);
 
     Ok(view! {
@@ -22,7 +23,7 @@ pub async fn profile_menu(user: &User) -> Result<impl View> {
                     </div>
                 },
             }
-            <span class="account__profile-dropdown-name">(&user.name)</span>
+            <span class="account__profile-dropdown-name">$(display_name.get())</span>
             icon(name: IconName::ChevronDown)
         </button>
         <div id="account-menu" class="account__menu" popover="">

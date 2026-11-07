@@ -4,6 +4,7 @@ use topcoat::{
 };
 
 use super::{logo::logo, nav::nav};
+use crate::components::theme_switcher::theme_switcher;
 
 #[component]
 pub async fn header() -> Result<impl View> {
@@ -14,6 +15,9 @@ pub async fn header() -> Result<impl View> {
             </div>
             <div class="header__nav">
                 nav()
+            </div>
+            <div class="header__theme l-flex l-flex-center-col">
+                theme_switcher(compact: true)
             </div>
         </header>
     })

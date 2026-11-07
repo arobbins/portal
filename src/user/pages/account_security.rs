@@ -7,7 +7,7 @@ use topcoat::{
 pub async fn account_security() -> Result<impl View> {
     Ok(view! {
         <div class="account__sub-page-content">
-            <h2>"Security"</h2>
+            <h2 class="account__sub-page-heading">"Security"</h2>
             <p>
                 "Ut pellentesque lectus sit amet tellus interdum tincidunt. Praesent laoreet velit non posuere euismod. Integer egestas, eros in aliquet porta, purus lacus eleifend sapien, a scelerisque."
             </p>

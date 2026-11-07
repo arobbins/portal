@@ -38,15 +38,19 @@ body[class*="page-account"] .page-heading {
   margin-top: 0;
 }
 
+.account__theme {
+  padding: 10px 15px;
+}
+
 .account__sub-nav .nav__link {
   font-size: 16px;
   padding: 5px 15px;
   border-radius: var(--border-radius);
   transition: background ease 0.15s;
-  color: var(--color-primary-light-bright);
+  color: var(--color-text-strong);
 
   &:hover {
-    color: var(--color-primary-light-bright);
+    color: var(--color-text-strong);
     background-color: var(--color-surface-hover);
     opacity: 1;
   }
@@ -57,12 +61,12 @@ body[class*="page-account"] .page-heading {
 }
 
 .account__sub-nav .nav__link + .nav__list .nav__link {
-  color: var(--color-primary-light-offset);
-  font-family: "Diatype";
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
   text-transform: capitalize;
 
   &:hover {
-    color: var(--color-primary-light-bright);
+    color: var(--color-text-strong);
     background-color: var(--color-surface-hover);
     opacity: 1;
   }
@@ -70,13 +74,13 @@ body[class*="page-account"] .page-heading {
 
 .account__sub-nav .nav__link--active:hover {
   opacity: 1;
-  color: var(--color-primary-light-bright);
+  color: var(--color-text-strong);
   background-color: var(--color-surface-hover);
 }
 
 .account__content {
   padding: 40px 100px;
-  background-color: var(--color-primary-dark);
+  background-color: var(--color-bg-sunken);
   flex: 1;
 }
 
@@ -84,10 +88,9 @@ body[class*="page-account"] .page-heading {
   font-size: 50px;
 }
 
-.account__content h2 {
-  font-size: 40px;
+.account__sub-page-heading {
+  font-size: 30px;
 }
-
 .account__content h3 {
   font-size: 20px;
 }
@@ -103,10 +106,10 @@ body[class*="page-account"] .page-heading {
   padding: 5px 10px;
   border-radius: var(--border-radius);
   text-shadow: none;
-  color: var(--color-primary-light-bright);
+  color: var(--color-text-strong);
 
   &:hover {
-    background-color: var(--color-primary-dark-offset);
+    background-color: var(--color-surface-active);
   }
 }
 
@@ -115,11 +118,11 @@ body[class*="page-account"] .page-heading {
   width: 25px;
   height: 25px;
   margin-right: 10px;
-  outline: 1px solid var(--color-primary-light-bright);
+  outline: 1px solid var(--color-text-strong);
 }
 
 .account__profile-dropdown-photo-fallback {
-  background: #3b3630;
+  background: var(--color-avatar-bg);
   padding: 5px;
   border-radius: 50%;
   width: 25px;
@@ -140,20 +143,16 @@ body[class*="page-account"] .page-heading {
   padding-bottom: 10px;
 }
 
-.nav__list-item-group > a {
-  text-transform: uppercase;
-}
-
 .account__content-card {
   border: 1px solid var(--border-lines);
-  background-color: var(--color-bg);
+  background-color: var(--color-surface-card);
   border-radius: var(--border-radius);
 }
 
 .account__content-card-header {
   border-bottom: 1px solid var(--border-lines);
   padding: 10px 15px;
-  color: var(--color-primary-light-bright);
+  color: var(--color-text-strong);
   font-size: 20px;
   text-transform: capitalize;
 }
@@ -167,9 +166,9 @@ body[class*="page-account"] .page-heading {
   padding: 0;
   border: none;
   border-radius: var(--border-radius);
-  background-color: var(--color-primary-dark-offset);
-  box-shadow: none;
-  color: var(--color-primary-light-offset);
+  background-color: var(--color-surface-raised);
+  box-shadow: var(--shadow-menu);
+  color: var(--color-text-muted);
   inset: auto;
   margin: 0;
   top: anchor(bottom);
@@ -209,9 +208,9 @@ body[class*="page-account"] .page-heading {
   border-radius: 0;
   border-bottom: 1px solid var(--border-lines-strong);
   padding: 10px 15px;
-  color: var(--color-primary-light-bright);
+  color: var(--color-text-strong);
   font-size: 15px;
-  font-family: "Diatype";
+  font-family: var(--font-body);
   text-transform: capitalize;
 
   &:hover {
