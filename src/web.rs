@@ -1,15 +1,24 @@
 use crate::mail::Mailer;
+use crate::rate_limit::RateLimits;
 use crate::theme::Theme;
 use crate::utils::create_body_page_class;
 
-use axum::{extract::Request, http::Uri, middleware::Next, response::Response};
+use std::net::SocketAddr;
+use std::sync::Arc;
+
+use axum::{
+    extract::{ConnectInfo, Request},
+    http::Uri,
+    middleware::Next,
+    response::Response,
+};
 use chrono::Datelike;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use topcoat::{
     Error, Result,
     context::{Cx, app_context},
-    router::request,
+    router::{RemoteAddr, request},
 };
 use tower_sessions::Session;
 
@@ -46,6 +55,24 @@ pub fn db(cx: &Cx) -> &PgPool {
 
 pub fn mailer(cx: &Cx) -> &Mailer {
     app_context::<Mailer>(cx)
+}
+
+pub fn app_url(path: &str) -> Result<String> {
+    let base_url = std::env::var("APP_BASE_URL")
+        .map_err(|e| Error::from(e).context("APP_BASE_URL is not set"))?;
+    Ok(format!("{base_url}{path}"))
+}
+
+pub fn rate_limits(cx: &Cx) -> &RateLimits {
+    app_context::<Arc<RateLimits>>(cx)
+}
+
+pub async fn attach_remote_addr(mut req: Request, next: Next) -> Response {
+    if let Some(ConnectInfo(addr)) = req.extensions().get::<ConnectInfo<SocketAddr>>().copied() {
+        req.extensions_mut().insert(RemoteAddr(addr));
+    }
+
+    next.run(req).await
 }
 
 pub async fn inject_globals(session: Session, uri: Uri, mut req: Request, next: Next) -> Response {

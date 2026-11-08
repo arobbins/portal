@@ -1,39 +1,43 @@
-use std::env;
-
-use rand::Rng;
-use rand::distributions::Alphanumeric;
 use serde::Deserialize;
 use topcoat::{
-    Error, Result,
+    Result,
     context::{Cx, try_request_context},
     router::{
-        Body, Method,
+        Body, Method, StatusCode,
         content::Form,
         error::{SeeOther, rewrite, see_other},
-        href, page, query_params, route,
+        href, page, query_params,
+        request::client_ip,
+        route,
     },
     runtime::{Event, signal},
     view::{View, attributes, view},
 };
-use tower_sessions::cookie::time;
 
 use crate::components::button::{ButtonType, button};
-use crate::components::form::{InputType, form, form_field};
+use crate::components::form::{Autocomplete, InputType, form, form_field};
 use crate::components::notice::{NoticeKind, notice};
+use crate::components::toaster::toaster;
 use crate::layout::page_heading::page_heading;
-use crate::user::auth::{hash_password, redirect_signed_in_users};
-use crate::user::queries::{NewUser, query_insert_email_verification_token, query_insert_user};
-use crate::user::service::register_verification_email;
-use crate::utils::{get_token_hash_from_token_string, normalize_email};
-use crate::web::{db, mailer};
+use crate::user::auth::redirect_signed_in_users;
+use crate::user::pages::verify_email::issue_verification;
+use crate::user::queries::{NewUser, query_get_user_by_email, query_insert_user};
+use crate::user::service::account_exists_email;
+use crate::utils::normalize_email;
+use crate::web::{app_url, db, mailer, rate_limits};
+
+const MAX_NAME_LENGTH: usize = 100;
+const SEND_FAILED: &str = "We couldn't send the email. Please try again.";
 
 #[derive(Deserialize)]
 pub struct RegisterInput {
     name: String,
     email: String,
-    new_password: String,
-    confirm_password: String,
+    #[serde(default)]
+    website: String,
 }
+
+const TOO_MANY_ATTEMPTS: &str = "Too many attempts. Please wait a few minutes and try again.";
 
 struct RegisterFailed {
     name: String,
@@ -43,26 +47,35 @@ struct RegisterFailed {
 
 #[query_params]
 struct RegisterQuery {
-    registered: Option<bool>,
+    sent: Option<bool>,
 }
 
 #[page("/register")]
 pub async fn register_page(cx: &Cx) -> Result<impl View> {
     redirect_signed_in_users(cx)?;
 
-    let registered = query_params::<RegisterQuery>(cx)
+    let sent = query_params::<RegisterQuery>(cx)
         .ok()
-        .and_then(|query| query.registered)
+        .and_then(|query| query.sent)
         .unwrap_or(false);
     let failed = try_request_context::<RegisterFailed>(cx);
     let name = failed.map(|failed| failed.name.clone());
     let email = failed.map(|failed| failed.email.clone());
     let error = failed.map(|failed| failed.message);
     let is_submitting = signal(cx, || false);
+    let is_sent_open = signal(cx, || sent);
 
     Ok(view! {
         <section class="l-contain l-skinny">
+            if error == Some(TOO_MANY_ATTEMPTS) {
+                (StatusCode::TOO_MANY_REQUESTS)
+            }
             page_heading(text: "Register")
+            toaster(
+                open: &is_sent_open,
+                kind: NoticeKind::Success,
+                "Check your email to confirm your registration."
+            )
             form(
                 attrs: attributes! {
                     class="form form--skinny"
@@ -73,44 +86,38 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
                 form_field(
                     label: "Name",
                     id: "name",
+                    autocomplete: Some(Autocomplete::Name),
                     name: "name",
                     placeholder: Some("Name"),
-                    value: name.as_deref()
+                    value: name.as_deref(),
+                    required: true
                 )
                 form_field(
                     label: "Email",
                     id: "email",
+                    autocomplete: Some(Autocomplete::Email),
                     name: "email",
                     input_type: InputType::Email,
                     placeholder: Some("Email"),
-                    value: email.as_deref()
+                    value: email.as_deref(),
+                    required: true
                 )
-                form_field(
-                    label: "New password",
-                    id: "new-password",
-                    name: "new_password",
-                    input_type: InputType::Password,
-                    placeholder: Some("Enter a password")
-                )
-                form_field(
-                    label: "Confirm new password",
-                    id: "confirm-password",
-                    name: "confirm_password",
-                    input_type: InputType::Password,
-                    placeholder: Some("Confirm password")
-                )
+                <div class="a-form__trap" aria-hidden="true">
+                    <label for="website">"Website"</label>
+                    <input
+                        type="text"
+                        id="website"
+                        name="website"
+                        tabindex="-1"
+                        autocomplete="off"
+                    >
+                </div>
                 button(
                     button_type: ButtonType::Submit,
                     busy: $(is_submitting.get()),
                     disabled: $(is_submitting.get()),
                     "Register account"
                 )
-                if registered {
-                    notice(
-                        kind: NoticeKind::Success,
-                        "Account created! Check your email to confirm your account."
-                    )
-                }
                 if let Some(error) = error {
                     notice(kind: NoticeKind::Error, (error))
                 }
@@ -121,12 +128,21 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
 
 #[route(POST "/register")]
 pub async fn register_submit(cx: &Cx, Form(input): Form<RegisterInput>) -> Result<SeeOther> {
-    match attempt_register(cx, &input).await? {
-        Ok(()) => Ok(see_other(
-            href!(register_page)
-                .query(&[("registered", "true")])
-                .resolve(cx),
-        )),
+    let sent = see_other(href!(register_page).query(&[("sent", "true")]).resolve(cx));
+
+    if !input.website.is_empty() {
+        tracing::info!("registration ignored: honeypot field was filled");
+        return Ok(sent);
+    }
+
+    let outcome = if rate_limits(cx).allow_signup(client_ip(cx)) {
+        attempt_register(cx, &input).await?
+    } else {
+        Err(TOO_MANY_ATTEMPTS)
+    };
+
+    match outcome {
+        Ok(()) => Ok(sent),
         Err(message) => Err(rewrite(href!(register_page).resolve(cx), Body::empty())
             .method(Method::GET)
             .with(RegisterFailed {
@@ -139,75 +155,48 @@ pub async fn register_submit(cx: &Cx, Form(input): Form<RegisterInput>) -> Resul
 }
 
 async fn attempt_register(cx: &Cx, input: &RegisterInput) -> Result<Result<(), &'static str>> {
-    const FAILED: &str = "Registration failed. Please try again.";
-
-    let email = normalize_email(&input.email);
     let name = input.name.trim();
+    let email = normalize_email(&input.email);
 
-    if name.is_empty()
-        || email.is_empty()
-        || input.new_password.is_empty()
-        || input.confirm_password.is_empty()
-    {
-        return Ok(Err("Missing required values."));
+    if name.is_empty() || email.is_empty() {
+        return Ok(Err("Please enter your name and email."));
     }
 
-    if input.new_password != input.confirm_password {
-        return Ok(Err("Passwords do not match."));
+    if name.chars().count() > MAX_NAME_LENGTH {
+        return Ok(Err("Name must be 100 characters or fewer."));
     }
 
-    let Ok(password_hash) = hash_password(&input.new_password) else {
-        return Ok(Err("Failed to hash password."));
-    };
+    if !email.contains('@') {
+        return Ok(Err("Please enter a valid email address."));
+    }
 
-    let new_user = NewUser {
-        name,
-        email: &email,
-        password_hash: &password_hash,
-    };
+    if !rate_limits(cx).allow_email_to(&email) {
+        tracing::warn!("registration email skipped: too many emails to this address");
+        return Ok(Ok(()));
+    }
 
-    let Ok(mut tx) = db(cx).begin().await else {
-        return Ok(Err(FAILED));
-    };
-
-    let user_id = match query_insert_user(&new_user, &mut *tx).await {
-        Ok(user_id) => user_id,
-        Err(e) => {
-            tracing::error!("Registration failed: {}", e);
-            return Ok(Err("Registration failed. Email may already be in use."));
+    let sent = match query_get_user_by_email(&email, db(cx)).await? {
+        Some(user) if user.verified_at.is_some() => {
+            let login_url = app_url("/login")?;
+            mailer(cx)
+                .send(&account_exists_email(&user.email, &login_url))
+                .await
+        }
+        Some(user) => issue_verification(cx, user.id, &user.email).await?,
+        None => {
+            let new_user = NewUser {
+                name,
+                email: &email,
+                password_hash: None,
+            };
+            let user_id = query_insert_user(&new_user, db(cx)).await?;
+            issue_verification(cx, user_id, &email).await?
         }
     };
 
-    let token: String = rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(32)
-        .map(char::from)
-        .collect();
-    let token_hash = get_token_hash_from_token_string(&token);
-    let expires_at = time::OffsetDateTime::now_utc() + time::Duration::hours(24);
-
-    if let Err(e) =
-        query_insert_email_verification_token(user_id, &token_hash, expires_at, &mut *tx).await
-    {
-        tracing::error!("Failed to store verification token: {}", e);
-        return Ok(Err(FAILED));
-    }
-
-    let app_base_url =
-        env::var("APP_BASE_URL").map_err(|e| Error::from(e).context("APP_BASE_URL is not set"))?;
-    let verify_url = format!("{app_base_url}/user/verify/{token}");
-
-    if let Err(e) = mailer(cx)
-        .send(&register_verification_email(&email, &verify_url))
-        .await
-    {
-        tracing::error!("Failed to send verification email: {}", e);
-        return Ok(Err("Could not send verification email. Please try again."));
-    }
-
-    if let Err(e) = tx.commit().await {
-        tracing::error!("Failed to commit registration: {}", e);
-        return Ok(Err(FAILED));
+    if let Err(e) = sent {
+        tracing::error!("Failed to send registration email: {}", e);
+        return Ok(Err(SEND_FAILED));
     }
 
     Ok(Ok(()))

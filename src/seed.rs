@@ -48,7 +48,7 @@ pub async fn run(database_url: &str) {
         let new_user = NewUser {
             name: user.name,
             email: user.email,
-            password_hash: &password_hash,
+            password_hash: Some(&password_hash),
         };
         let user_id = query_insert_user(&new_user, &db).await.unwrap();
 
@@ -66,7 +66,7 @@ fn database_name(database_url: &str) -> &str {
 }
 
 async fn query_reset_users(db: &PgPool) -> Result<(), sqlx::Error> {
-    sqlx::query!("TRUNCATE users, email_verification_tokens RESTART IDENTITY CASCADE")
+    sqlx::query!("TRUNCATE users, user_tokens RESTART IDENTITY CASCADE")
         .execute(db)
         .await?;
 

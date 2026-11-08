@@ -13,7 +13,7 @@ use topcoat::{
 };
 
 use crate::components::button::{ButtonSize, ButtonType, button};
-use crate::components::form::{form, form_field};
+use crate::components::form::{Autocomplete, form, form_field};
 use crate::components::icon::{IconName, icon};
 use crate::components::modal::modal;
 use crate::components::notice::NoticeKind;
@@ -40,6 +40,7 @@ struct ProfileUpdateFailed {
 #[query_params]
 struct ProfileQuery {
     saved: Option<bool>,
+    verified: Option<bool>,
 }
 
 #[component]
@@ -48,10 +49,9 @@ pub async fn account_profile(
     user: &User,
     display_name: &Signal<String>,
 ) -> Result<impl View> {
-    let saved = query_params::<ProfileQuery>(cx)
-        .ok()
-        .and_then(|query| query.saved)
-        .unwrap_or(false);
+    let query = query_params::<ProfileQuery>(cx).ok();
+    let saved = query.and_then(|query| query.saved).unwrap_or(false);
+    let verified = query.and_then(|query| query.verified).unwrap_or(false);
     let failed = try_request_context::<ProfileUpdateFailed>(cx);
     let name_value = failed.map_or_else(|| user.name.clone(), |failed| failed.name.clone());
 
@@ -60,6 +60,7 @@ pub async fn account_profile(
         failed.map_or_else(String::new, |failed| failed.message.to_string())
     });
     let is_saved_open = signal(cx, || saved);
+    let is_verified_open = signal(cx, || verified);
     let is_error_open = signal(cx, || failed.is_some());
     let is_submitting = signal(cx, || false);
 
@@ -116,6 +117,7 @@ pub async fn account_profile(
                     form_field(
                         label: "Name",
                         id: "edit-profile-name",
+                        autocomplete: Some(Autocomplete::Name),
                         name: "name",
                         value: Some(name_value.as_str()),
                         required: true,
@@ -130,6 +132,11 @@ pub async fn account_profile(
                 )
             )
             toaster(open: &is_saved_open, kind: NoticeKind::Success, "Profile saved.")
+            toaster(
+                open: &is_verified_open,
+                kind: NoticeKind::Success,
+                "Your email is confirmed. Welcome!"
+            )
             toaster(
                 open: &is_error_open,
                 kind: NoticeKind::Error,

@@ -46,6 +46,14 @@
   width: 100%;
 }
 
+.a-form__trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 .a-form-row {
   display: flex;
   gap: 1em;

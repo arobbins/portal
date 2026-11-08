@@ -1,9 +1,8 @@
 # Webserver Project
 
 Rust web app: axum + [Topcoat](https://github.com/tokio-rs/topcoat) 0.11. Axum
-owns the server (sessions, middleware, the email-verify route, `/assets`), and
-hands every other request to a Topcoat router through `TowerService` as its
-fallback. Topcoat renders all pages on the server; interactivity comes from
+owns the server (sessions, middleware, `/assets`), and hands every other
+request to a Topcoat router through `TowerService` as its fallback. Topcoat renders all pages on the server; interactivity comes from
 small `$(...)` runtime expressions that Topcoat compiles to JavaScript (no
 WASM). Postgres via sqlx (with migrations), tower-sessions, argon2 auth. CSS is
 bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
@@ -40,8 +39,13 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
 
 ## Layout
 
-- `src/main.rs` — axum server: sessions, db pool, `/user/verify/{token}`,
-  `/assets`, and the Topcoat fallback.
+- `src/main.rs` — axum server: sessions, db pool, `/assets`, the Topcoat
+  fallback, and the `webserver seed` subcommand.
+- `src/mail.rs` — `Mailer` (`postmark` | `log` | `file`, from `MAIL_TRANSPORT`),
+  in Topcoat app context as `mailer(cx)`.
+- `src/seed.rs` — `webserver seed`: creates/migrates/resets a `*_test` database
+  and inserts the e2e users (refuses any other database name).
+- `src/theme.rs` — `Theme` enum and `theme` cookie parsing.
 - `src/app.rs` — Topcoat router builder, root `#[layout("/")]` (HTML document,
   header, footer, 404 error boundary), `not_found!("/")`.
 - `src/components/` — reusable UI, one file per component; each has a matching
@@ -52,9 +56,37 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
 - `src/layout/` — header, nav, footer, logo, page heading.
 - `src/pages/` — general pages (`#[page("/path")]`); `src/pages/styleguide/` —
   one section per component.
-- `src/user/` — `pages/` (pages, POST routes, account components), `auth.rs`
-  (`current_user`, `require_user`, `sign_in`), `queries`, `service`,
-  `controller` (axum email verify handler).
+- `src/user/` — `pages/` (pages, POST routes, account components; email
+  verification + resend in `verify_email.rs`), `auth.rs` (`current_user`,
+  `require_user`, `sign_in`, `hash_password`), `queries`, `service` (email
+  content), `tokens.rs` (`TokenPurpose`, `generate_token`).
+- **Registration is email-first**: `/register` takes name + email (+ a hidden
+  `website` honeypot) and always redirects to `/register?sent=true`, whatever
+  the email's state (new → user with `password = NULL` + link; unverified →
+  fresh link; verified → "you already have an account" email), so it never
+  reveals whether an account exists. The link (`GET /user/verify/{token}`)
+  only *shows* the set-password form; `POST` to the same URL consumes the
+  token, sets the password, verifies and signs in. GETs never consume tokens
+  (email scanners prefetch links). Users without a password can't log in.
+- **Rate limits** (`src/rate_limit.rs`, `governor`, in memory, read with
+  `rate_limits(cx)`): logins 10/min per IP, sign-ups + resends 5 per 10 min per
+  IP, and at most 3 emails per hour to any one address. Failed logins are
+  counted per account (`FailureWindow`, only wrong email/password counts, a
+  successful login clears it): 5 per 15 min per account+IP, 50 per hour per
+  account from any IP — then even the right password gets "Too many attempts". Per-IP blocks show a
+  friendly message with status 429; the per-email limit silently skips the
+  email (same response, so it reveals nothing). `RATE_LIMITS=relaxed` (used by
+  the e2e server) multiplies limits by 1000. Client IPs come from Topcoat's
+  `client_ip(cx)` (the connection address via `attach_remote_addr`); **behind a
+  proxy/load balancer set `TRUSTED_PROXY_HOPS`** to the number of proxies, or
+  every visitor shares the proxy's IP. Counters reset on restart and aren't
+  shared across servers.
+- Form fields take typed `autocomplete: Some(Autocomplete::…)` hints (name,
+  email, current/new password) for password managers.
+- Emailed links use the `user_tokens` table: one row per token with a
+  `purpose`, only the SHA-256 hash stored, single use (consumed with
+  `DELETE … RETURNING`), expiry per purpose. Add a `TokenPurpose` variant for
+  new flows (password reset, email change).
 - `src/web.rs` — `GlobalState`, `globals(cx)`, `session(cx)`, `db(cx)`,
   `inject_globals` axum middleware.
 
@@ -92,14 +124,34 @@ topcoat dev
 
 Builds the app, bundles Topcoat's browser runtime, starts the server
 (respects `HOST`/`PORT`, default `127.0.0.1:3000`) and live-updates the page on
-changes (including `assets/css`). Tests need the bundle once:
-`topcoat asset bundle && cargo test`. Format view macros with
-`topcoat fmt`. CLI: `cargo install topcoat-cli --version 0.11.0 --locked`.
+changes (including `assets/css`). CLI:
+`cargo install topcoat-cli --version 0.11.0 --locked`.
 
-Behavior tests (Playwright, in `e2e/`, Chromium + Firefox + WebKit) run
-against the dev server: `cd e2e && npm run ui` (dashboard with watch mode),
-`npm test` (headless), `npm run report` (last HTML report). If no server is
-running on :3000, Playwright starts `topcoat dev` itself. Write tests from the
-user's point of view: find elements by role/label/text
-(`getByRole("button", { name: "Show toast" })`), not by CSS class, and assert
-visible behavior. One spec file per feature in `e2e/tests/`.
+**Before calling work done, run `./check.sh`**: `cargo fmt --check`,
+`topcoat fmt --check`, `cargo clippy --all-targets -- -D warnings`,
+`cargo test`, and the Playwright suite. Format with
+`topcoat fmt --rustfmt $(find src -name "*.rs")` (formats Rust and `view!`
+bodies; never use `leptosfmt`).
+
+**Migrations**: add a file in `migrations/`, then `sqlx migrate run` against
+the dev database (sqlx macros check queries against it at compile time). The
+test database is migrated automatically by `webserver seed`.
+
+**Email**: `MAIL_TRANSPORT` = `postmark` (default; needs `POSTMARK_*`), `log`
+(prints emails, including links), or `file` (writes JSON to `MAIL_DIR`).
+
+**Behavior tests** (Playwright, `e2e/`, Chromium + Firefox + WebKit):
+`cd e2e && npm test` (headless), `npm run ui` (dashboard), `npm run report`.
+Playwright runs its own server on **:3100**: it builds, runs
+`webserver seed` against `<dev DATABASE_URL>_test` (or `TEST_DATABASE_URL`),
+and uses the file mailer (`e2e/.mail`, cleared each run), so it never touches
+the dev server or dev data. Conventions:
+- Import `test`/`expect` from `e2e/support/test.ts`: any console error or
+  uncaught exception fails the test; allow expected ones with
+  `test.use({ allowedConsoleErrors: [/…/] })`.
+- Shared helpers: `support/flows.ts` (`register`, `logIn`, `uniqueEmail`),
+  `support/mail.ts` (`waitForEmails`, `verificationLink`), `support/users.ts`
+  (seeded users — keep in sync with `src/seed.rs`). Tests that change data use
+  their own `uniqueEmail` user, never the seeded ones.
+- Find elements by role/label/text (`getByRole("button", { name: "Show toast" })`),
+  not CSS classes; assert visible behavior. One spec file per feature.

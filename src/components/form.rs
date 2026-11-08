@@ -57,6 +57,25 @@ pub async fn form_label(for_id: &str, #[default] child: Child<'_>) -> Result<imp
     Ok(view! { <label class="a-form-label" for=(for_id)>(child)</label> })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Autocomplete {
+    Name,
+    Email,
+    CurrentPassword,
+    NewPassword,
+}
+
+impl Autocomplete {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Name => "name",
+            Self::Email => "email",
+            Self::CurrentPassword => "current-password",
+            Self::NewPassword => "new-password",
+        }
+    }
+}
+
 #[component]
 pub async fn form_input(
     id: &str,
@@ -65,6 +84,7 @@ pub async fn form_input(
     #[default] placeholder: Option<&str>,
     #[default] value: Option<&str>,
     #[default] required: bool,
+    #[default] autocomplete: Option<Autocomplete>,
     #[default] attrs: Attributes,
 ) -> Result<impl View> {
     Ok(view! {
@@ -76,6 +96,7 @@ pub async fn form_input(
             placeholder=(placeholder)
             value=(value)
             required=(required)
+            autocomplete=(autocomplete.map(Autocomplete::as_str))
             (attrs)
         >
     })
@@ -90,6 +111,7 @@ pub async fn form_field(
     #[default] placeholder: Option<&str>,
     #[default] value: Option<&str>,
     #[default] required: bool,
+    #[default] autocomplete: Option<Autocomplete>,
     #[default] input_attrs: Attributes,
 ) -> Result<impl View> {
     Ok(view! {
@@ -102,6 +124,7 @@ pub async fn form_field(
                 placeholder: placeholder,
                 value: value,
                 required: required,
+                autocomplete: autocomplete,
                 attrs: input_attrs
             )
         )

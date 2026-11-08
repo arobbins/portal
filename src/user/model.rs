@@ -4,7 +4,7 @@ pub struct User {
     pub id: i32,
     pub name: String,
     pub email: String,
-    pub password: String,
+    pub password: Option<String>,
     pub role: String,
     pub photo: Option<String>,
     pub subscriber_status: String,

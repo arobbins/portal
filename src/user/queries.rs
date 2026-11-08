@@ -1,16 +1,16 @@
 use crate::user::model::User;
+use crate::user::tokens::TokenPurpose;
 use sqlx::{PgExecutor, PgPool};
-use tower_sessions::cookie::time;
 
 pub struct NewUser<'a> {
     pub name: &'a str,
     pub email: &'a str,
-    pub password_hash: &'a str,
+    pub password_hash: Option<&'a str>,
 }
 
 pub async fn query_update_user_verified_time(
     user_id: i32,
-    db: &PgPool,
+    db: impl PgExecutor<'_>,
 ) -> Result<User, sqlx::Error> {
     let user = sqlx::query_as!(
         User,
@@ -39,13 +39,15 @@ pub async fn query_update_user_name(
     Ok(())
 }
 
-pub async fn query_delete_email_verification_token(
+pub async fn query_delete_user_tokens(
     user_id: i32,
-    db: &PgPool,
+    purpose: TokenPurpose,
+    db: impl PgExecutor<'_>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "DELETE FROM email_verification_tokens WHERE user_id = $1",
-        user_id
+        "DELETE FROM user_tokens WHERE user_id = $1 AND purpose = $2",
+        user_id,
+        purpose.as_str(),
     )
     .execute(db)
     .await?;
@@ -72,18 +74,20 @@ pub async fn query_get_user_by_id(user_id: &i32, db: &PgPool) -> Result<Option<U
     Ok(user)
 }
 
-pub async fn query_get_user_id_by_token_hash(
-    db: &PgPool,
+pub async fn query_consume_user_token(
+    purpose: TokenPurpose,
     token_hash: &str,
+    db: impl PgExecutor<'_>,
 ) -> Result<Option<i32>, sqlx::Error> {
-    let record = sqlx::query!(
-        "SELECT user_id FROM email_verification_tokens WHERE token_hash = $1 AND expires_at > now()",
+    let user_id = sqlx::query_scalar!(
+        "DELETE FROM user_tokens WHERE purpose = $1 AND token_hash = $2 AND expires_at > now() RETURNING user_id",
+        purpose.as_str(),
         token_hash,
     )
     .fetch_optional(db)
     .await?;
 
-    Ok(record.map(|r| r.user_id))
+    Ok(user_id)
 }
 
 pub async fn query_insert_user(
@@ -102,17 +106,51 @@ pub async fn query_insert_user(
     Ok(user_id)
 }
 
-pub async fn query_insert_email_verification_token(
-    user_id: i32,
+pub async fn query_find_valid_user_token(
+    purpose: TokenPurpose,
     token_hash: &str,
-    expires_at: time::OffsetDateTime,
+    db: impl PgExecutor<'_>,
+) -> Result<Option<i32>, sqlx::Error> {
+    let user_id = sqlx::query_scalar!(
+        "SELECT user_id FROM user_tokens WHERE purpose = $1 AND token_hash = $2 AND expires_at > now()",
+        purpose.as_str(),
+        token_hash,
+    )
+    .fetch_optional(db)
+    .await?;
+
+    Ok(user_id)
+}
+
+pub async fn query_set_password_and_verify_user(
+    user_id: i32,
+    password_hash: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<User, sqlx::Error> {
+    let user = sqlx::query_as!(
+        User,
+        "UPDATE users SET password = $1, verified_at = now(), updated_at = now() WHERE id = $2 RETURNING *",
+        password_hash,
+        user_id,
+    )
+    .fetch_one(db)
+    .await?;
+
+    Ok(user)
+}
+
+pub async fn query_insert_user_token(
+    user_id: i32,
+    purpose: TokenPurpose,
+    token_hash: &str,
     db: impl PgExecutor<'_>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "INSERT INTO email_verification_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
+        "INSERT INTO user_tokens (user_id, purpose, token_hash, expires_at) VALUES ($1, $2, $3, $4)",
         user_id,
+        purpose.as_str(),
         token_hash,
-        expires_at,
+        purpose.expires_at(),
     )
     .execute(db)
     .await?;

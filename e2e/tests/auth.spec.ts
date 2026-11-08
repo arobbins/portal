@@ -1,13 +1,6 @@
-import type { Page } from "@playwright/test";
+import { logIn } from "../support/flows";
 import { expect, test } from "../support/test";
 import { unverifiedUser, verifiedUser } from "../support/users";
-
-async function logIn(page: Page, email: string, password: string) {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Login" }).click();
-}
 
 test("signed-out visitors are sent from the account page to login", async ({ page }) => {
   await page.goto("/account");

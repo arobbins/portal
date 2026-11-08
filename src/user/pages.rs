@@ -6,3 +6,4 @@ pub mod login;
 pub mod logout;
 pub mod profile_menu;
 pub mod register;
+pub mod verify_email;

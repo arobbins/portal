@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+import { MAIL_DIR } from "./support/mail";
 
 const port = 3100;
 const baseURL = `http://127.0.0.1:${port}`;
@@ -34,7 +35,7 @@ export default defineConfig({
   ],
   webServer: {
     command:
-      "topcoat asset bundle && ./target/debug/webserver seed && exec ./target/debug/webserver",
+      `rm -rf "${MAIL_DIR}" && topcoat asset bundle && ./target/debug/webserver seed && exec ./target/debug/webserver`,
     cwd: "..",
     url: baseURL,
     reuseExistingServer: false,
@@ -45,7 +46,9 @@ export default defineConfig({
       HOST: "127.0.0.1",
       PORT: String(port),
       APP_BASE_URL: baseURL,
-      MAIL_TRANSPORT: "log",
+      MAIL_TRANSPORT: "file",
+      MAIL_DIR,
+      RATE_LIMITS: "relaxed",
       RUST_LOG: "warn",
     },
   },
