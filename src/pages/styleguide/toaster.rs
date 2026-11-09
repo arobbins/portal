@@ -8,21 +8,24 @@ use topcoat::{
 use super::styleguide_section;
 use crate::components::button::button;
 use crate::components::notice::NoticeKind;
-use crate::components::toaster::toaster;
+use crate::components::toaster::{NO_TOAST, toaster};
+
+const DEMO_TOAST: &str = "demo";
 
 #[component]
 pub async fn toaster_section(cx: &Cx) -> Result<impl View> {
-    let is_open = signal(cx, || false);
+    let toast = signal(cx, || NO_TOAST.to_string());
 
     Ok(view! {
         styleguide_section(
             title: "Toaster",
             button(
-                attrs: attributes! { @click=$(|_e: Event| is_open.set(true)) },
+                attrs: attributes! { @click=$(|_e: Event| toast.set(DEMO_TOAST.to_owned())) },
                 "Show toast"
             )
             toaster(
-                open: &is_open,
+                toast: &toast,
+                name: DEMO_TOAST,
                 kind: NoticeKind::Success,
                 "Success! This is a toaster notice."
             )

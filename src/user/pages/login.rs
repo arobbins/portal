@@ -8,20 +8,21 @@ use topcoat::{
         Body, Method, StatusCode,
         content::Form,
         error::{SeeOther, rewrite, see_other},
-        href, page, query_params,
+        href, page,
         request::client_ip,
         route,
     },
-    runtime::{Event, signal},
+    runtime::signal,
     view::{View, attributes, view},
 };
 
-use super::verify_email::resend_verification;
-use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
+use super::reset_password::reset_password_page;
+use crate::components::button::{ButtonType, button};
 use crate::components::form::{Autocomplete, InputType, form, form_field};
 use crate::components::notice::{NoticeKind, notice};
 use crate::layout::page_heading::page_heading;
 use crate::user::auth::{redirect_signed_in_users, sign_in};
+use crate::user::model::AccountStatus;
 use crate::user::queries::query_get_user_by_email;
 use crate::utils::normalize_email;
 use crate::web::{db, rate_limits, session};
@@ -35,7 +36,6 @@ pub struct LoginInput {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LoginProblem {
     InvalidCredentials,
-    Unverified,
     TooManyAttempts,
 }
 
@@ -43,7 +43,6 @@ impl LoginProblem {
     fn message(self) -> &'static str {
         match self {
             Self::InvalidCredentials => "Invalid email or password.",
-            Self::Unverified => "Please verify your email before logging in.",
             Self::TooManyAttempts => "Too many attempts. Please wait a few minutes and try again.",
         }
     }
@@ -54,19 +53,10 @@ struct LoginFailed {
     problem: LoginProblem,
 }
 
-#[query_params]
-struct LoginQuery {
-    resent: Option<bool>,
-}
-
 #[page("/login")]
 pub async fn login_page(cx: &Cx) -> Result<impl View> {
     redirect_signed_in_users(cx)?;
 
-    let resent = query_params::<LoginQuery>(cx)
-        .ok()
-        .and_then(|query| query.resent)
-        .unwrap_or(false);
     let failed = try_request_context::<LoginFailed>(cx);
     let email = failed.map(|failed| failed.email.clone());
     let problem = failed.map(|failed| failed.problem);
@@ -78,18 +68,12 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
                 (StatusCode::TOO_MANY_REQUESTS)
             }
             page_heading(text: "Login")
-            if resent {
-                notice(
-                    kind: NoticeKind::Success,
-                    "If that account still needs confirming, we've sent a new link. Check your email."
-                )
-            }
             form(
+                submitting: Some(&is_submitting),
                 attrs: attributes! {
                     class="form form--skinny"
                     method="post"
                     action=(href!(login_submit))
-                    @submit=$(|_e: Event| is_submitting.set(true))
                 },
                 form_field(
                     label: "Email",
@@ -108,32 +92,21 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
                     input_type: InputType::Password,
                     placeholder: Some("Enter password")
                 )
-                button(
-                    button_type: ButtonType::Submit,
-                    busy: $(is_submitting.get()),
-                    disabled: $(is_submitting.get()),
-                    "Login"
-                )
+                <div class="l-flex l-flex-space-between l-flex-align-items-center">
+                    button(
+                        button_type: ButtonType::Submit,
+                        busy: $(is_submitting.get()),
+                        disabled: $(is_submitting.get()),
+                        "Login"
+                    )
+                    <a href=(href!(reset_password_page).resolve(cx))>
+                        "Forgot password?"
+                    </a>
+                </div>
                 if let Some(problem) = problem {
                     notice(kind: NoticeKind::Error, (problem.message()))
                 }
             )
-            if problem == Some(LoginProblem::Unverified) {
-                form(
-                    attrs: attributes! {
-                        class="form form--skinny"
-                        method="post"
-                        action=(href!(resend_verification))
-                    },
-                    <input type="hidden" name="email" value=(email.as_deref())>
-                    button(
-                        variant: ButtonVariant::Secondary,
-                        size: ButtonSize::Sm,
-                        button_type: ButtonType::Submit,
-                        "Resend confirmation email"
-                    )
-                )
-            }
         </section>
     })
 }
@@ -174,11 +147,11 @@ async fn attempt_login(cx: &Cx, input: &LoginInput) -> Result<Result<(), LoginPr
         return Ok(Err(LoginProblem::InvalidCredentials));
     };
 
-    let Some(stored_hash) = user.password.as_deref() else {
+    let AccountStatus::Active { password_hash } = user.status() else {
         return Ok(Err(LoginProblem::InvalidCredentials));
     };
 
-    let Ok(parsed_hash) = PasswordHash::new(stored_hash) else {
+    let Ok(parsed_hash) = PasswordHash::new(password_hash) else {
         return Ok(Err(LoginProblem::InvalidCredentials));
     };
 
@@ -187,10 +160,6 @@ async fn attempt_login(cx: &Cx, input: &LoginInput) -> Result<Result<(), LoginPr
         .is_err()
     {
         return Ok(Err(LoginProblem::InvalidCredentials));
-    }
-
-    if user.verified_at.is_none() {
-        return Ok(Err(LoginProblem::Unverified));
     }
 
     sign_in(&session(cx)?, &user).await?;

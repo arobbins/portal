@@ -1,5 +1,7 @@
 mod app;
+mod cleanup;
 mod components;
+mod flash;
 mod layout;
 mod mail;
 mod pages;
@@ -78,6 +80,8 @@ async fn main() {
         }
     });
 
+    cleanup::spawn(db.clone());
+
     let app = app(db, Mailer::from_env(), rate_limits, assets).layer(session_layer);
     let app = NormalizePathLayer::trim_trailing_slash().layer(app);
 
@@ -108,12 +112,12 @@ fn bind_address() -> String {
 }
 
 fn app(db: PgPool, mailer: Mailer, rate_limits: Arc<RateLimits>, assets: AssetBundle) -> Router {
-    let pages = app::router(db, mailer, rate_limits, assets);
+    let pages = app::router(db.clone(), mailer, rate_limits, assets);
 
     Router::new()
-        .nest_service("/assets", ServeDir::new("assets"))
         .fallback_service(TowerService::new(pages))
-        .layer(middleware::from_fn(inject_globals))
+        .layer(middleware::from_fn_with_state(db, inject_globals))
+        .nest_service("/assets", ServeDir::new("assets"))
         .layer(middleware::from_fn(attach_remote_addr))
         .layer(TraceLayer::new_for_http())
 }
@@ -201,6 +205,33 @@ mod tests {
         );
         assert_ne!(
             login_attempt_from(&app, someone_else).await,
+            StatusCode::TOO_MANY_REQUESTS
+        );
+    }
+
+    async fn sign_up_from(app: &Router, ip: [u8; 4]) -> StatusCode {
+        let request = Request::post("/register")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .extension(axum::extract::ConnectInfo(SocketAddr::from((ip, 50_000))))
+            .body(Body::from("name=Someone&email=someone%40example.test"))
+            .unwrap();
+        app.clone().oneshot(request).await.unwrap().status()
+    }
+
+    #[tokio::test]
+    async fn too_many_sign_ups_from_one_ip_get_a_429() {
+        let app = test_app();
+        let spammer = [203, 0, 113, 3];
+
+        for _ in 0..5 {
+            assert_ne!(
+                sign_up_from(&app, spammer).await,
+                StatusCode::TOO_MANY_REQUESTS
+            );
+        }
+
+        assert_eq!(
+            sign_up_from(&app, spammer).await,
             StatusCode::TOO_MANY_REQUESTS
         );
     }

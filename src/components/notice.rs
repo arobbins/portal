@@ -25,6 +25,10 @@ impl NoticeKind {
     }
 }
 
+const SHOWN: &str = "shown";
+const DISMISSING: &str = "dismissing";
+const DISMISSED: &str = "dismissed";
+
 #[component]
 pub async fn notice(
     cx: &Cx,
@@ -37,8 +41,9 @@ pub async fn notice(
         return Ok(view! { <div class=(class)>(child)</div> }.boxed());
     }
 
-    let is_dismissing = signal(cx, || false);
-    let is_dismissed = signal(cx, || false);
+    let stage = signal(cx, || SHOWN.to_string());
+    let dismissing = DISMISSING.to_string();
+    let dismissed = DISMISSED.to_string();
 
     let class = format!("a-notice {} a-notice--is-dismissible", kind.modifier());
     let dismissing_class = format!("{class} a-notice--is-dismissing");
@@ -46,17 +51,17 @@ pub async fn notice(
 
     Ok(view! {
         <div
-            :class=$(if is_dismissed.get() {
+            :class=$(if stage.get() == dismissed {
                 dismissed_class.clone()
-            } else if is_dismissing.get() {
+            } else if stage.get() == dismissing {
                 dismissing_class.clone()
             } else {
                 class.clone()
             })
-            @click=$(|_e| is_dismissing.set(true))
+            @click=$(|_e| stage.set(dismissing.clone()))
             @transitionend=$(|_e| {
-                if is_dismissing.get() {
-                    is_dismissed.set(true);
+                if stage.get() == dismissing {
+                    stage.set(dismissed.clone());
                 }
             })
         >

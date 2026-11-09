@@ -59,18 +59,7 @@ pub async fn theme_switcher(cx: &Cx, #[default] compact: bool) -> Result<impl Vi
                     @click=$(|e: Event| {
                         e.prevent_default();
                         let _selected = e.current_target.value;
-                        raw!(
-                            "(() => {
-                            const theme = String(${_selected});
-                            document.documentElement.dataset.theme = theme;
-                            document.querySelector('meta[name=color-scheme]').content = theme === 'system' ? 'light dark' : theme;
-                            document.cookie = 'theme=' + theme + '; path=/; max-age=31536000; samesite=lax';
-                            for (const option of document.querySelectorAll('.a-theme-switcher__option')) {
-                                option.setAttribute('aria-pressed', String(option.value === theme));
-                            }
-                        })()",
-                            (),
-                        )
+                        raw!("window.setTheme(String(${_selected}))", ())
                     })
                 >
                     icon(name: theme_icon(theme))

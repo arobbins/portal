@@ -58,6 +58,7 @@ async fn root_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                 <meta name="color-scheme" content=(theme.color_scheme())>
                 <title>"Hello world"</title>
                 <link href="/assets/dist/app.css" rel="stylesheet">
+                <script src="/assets/js/theme.js"></script>
                 topcoat::runtime::script()
             </head>
             <body class=(body_class)>

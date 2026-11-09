@@ -30,10 +30,15 @@ export async function waitForEmails(address: string, count = 1): Promise<Email[]
   await expect
     .poll(
       async () => {
-        emails = (await readEmails()).filter((email) => email.to.toLowerCase() === address.toLowerCase());
+        emails = (await readEmails()).filter(
+          (email) => email.to.toLowerCase() === address.toLowerCase(),
+        );
         return emails.length;
       },
-      { message: `waiting for ${count} email(s) to ${address}` },
+      {
+        message: `waiting for ${count} email(s) to ${address}`,
+        timeout: 10_000,
+      },
     )
     .toBeGreaterThanOrEqual(count);
   return emails;
@@ -41,12 +46,20 @@ export async function waitForEmails(address: string, count = 1): Promise<Email[]
 
 export async function expectNoEmails(address: string, waitMs = 1_000) {
   await new Promise((resolve) => setTimeout(resolve, waitMs));
-  const emails = (await readEmails()).filter((email) => email.to.toLowerCase() === address.toLowerCase());
+  const emails = (await readEmails()).filter(
+    (email) => email.to.toLowerCase() === address.toLowerCase(),
+  );
   expect(emails, `expected no emails to ${address}`).toEqual([]);
 }
 
 export function verificationLink(email: Email): string {
   const match = email.text.match(/https?:\/\/\S+\/user\/verify\/[A-Za-z0-9]+/);
   if (!match) throw new Error(`No verification link in email: ${email.text}`);
+  return match[0];
+}
+
+export function resetLink(email: Email): string {
+  const match = email.text.match(/https?:\/\/\S+\/reset-password\/[A-Za-z0-9]+/);
+  if (!match) throw new Error(`No reset link in email: ${email.text}`);
   return match[0];
 }

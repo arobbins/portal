@@ -1,9 +1,12 @@
 pub mod account;
 pub mod account_nav;
+pub mod account_placeholder;
 pub mod account_profile;
-pub mod account_security;
+pub mod expired_link;
 pub mod login;
 pub mod logout;
+pub mod new_password_form;
 pub mod profile_menu;
 pub mod register;
+pub mod reset_password;
 pub mod verify_email;

@@ -12,7 +12,7 @@ test("registering asks only for a name and email, then says to check email", asy
 
   await register(page, "New Tester", email);
 
-  await expect(page).toHaveURL("/register?sent=true");
+  await expect(page).toHaveURL("/register");
   await expect(page.getByText(CHECK_EMAIL)).toHaveCSS("opacity", "1");
   await expect(page.getByLabel("Password")).toHaveCount(0);
   const [message] = await waitForEmails(email);
@@ -24,7 +24,7 @@ test("registering an email that already has an account looks the same, but email
 }) => {
   await register(page, "Someone Else", verifiedUser.email);
 
-  await expect(page).toHaveURL("/register?sent=true");
+  await expect(page).toHaveURL("/register");
   await expect(page.getByText(CHECK_EMAIL)).toHaveCSS("opacity", "1");
   const emails = await waitForEmails(verifiedUser.email);
   expect(emails.some((email) => email.subject === "You already have an account")).toBe(true);
@@ -43,7 +43,7 @@ test("a bot that fills the hidden field gets the same response, but nothing happ
   });
 
   expect(response.status()).toBe(303);
-  expect(response.headers().location).toBe("/register?sent=true");
+  expect(response.headers().location).toBe("/register");
   await expectNoEmails(email);
 });
 
@@ -57,4 +57,20 @@ test("an over-long name shows an error and keeps the entered details", async ({
   await expect(page.getByText("Name must be 100 characters or fewer.")).toBeVisible();
   await expect(page.getByLabel("Email")).toHaveValue(email);
   await expectNoEmails(email, 500);
+});
+
+test("signing up twice at the same moment doesn't crash", async ({ page }, testInfo) => {
+  const email = uniqueEmail(testInfo, "race");
+  await page.goto("/register");
+  const signUp = () =>
+    page.request.post("/register", {
+      form: { name: "Race tester", email },
+      headers: { Origin: new URL(page.url()).origin },
+      maxRedirects: 0,
+    });
+
+  const responses = await Promise.all([signUp(), signUp(), signUp()]);
+
+  expect(responses.map((response) => response.status())).toEqual([303, 303, 303]);
+  await waitForEmails(email);
 });

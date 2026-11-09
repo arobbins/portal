@@ -6,8 +6,7 @@ export const verifiedUser = {
   password: SEED_PASSWORD,
 };
 
-export const unverifiedUser = {
-  name: "Unverified Tester",
-  email: "unverified@example.test",
-  password: SEED_PASSWORD,
+export const awaitingPasswordUser = {
+  name: "Awaiting Password Tester",
+  email: "awaiting-password@example.test",
 };

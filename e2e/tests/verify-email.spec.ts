@@ -23,7 +23,7 @@ test("a new user can register, set a password from the email link, and log in", 
   await expect(page.getByRole("heading", { name: "Set your password" })).toBeVisible();
   await setPassword(page, PASSWORD);
 
-  await expect(page).toHaveURL("/account?verified=true");
+  await expect(page).toHaveURL("/account");
   await expect(page.getByText("Your email is confirmed. Welcome!")).toHaveCSS("opacity", "1");
   await expect(page.getByText("Name: Journey tester")).toBeVisible();
 
@@ -49,7 +49,7 @@ test("the link stops working once the password is set", async ({ page }, testInf
   const { link } = await registerAndGetLink(page, testInfo, "Once");
   await page.goto(link);
   await setPassword(page, PASSWORD);
-  await expect(page).toHaveURL("/account?verified=true");
+  await expect(page).toHaveURL("/account");
 
   const response = await page.goto(link);
 
@@ -68,9 +68,7 @@ test("an unknown link shows a friendly error page", async ({ page }) => {
   );
 });
 
-test("a too-short password is rejected and the link keeps working", async ({
-  page,
-}, testInfo) => {
+test("a too-short password is rejected and the link keeps working", async ({ page }, testInfo) => {
   const { link } = await registerAndGetLink(page, testInfo, "Short");
   await page.goto(link);
 
@@ -78,7 +76,7 @@ test("a too-short password is rejected and the link keeps working", async ({
 
   await expect(page.getByText("Password must be at least 8 characters.")).toBeVisible();
   await setPassword(page, PASSWORD);
-  await expect(page).toHaveURL("/account?verified=true");
+  await expect(page).toHaveURL("/account");
 });
 
 test("mismatched passwords are rejected", async ({ page }, testInfo) => {
@@ -91,9 +89,7 @@ test("mismatched passwords are rejected", async ({ page }, testInfo) => {
   await expect(page.getByRole("heading", { name: "Set your password" })).toBeVisible();
 });
 
-test("registering again sends a new link that replaces the old one", async ({
-  page,
-}, testInfo) => {
+test("registering again sends a new link that replaces the old one", async ({ page }, testInfo) => {
   const email = uniqueEmail(testInfo, "again");
   await register(page, "Again tester", email);
   const firstLink = verificationLink((await waitForEmails(email))[0]);
@@ -108,16 +104,4 @@ test("registering again sends a new link that replaces the old one", async ({
 
   await page.goto(secondLink);
   await expect(page.getByRole("heading", { name: "Set your password" })).toBeVisible();
-});
-
-test("asking to resend for an unknown email reveals nothing", async ({ page }) => {
-  await page.goto("/login");
-  const response = await page.request.post("/user/verify/resend", {
-    form: { email: "nobody-here@example.test" },
-    headers: { Origin: new URL(page.url()).origin },
-    maxRedirects: 0,
-  });
-
-  expect(response.status()).toBe(303);
-  expect(response.headers().location).toBe("/login?resent=true");
 });

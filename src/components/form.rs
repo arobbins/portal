@@ -1,5 +1,6 @@
 use topcoat::{
     Result,
+    runtime::{Event, Signal},
     view::{Attributes, Child, View, class, component, view},
 };
 
@@ -23,11 +24,28 @@ impl InputType {
 
 #[component]
 pub async fn form(
+    #[default] submitting: Option<&Signal<bool>>,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {
-        <form class=(class!("a-form", attrs.remove("class"))) (attrs)>(child)</form>
+        <form
+            class=(class!("a-form", attrs.remove("class")))
+            if let Some(submitting) = submitting {
+                @submit=$(|_e: Event| {
+                    submitting.set(true);
+                    raw!(
+                        "window.addEventListener('pageshow', (event) => {
+                        if (event.persisted) location.reload();
+                    }, { once: true })",
+                        (),
+                    )
+                })
+            }
+            (attrs)
+        >
+            (child)
+        </form>
     })
 }
 

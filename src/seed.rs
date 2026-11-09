@@ -1,13 +1,12 @@
 use sqlx::{PgPool, Postgres, migrate::MigrateDatabase};
 
 use crate::user::auth::hash_password;
-use crate::user::queries::{NewUser, query_insert_user, query_update_user_verified_time};
+use crate::user::queries::{NewUser, query_insert_user, query_set_password_and_verify_user};
 
 struct SeedUser {
     name: &'static str,
     email: &'static str,
-    password: &'static str,
-    verified: bool,
+    password: Option<&'static str>,
 }
 
 const SEED_PASSWORD: &str = "correct-horse-battery-staple";
@@ -16,14 +15,12 @@ const SEED_USERS: &[SeedUser] = &[
     SeedUser {
         name: "Verified Tester",
         email: "verified@example.test",
-        password: SEED_PASSWORD,
-        verified: true,
+        password: Some(SEED_PASSWORD),
     },
     SeedUser {
-        name: "Unverified Tester",
-        email: "unverified@example.test",
-        password: SEED_PASSWORD,
-        verified: false,
+        name: "Awaiting Password Tester",
+        email: "awaiting-password@example.test",
+        password: None,
     },
 ];
 
@@ -44,16 +41,17 @@ pub async fn run(database_url: &str) {
     query_reset_users(&db).await.unwrap();
 
     for user in SEED_USERS {
-        let password_hash = hash_password(user.password).unwrap();
         let new_user = NewUser {
             name: user.name,
             email: user.email,
-            password_hash: Some(&password_hash),
         };
-        let user_id = query_insert_user(&new_user, &db).await.unwrap();
+        let user_id = query_insert_user(&new_user, &db).await.unwrap().unwrap();
 
-        if user.verified {
-            query_update_user_verified_time(user_id, &db).await.unwrap();
+        if let Some(password) = user.password {
+            let password_hash = hash_password(password).unwrap();
+            query_set_password_and_verify_user(user_id, &password_hash, &db)
+                .await
+                .unwrap();
         }
     }
 

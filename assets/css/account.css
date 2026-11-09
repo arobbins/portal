@@ -228,3 +228,11 @@ body[class*="page-account"] .page-heading {
 .account__menu .nav__list .nav__link svg {
   margin-right: 10px;
 }
+
+.account__profile-error {
+  margin-block-start: 1rem;
+}
+
+.account__profile-error--is-hidden {
+  display: none;
+}

@@ -1,7 +1,9 @@
-import type { Page, TestInfo } from "@playwright/test";
+import { expect, type Page, type TestInfo } from "@playwright/test";
+import { verificationLink, waitForEmails } from "./mail";
 
 export function uniqueEmail(testInfo: TestInfo, label: string): string {
-  return `${label}-${testInfo.project.name}-${Date.now()}@example.test`.toLowerCase();
+  const suffix = `${Date.now()}-${testInfo.workerIndex}-${Math.random().toString(36).slice(2, 8)}`;
+  return `${label}-${testInfo.project.name}-${suffix}@example.test`.toLowerCase();
 }
 
 export async function register(page: Page, name: string, email: string) {
@@ -22,4 +24,21 @@ export async function logIn(page: Page, email: string, password: string) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Login" }).click();
+}
+
+export const ACCOUNT_PASSWORD = "a-strong-test-password";
+
+export async function createAccount(page: Page, testInfo: TestInfo, name: string) {
+  const email = uniqueEmail(testInfo, name.replaceAll(" ", "-"));
+  await register(page, name, email);
+  await page.goto(verificationLink((await waitForEmails(email))[0]));
+  await setPassword(page, ACCOUNT_PASSWORD);
+  await expect(page).toHaveURL("/account");
+  return email;
+}
+
+export async function logOut(page: Page, name: string) {
+  await page.getByRole("button", { name }).click();
+  await page.getByRole("button", { name: "Logout" }).click();
+  await expect(page).toHaveURL("/login");
 }

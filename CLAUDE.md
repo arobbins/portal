@@ -19,11 +19,27 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
 - **State lives at the lowest rung that works**: server data → render it in the
   page; widget state → a `signal(cx, ...)` inside the component; shared widget
   state → create the signal in the common parent and pass `&Signal<T>` down
-  (see the styleguide toaster section).
+  (see the styleguide toaster section). Prefer one signal holding *which*
+  state you're in over several booleans that must agree: toasts use one
+  `toast: Signal<String>` per page holding the visible toast's name (or
+  `NO_TOAST`), and `toaster(toast: &toast, name: SAVED_TOAST, …)` shows itself
+  when it matches, so only one toast can ever be open. Toast names are
+  per-page `const`s, never string literals. Errors inside a `<dialog>` go in
+  the dialog, not a toast (an open modal covers toasts).
+- **Submit busy state**: pass `submitting: Some(&is_submitting)` to `form(…)`
+  instead of writing your own `@submit`; it sets the busy state and reloads
+  the page if the browser restores it from the back/forward cache (otherwise
+  the button would stay disabled after pressing Back).
 - **Forms are plain HTML POSTs**: a `#[route(POST ...)]` handler either
   `see_other(...)` redirects on success or `rewrite(...)`s back to the GET page
   with a request-context value carrying the error (see `user/pages/login.rs`).
   They work without JS; `@submit` only adds the busy state.
+- **Success messages after a redirect are session flashes** (`src/flash.rs`):
+  `set_flash(&session, Flash::ProfileSaved)` before `see_other(...)`, and the
+  target page calls `take_flash(cx, &[Flash::ProfileSaved])`, which removes it
+  only if it's one the page accepts. Never put message flags in the URL (they
+  reappear on refresh and can be faked). Add a `Flash` variant for new
+  messages.
 - **BEM classes are the styling contract**: components emit stable class names
   (e.g. `a-notice--success`); CSS targets only those, never element structure.
 - **Colors are role-named variables** in `assets/css/variables.css`
@@ -34,8 +50,11 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
   `data-theme` is `light`, `dark` (default) or `system` (follows the OS). The
   server reads the `theme` cookie in `inject_globals` (`src/theme.rs`) and
   renders `data-theme` + `<meta name="color-scheme">`, so there's no flash of
-  the wrong theme. `theme_switcher` switches live via JS and falls back to
-  `POST /theme` without JS.
+  the wrong theme. All theme JS lives in `assets/js/theme.js` (loaded in
+  `<head>`): `theme_switcher` calls `window.setTheme`, and every page load or
+  back/forward restore re-applies the cookie's theme, because browsers can
+  show a cached copy rendered before the switch. Without JS the switcher
+  falls back to `POST /theme`.
 
 ## Layout
 
@@ -57,19 +76,40 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
 - `src/pages/` — general pages (`#[page("/path")]`); `src/pages/styleguide/` —
   one section per component.
 - `src/user/` — `pages/` (pages, POST routes, account components; email
-  verification + resend in `verify_email.rs`), `auth.rs` (`current_user`,
+  verification in `verify_email.rs`), `auth.rs` (`current_user`,
   `require_user`, `sign_in`, `hash_password`), `queries`, `service` (email
   content), `tokens.rs` (`TokenPurpose`, `generate_token`).
 - **Registration is email-first**: `/register` takes name + email (+ a hidden
-  `website` honeypot) and always redirects to `/register?sent=true`, whatever
-  the email's state (new → user with `password = NULL` + link; unverified →
-  fresh link; verified → "you already have an account" email), so it never
+  `website` honeypot) and always redirects to `/register` with the
+  `RegistrationSent` flash, whatever the email's state (new → user with
+  `password = NULL` + link, inserted in the same transaction as the token and
+  rolled back if the email fails; awaiting password → fresh link; active →
+  "you already have an account" email), so it never
   reveals whether an account exists. The link (`GET /user/verify/{token}`)
   only *shows* the set-password form; `POST` to the same URL consumes the
   token, sets the password, verifies and signs in. GETs never consume tokens
   (email scanners prefetch links). Users without a password can't log in.
+- **Signed-in state**: the session stores only `user_id` and the user's
+  `session_version`; a session whose version no longer matches the user's is
+  flushed, so **any query that changes a password (or should log out every
+  device) must do `session_version = session_version + 1`**. `inject_globals`
+  loads the user once per request (skipped for `/assets`) into
+  `GlobalState.current_user: Option<Arc<User>>`; a session pointing at a
+  missing user is flushed. Read it with `current_user(cx)` /
+  `require_user(cx)` (sync, no extra query). Never cache user data in the
+  session.
+- **Account status** comes only from `user.status()` → `AccountStatus`
+  (`AwaitingPassword` / `Active { password_hash }`).
+  Never branch on `password` / `verified_at` directly. The only transition to
+  Active is `query_set_password_and_verify_user`; the DB enforces
+  `CHECK ((password IS NULL) = (verified_at IS NULL))`, so new users are
+  always inserted without a password. `role` / `subscriber_status` are the
+  `Role` / `SubscriberStatus` enums (select them with
+  `role AS "role: Role"`; the DB has matching `CHECK`s).
+- **Cleanup** (`src/cleanup.rs`, hourly): deletes expired `user_tokens` and
+  sign-ups that never set a password after 7 days and have no live link.
 - **Rate limits** (`src/rate_limit.rs`, `governor`, in memory, read with
-  `rate_limits(cx)`): logins 10/min per IP, sign-ups + resends 5 per 10 min per
+  `rate_limits(cx)`): logins 10/min per IP, email requests (sign-ups + password resets) 5 per 10 min per
   IP, and at most 3 emails per hour to any one address. Failed logins are
   counted per account (`FailureWindow`, only wrong email/password counts, a
   successful login clears it): 5 per 15 min per account+IP, 50 per hour per
@@ -81,12 +121,26 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
   proxy/load balancer set `TRUSTED_PROXY_HOPS`** to the number of proxies, or
   every visitor shares the proxy's IP. Counters reset on restart and aren't
   shared across servers.
+- Failure reasons are enums with a `message()` (`LoginProblem`,
+  `RegisterProblem`); pick status codes by matching the variant, never by
+  comparing message text.
 - Form fields take typed `autocomplete: Some(Autocomplete::…)` hints (name,
   email, current/new password) for password managers.
 - Emailed links use the `user_tokens` table: one row per token with a
   `purpose`, only the SHA-256 hash stored, single use (consumed with
-  `DELETE … RETURNING`), expiry per purpose. Add a `TokenPurpose` variant for
-  new flows (password reset, email change).
+  `DELETE … RETURNING`), expiry per purpose. Send one with
+  `links::email_user_link(cx, tx, user_id, purpose, |token| email)`: it
+  replaces the user's older links for that purpose and commits only if the
+  email sent. Add a `TokenPurpose` variant for new flows (e.g. email change).
+  Link pages share `expired_link` (400) and new passwords share
+  `new_password_form` + `password::check_new_password`.
+- **Password reset** (`reset_password.rs`): `/reset-password` always answers
+  "if an account exists, we've sent a link" (active → 1-hour reset link;
+  awaiting password → a fresh sign-up link; unknown → nothing).
+  `GET /reset-password/{token}` only shows the form; `POST` consumes the
+  token, sets the password with `query_reset_password` (bumps
+  `session_version`, so other devices are signed out), signs in and shows a
+  toast on `/account`.
 - `src/web.rs` — `GlobalState`, `globals(cx)`, `session(cx)`, `db(cx)`,
   `inject_globals` axum middleware.
 

@@ -1,26 +1,10 @@
-use crate::user::model::User;
+use crate::user::model::{Role, SubscriberStatus, User};
 use crate::user::tokens::TokenPurpose;
 use sqlx::{PgExecutor, PgPool};
 
 pub struct NewUser<'a> {
     pub name: &'a str,
     pub email: &'a str,
-    pub password_hash: Option<&'a str>,
-}
-
-pub async fn query_update_user_verified_time(
-    user_id: i32,
-    db: impl PgExecutor<'_>,
-) -> Result<User, sqlx::Error> {
-    let user = sqlx::query_as!(
-        User,
-        "UPDATE users SET verified_at = now() WHERE id = $1 RETURNING *",
-        user_id
-    )
-    .fetch_one(db)
-    .await?;
-
-    Ok(user)
 }
 
 pub async fn query_update_user_name(
@@ -59,7 +43,7 @@ pub async fn query_get_user_by_email(
     email: &str,
     db: &PgPool,
 ) -> Result<Option<User>, sqlx::Error> {
-    let user = sqlx::query_as!(User, "select * from users where email = $1", email)
+    let user = sqlx::query_as!(User, "SELECT id, name, email, password, role AS \"role: Role\", photo, subscriber_status AS \"subscriber_status: SubscriberStatus\", created_at, updated_at, verified_at, session_version FROM users WHERE email = $1", email)
         .fetch_optional(db)
         .await?;
 
@@ -67,7 +51,7 @@ pub async fn query_get_user_by_email(
 }
 
 pub async fn query_get_user_by_id(user_id: &i32, db: &PgPool) -> Result<Option<User>, sqlx::Error> {
-    let user = sqlx::query_as!(User, "select * from users where id = $1", user_id)
+    let user = sqlx::query_as!(User, "SELECT id, name, email, password, role AS \"role: Role\", photo, subscriber_status AS \"subscriber_status: SubscriberStatus\", created_at, updated_at, verified_at, session_version FROM users WHERE id = $1", user_id)
         .fetch_optional(db)
         .await?;
 
@@ -93,14 +77,13 @@ pub async fn query_consume_user_token(
 pub async fn query_insert_user(
     new_user: &NewUser<'_>,
     db: impl PgExecutor<'_>,
-) -> Result<i32, sqlx::Error> {
+) -> Result<Option<i32>, sqlx::Error> {
     let user_id = sqlx::query_scalar!(
-        "INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id",
+        "INSERT INTO users (name, email) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING RETURNING id",
         new_user.name,
         new_user.email,
-        new_user.password_hash,
     )
-    .fetch_one(db)
+    .fetch_optional(db)
     .await?;
 
     Ok(user_id)
@@ -129,7 +112,7 @@ pub async fn query_set_password_and_verify_user(
 ) -> Result<User, sqlx::Error> {
     let user = sqlx::query_as!(
         User,
-        "UPDATE users SET password = $1, verified_at = now(), updated_at = now() WHERE id = $2 RETURNING *",
+        "UPDATE users SET password = $1, verified_at = now(), session_version = session_version + 1, updated_at = now() WHERE id = $2 RETURNING id, name, email, password, role AS \"role: Role\", photo, subscriber_status AS \"subscriber_status: SubscriberStatus\", created_at, updated_at, verified_at, session_version",
         password_hash,
         user_id,
     )
@@ -156,4 +139,44 @@ pub async fn query_insert_user_token(
     .await?;
 
     Ok(())
+}
+
+pub async fn query_delete_expired_user_tokens(db: &PgPool) -> Result<u64, sqlx::Error> {
+    let result = sqlx::query!("DELETE FROM user_tokens WHERE expires_at <= now()")
+        .execute(db)
+        .await?;
+
+    Ok(result.rows_affected())
+}
+
+pub async fn query_delete_abandoned_signups(
+    older_than: time::Duration,
+    db: &PgPool,
+) -> Result<u64, sqlx::Error> {
+    let cutoff = time::OffsetDateTime::now_utc() - older_than;
+    let result = sqlx::query!(
+        "DELETE FROM users WHERE password IS NULL AND created_at < $1 AND NOT EXISTS (SELECT 1 FROM user_tokens WHERE user_tokens.user_id = users.id AND user_tokens.expires_at > now())",
+        cutoff,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(result.rows_affected())
+}
+
+pub async fn query_reset_password(
+    user_id: i32,
+    password_hash: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<Option<User>, sqlx::Error> {
+    let user = sqlx::query_as!(
+        User,
+        "UPDATE users SET password = $1, session_version = session_version + 1, updated_at = now() WHERE id = $2 AND verified_at IS NOT NULL RETURNING id, name, email, password, role AS \"role: Role\", photo, subscriber_status AS \"subscriber_status: SubscriberStatus\", created_at, updated_at, verified_at, session_version",
+        password_hash,
+        user_id,
+    )
+    .fetch_optional(db)
+    .await?;
+
+    Ok(user)
 }

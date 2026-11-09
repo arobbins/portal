@@ -1,6 +1,6 @@
 import { logIn } from "../support/flows";
 import { expect, test } from "../support/test";
-import { unverifiedUser, verifiedUser } from "../support/users";
+import { awaitingPasswordUser, verifiedUser } from "../support/users";
 
 test("signed-out visitors are sent from the account page to login", async ({ page }) => {
   await page.goto("/account");
@@ -23,10 +23,11 @@ test("a wrong password shows an error and keeps the email", async ({ page }) => 
   await expect(page.getByLabel("Email")).toHaveValue(verifiedUser.email);
 });
 
-test("an unverified account is asked to verify its email", async ({ page }) => {
-  await logIn(page, unverifiedUser.email, unverifiedUser.password);
+test("an account that never set a password can't log in", async ({ page }) => {
+  await logIn(page, awaitingPasswordUser.email, "any-password-at-all");
 
-  await expect(page.getByText("Please verify your email before logging in.")).toBeVisible();
+  await expect(page).toHaveURL("/login");
+  await expect(page.getByText("Invalid email or password.")).toBeVisible();
 });
 
 test("signed-in users are sent from the login page to their account", async ({ page }) => {

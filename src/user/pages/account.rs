@@ -1,14 +1,14 @@
 use topcoat::{
     Result,
     context::Cx,
-    router::{page, path_param},
+    router::{error::not_found, page, path_param},
     runtime::signal,
     view::{View, component, view},
 };
 
 use super::account_nav::account_nav;
+use super::account_placeholder::account_placeholder;
 use super::account_profile::account_profile;
-use super::account_security::account_security;
 use super::profile_menu::profile_menu;
 use crate::components::theme_switcher::theme_switcher;
 use crate::user::auth::require_user;
@@ -26,13 +26,24 @@ pub enum AccountTab {
 }
 
 impl AccountTab {
-    fn from_slug(slug: &str) -> Self {
+    fn from_slug(slug: &str) -> Option<Self> {
         match slug {
-            "security" => Self::Security,
-            "billing" => Self::Billing,
-            "settings" => Self::Settings,
-            "developer" => Self::Developer,
-            _ => Self::Profile,
+            "profile" => Some(Self::Profile),
+            "security" => Some(Self::Security),
+            "billing" => Some(Self::Billing),
+            "settings" => Some(Self::Settings),
+            "developer" => Some(Self::Developer),
+            _ => None,
+        }
+    }
+
+    pub fn heading(self) -> &'static str {
+        match self {
+            Self::Profile => "Profile",
+            Self::Security => "Security",
+            Self::Billing => "Billing",
+            Self::Settings => "Settings",
+            Self::Developer => "Developer",
         }
     }
 
@@ -49,17 +60,19 @@ impl AccountTab {
 
 #[page("/account")]
 pub async fn account_page(cx: &Cx) -> Result<impl View> {
-    let user = require_user(cx).await?;
+    let user = require_user(cx)?;
 
-    Ok(view! { account_layout(user: &user, tab: AccountTab::Profile) })
+    Ok(view! { account_layout(user: user.as_ref(), tab: AccountTab::Profile) })
 }
 
 #[page("/account/{tab}")]
 pub async fn account_tab_page(cx: &Cx) -> Result<impl View> {
-    let user = require_user(cx).await?;
-    let tab = AccountTab::from_slug(path_param::<Tab>(cx));
+    let user = require_user(cx)?;
+    let Some(tab) = AccountTab::from_slug(path_param::<Tab>(cx)) else {
+        return Err(not_found().into());
+    };
 
-    Ok(view! { account_layout(user: &user, tab: tab) })
+    Ok(view! { account_layout(user: user.as_ref(), tab: tab) })
 }
 
 #[component]
@@ -82,8 +95,11 @@ async fn account_layout(cx: &Cx, user: &User, tab: AccountTab) -> Result<impl Vi
                 </nav>
                 <section class="account__content" id="account__content">
                     match tab {
-                        AccountTab::Security => account_security(),
-                        _ => account_profile(user: user, display_name: &display_name),
+                        AccountTab::Profile => account_profile(
+                            user: user,
+                            display_name: &display_name
+                        ),
+                        _ => account_placeholder(heading: tab.heading()),
                     }
                 </section>
             </div>

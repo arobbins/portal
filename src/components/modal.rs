@@ -29,9 +29,16 @@ pub async fn modal(
     #[default] closed_by: ClosedBy,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
+    let heading_id = format!("{id}-heading");
+
     Ok(view! {
-        <dialog id=(id) class="a-modal" closedby=(closed_by.as_str())>
-            <h2 class="a-modal__heading">(heading)</h2>
+        <dialog
+            id=(id)
+            class="a-modal"
+            closedby=(closed_by.as_str())
+            aria-labelledby=(heading_id.as_str())
+        >
+            <h2 id=(heading_id.as_str()) class="a-modal__heading">(heading)</h2>
             (child)
             <button
                 type="button"

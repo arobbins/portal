@@ -8,19 +8,16 @@ use crate::components::icon::{IconName, icon};
 
 struct NavSection {
     tab: AccountTab,
-    label: &'static str,
     links: &'static [(&'static str, &'static str)],
 }
 
 const SECTIONS: &[NavSection] = &[
     NavSection {
         tab: AccountTab::Profile,
-        label: "Profile",
         links: &[("Reset password", "/account/profile#password")],
     },
     NavSection {
         tab: AccountTab::Security,
-        label: "Security",
         links: &[
             ("Two-factor authentication", "/account/security#2fa"),
             ("Single sign-on", "/account/security#sso"),
@@ -28,7 +25,6 @@ const SECTIONS: &[NavSection] = &[
     },
     NavSection {
         tab: AccountTab::Billing,
-        label: "Billing",
         links: &[
             ("Subscriptions", "/account/billing#subscriptions"),
             ("Invoices", "/account/billing#invoices"),
@@ -37,12 +33,10 @@ const SECTIONS: &[NavSection] = &[
     },
     NavSection {
         tab: AccountTab::Settings,
-        label: "Settings",
         links: &[("Notifications", "/account/settings#notifications")],
     },
     NavSection {
         tab: AccountTab::Developer,
-        label: "Developer",
         links: &[],
     },
 ];
@@ -67,7 +61,7 @@ pub async fn account_nav(active: AccountTab) -> Result<impl View> {
                             "nav__link"
                         })
                     >
-                        (section.label)
+                        (section.tab.heading())
                     </a>
                     if !section.links.is_empty() {
                         <ul class="nav__list">

@@ -25,3 +25,16 @@ pub fn account_exists_email(recipient_email: &str, login_url: &str) -> Email {
         ),
     }
 }
+
+pub fn password_reset_email(recipient_email: &str, reset_url: &str) -> Email {
+    Email {
+        to: recipient_email.to_string(),
+        subject: "Reset your password".to_string(),
+        text: format!(
+            "We received a request to reset your password. Choose a new one here: {reset_url}\n\nThis link expires in 1 hour. If you didn't ask for this, you can ignore this email and your password won't change."
+        ),
+        html: format!(
+            "<p>We received a request to reset your password. <a href=\"{reset_url}\">Choose a new password</a>.</p><p>This link expires in 1 hour. If you didn't ask for this, you can ignore this email and your password won't change.</p>"
+        ),
+    }
+}

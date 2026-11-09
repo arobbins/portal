@@ -1,19 +1,20 @@
 use crate::mail::Mailer;
 use crate::rate_limit::RateLimits;
 use crate::theme::Theme;
+use crate::user::auth::load_signed_in_user;
+use crate::user::model::User;
 use crate::utils::create_body_page_class;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::{
-    extract::{ConnectInfo, Request},
-    http::Uri,
+    extract::{ConnectInfo, Request, State},
+    http::{StatusCode, Uri},
     middleware::Next,
-    response::Response,
+    response::{IntoResponse, Response},
 };
 use chrono::Datelike;
-use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use topcoat::{
     Error, Result,
@@ -22,15 +23,10 @@ use topcoat::{
 };
 use tower_sessions::Session;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct CurrentUser {
-    pub name: String,
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct GlobalState {
     pub year: i32,
-    pub current_user: Option<CurrentUser>,
+    pub current_user: Option<Arc<User>>,
     pub current_slug: String,
     pub theme: Theme,
 }
@@ -75,11 +71,20 @@ pub async fn attach_remote_addr(mut req: Request, next: Next) -> Response {
     next.run(req).await
 }
 
-pub async fn inject_globals(session: Session, uri: Uri, mut req: Request, next: Next) -> Response {
-    let current_user = session
-        .get::<CurrentUser>("current_user")
-        .await
-        .unwrap_or(None);
+pub async fn inject_globals(
+    State(db): State<PgPool>,
+    session: Session,
+    uri: Uri,
+    mut req: Request,
+    next: Next,
+) -> Response {
+    let current_user = match load_signed_in_user(&session, &db).await {
+        Ok(user) => user,
+        Err(e) => {
+            tracing::error!("Failed to load signed-in user: {}", e);
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
 
     let current_path = uri.path().trim_start_matches('/').to_string();
 
