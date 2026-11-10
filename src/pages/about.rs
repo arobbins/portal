@@ -1,13 +1,16 @@
 use topcoat::{
     Result,
+    context::Cx,
+    metadata::Metadata,
     router::page,
     view::{View, view},
 };
 
+use crate::app::page_title;
 use crate::layout::page_heading::page_heading;
 
-#[page("/about")]
-pub async fn about_page() -> Result<impl View> {
+#[page("/about", with(Metadata::new().title(page_title("About"))))]
+pub async fn about_page(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         <section class="l-contain l-skinny">
             page_heading(text: "About")

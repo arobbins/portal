@@ -8,12 +8,16 @@ mod toaster;
 
 use topcoat::{
     Result,
+    context::Cx,
+    metadata::Metadata,
     router::page,
     view::{Child, View, component, view},
 };
 
-#[page("/styleguide")]
-pub async fn styleguide_page() -> Result<impl View> {
+use crate::app::page_title;
+
+#[page("/styleguide", with(Metadata::new().title(page_title("Styleguide"))))]
+pub async fn styleguide_page(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         <section class="l-contain l-skinny styleguide">
             <h1>"Styleguide (h1)"</h1>
@@ -29,7 +33,11 @@ pub async fn styleguide_page() -> Result<impl View> {
 }
 
 #[component]
-async fn styleguide_section(title: &str, #[default] child: Child<'_>) -> Result<impl View> {
+async fn styleguide_section(
+    cx: &Cx,
+    title: &str,
+    #[default] child: Child<'_>,
+) -> Result<impl View> {
     Ok(view! {
         <section class="styleguide__section">
             <h2>(title)</h2>

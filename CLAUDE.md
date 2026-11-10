@@ -1,6 +1,6 @@
 # Webserver Project
 
-Rust web app: axum + [Topcoat](https://github.com/tokio-rs/topcoat) 0.11. Axum
+Rust web app: axum + [Topcoat](https://github.com/tokio-rs/topcoat) 0.12.1. Axum
 owns the server (sessions, middleware, `/assets`), and hands every other
 request to a Topcoat router through `TowerService` as its fallback. Topcoat renders all pages on the server; interactivity comes from
 small `$(...)` runtime expressions that Topcoat compiles to JavaScript (no
@@ -56,6 +56,11 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
   Read it with `config(cx)` / `app_url(cx, path)`. Cookies are `Secure`
   automatically when `APP_BASE_URL` is `https://`. Settings are listed in
   `.env.example`.
+- **Responsive layout**: one breakpoint, `max-width: 760px` (600px for form
+  rows). Below it the header's links and theme switcher move into a native
+  `popover` (`#site-menu`) opened by the Menu button, and the account sidebar
+  becomes a row of tabs above the content. `.l-contain` uses
+  `box-sizing: border-box`; check new pages at 390px (`mobile.spec.ts`).
 - **BEM classes are the styling contract**: components emit stable class names
   (e.g. `a-notice--success`); CSS targets only those, never element structure.
 - **Colors are role-named variables** in `assets/css/variables.css`
@@ -84,7 +89,9 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
   and inserts the e2e users (refuses any other database name).
 - `src/theme.rs` — `Theme` enum and `theme` cookie parsing.
 - `src/app.rs` — Topcoat router builder, root `#[layout("/")]` (HTML document,
-  header, footer, 404 error boundary), `not_found!("/")`.
+  header, footer, 404 error boundary), and `unknown_page`, a catch-all
+  page that returns a 404 with its own title (written out instead of
+  `not_found!`, which can't take `with(...)`).
 - `src/components/` — reusable UI, one file per component; each has a matching
   CSS file in `assets/css/components/` and a demo in `src/pages/styleguide/`.
   Import components by module path: `components::button::{button, ButtonSize}`
@@ -167,6 +174,10 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
 - **Form layout**: `form(variant: FormVariant::Page, …)` for a stand-alone
   page form (narrow, centred), the default `Inline` everywhere else; never
   pass layout classes as strings. Classes all use the `a-form` prefix.
+  Wrap the submit button (and any links beside it) in `form_actions(…)`.
+  Form spacing comes from `--form-gap`, `--form-label-gap`,
+  `--form-choice-gap` and `--form-column-gap` in `variables.css`; don't
+  hard-code spacing in `form.css`.
 - **Form errors**: render the problem with `form_error((problem.message()))`
   just above the submit button, and pass `invalid: true` to the fields it's
   about (each failure enum has `invalid_*()` helpers). `form_error` has
@@ -218,6 +229,35 @@ holding one name), and its transitions live in one place:
 
 When adding state, extend one of these or add a row here.
 
+## Topcoat conventions (0.12)
+
+- Every `#[component]`, `#[page]`, `#[route]`, `#[layout]` and `#[procedure]`
+  takes `cx: &Cx` as its first parameter, named exactly `cx`, even if unused:
+  `view!` captures it. Helper functions that need context take `cx: &Cx` too.
+- One context: shared values are added with `.with(value)` on the router
+  builder (`app.rs`) and read with `context::<T>(cx)` / `try_context::<T>(cx)`
+  behind small helpers (`db(cx)`, `config(cx)`, `rate_limits(cx)` in
+  `web.rs`). `rewrite(…).with(value)` carries a value to the page it rewrites
+  to; the page reads it with `try_context`. `cx.with(value)` shadows a value
+  for code given the child context.
+- Axum extensions (`Session`, `GlobalState`) are still read with
+  `request::extensions(cx)`.
+- `path_param!(token)` generates `token(cx) -> &str`; there are no wrapper
+  types. `href!(handler)` links to a handler; path values go in as
+  `href!(handler, name: value)`.
+- In component calls a comma separates the last prop from the first child:
+  `button(busy: $(…), "Save")`.
+- Page titles come from the `metadata` module: the root layout sets the site
+  name, each page adds `with(Metadata::new().title(page_title("Login")))`
+  (`app::page_title` appends " · Webserver"), and `topcoat::metadata::tags()`
+  renders `<title>`, charset and viewport in `<head>`. Use
+  `Metadata::from_fn` when the title depends on the request (see the account
+  tab page).
+- Router setup: `.assets(bundle).layer(RuntimeLayer::new())`; origin policy,
+  body limits and compression are per-route `with(...)` values if ever needed.
+- `topcoat fmt` formats every Topcoat macro (`#[page]`, `href!`, `view!`…);
+  run it rather than hand-wrapping macro arguments.
+
 ## Topcoat gotchas
 
 - A procedure call rejects (it doesn't return `Err`) when the request fails
@@ -234,9 +274,6 @@ When adding state, extend one of these or add a row here.
 
 - Pages, routes and the layout use explicit paths and are collected by
   `.discover()`; nothing needs registering by hand.
-- Axum request extensions are visible to Topcoat via `request::extensions(cx)` —
-  that's how `Session` and `GlobalState` reach pages. The pool is Topcoat app
-  context (`app_context::<PgPool>`, wrapped by `db(cx)`).
 - Closures in `attributes! { @click=$(...) }` need a typed param:
   `|_e: Event|`. Inside `view!` directly, `|_e|` is fine.
 - `$(...)` supports only a subset of Rust (no string concatenation, no
@@ -251,6 +288,9 @@ When adding state, extend one of these or add a row here.
   not `${e}.target`).
 - Don't use cross-document view transitions (`@view-transition`): Chromium
   flashes white between pages.
+- After upgrading `topcoat-cli`, restart `topcoat dev`: an older CLI still
+  running rebuilds with an incompatible bundler and writes an empty asset
+  bundle, so every page panics with "failed to resolve asset".
 - A missing asset bundle panics at startup; `topcoat dev` (or
   `topcoat asset bundle`) creates it in `target/<profile>/assets`.
 
@@ -265,7 +305,7 @@ topcoat dev
 Builds the app, bundles Topcoat's browser runtime, starts the server
 (respects `HOST`/`PORT`, default `127.0.0.1:3000`) and live-updates the page on
 changes (including `assets/css`). CLI:
-`cargo install topcoat-cli --version 0.11.0 --locked`.
+`cargo install topcoat-cli --version 0.12.1 --locked`.
 
 **Before calling work done, run `./check.sh`**: `cargo fmt --check`,
 `topcoat fmt --check`, `cargo clippy --all-targets -- -D warnings`,
@@ -284,7 +324,8 @@ Unknown values stop the server at startup.
 
 **Behavior tests** (Playwright, `e2e/`, Chromium + Firefox + WebKit):
 `cd e2e && npm test` (headless), `npm run ui` (dashboard), `npm run report`.
-Playwright runs its own server on **:3100**: it builds, runs
+Playwright runs its own server on **:3100**: it builds into `target/e2e`
+(so a running `topcoat dev` can never rebuild or re-bundle under a test run), runs
 `webserver seed` against `<dev DATABASE_URL>_test` (or `TEST_DATABASE_URL`),
 and uses the file mailer (`e2e/.mail`, cleared each run), so it never touches
 the dev server or dev data. Conventions:

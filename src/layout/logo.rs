@@ -1,10 +1,11 @@
 use topcoat::{
     Result,
+    context::Cx,
     view::{View, component, view},
 };
 
 #[component]
-pub async fn logo() -> Result<impl View> {
+pub async fn logo(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         <svg
             xmlns="http://www.w3.org/2000/svg"

@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use topcoat::{
     Result,
-    context::{Cx, try_request_context},
+    context::{Cx, try_context},
     router::{
         Body, Method,
         content::Form,
@@ -13,7 +13,9 @@ use topcoat::{
 };
 
 use crate::components::button::{ButtonSize, ButtonType, button};
-use crate::components::form::{Autocomplete, FORM_ERROR_ID, form, form_error, form_field};
+use crate::components::form::{
+    Autocomplete, FORM_ERROR_ID, form, form_actions, form_error, form_field,
+};
 use crate::components::icon::{IconName, icon};
 use crate::components::modal::modal;
 use crate::components::notice::NoticeKind;
@@ -53,7 +55,7 @@ pub async fn account_profile(
     display_name: &Signal<String>,
 ) -> Result<impl View> {
     let flash = take_flash(cx, FLASHES).await?;
-    let failed = try_request_context::<ProfileUpdateFailed>(cx);
+    let failed = try_context::<ProfileUpdateFailed>(cx);
     let name_value = failed.map_or_else(|| user.name.clone(), |failed| failed.name.clone());
 
     let field_value = signal(cx, || name_value.clone());
@@ -159,10 +161,12 @@ pub async fn account_profile(
                         hidden: $(error_message.get().is_empty()),
                         $(error_message.get())
                     )
-                    button(
-                        button_type: ButtonType::Submit,
-                        busy: $(is_submitting.get()),
-                        "Save profile"
+                    form_actions(
+                        button(
+                            button_type: ButtonType::Submit,
+                            busy: $(is_submitting.get()),
+                            "Save profile"
+                        )
                     )
                 )
             )

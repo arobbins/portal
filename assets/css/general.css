@@ -60,5 +60,5 @@ hr {
 }
 
 .heading-xl {
-  font-size: 200px;
+  font-size: clamp(64px, 16vw, 200px);
 }

@@ -1,5 +1,6 @@
 use topcoat::{
     Result,
+    context::Cx,
     view::{View, component, view},
 };
 
@@ -48,9 +49,9 @@ const EXTERNAL_LINKS: &[(&str, &str)] = &[
 ];
 
 #[component]
-pub async fn account_nav(active: AccountTab) -> Result<impl View> {
+pub async fn account_nav(cx: &Cx, active: AccountTab) -> Result<impl View> {
     Ok(view! {
-        <ul class="nav__list nav__list--flush-left l-flex-col">
+        <ul class="nav__list nav__list--flush-left l-flex-col account__nav-list">
             for section in SECTIONS {
                 <li class="nav__list-item nav__list-item-group">
                     <a
@@ -64,7 +65,7 @@ pub async fn account_nav(active: AccountTab) -> Result<impl View> {
                         (section.tab.heading())
                     </a>
                     if !section.links.is_empty() {
-                        <ul class="nav__list">
+                        <ul class="nav__list account__nav-links">
                             for (label, href) in section.links {
                                 <li class="nav__list-item">
                                     <a href=(*href) class="nav__link">(*label)</a>
@@ -75,7 +76,7 @@ pub async fn account_nav(active: AccountTab) -> Result<impl View> {
                 </li>
             }
             for (label, href) in EXTERNAL_LINKS {
-                <li class="nav__list-item">
+                <li class="nav__list-item account__nav-external">
                     <a href=(*href) class="nav__link nav__link-external">
                         (*label)
                         " "

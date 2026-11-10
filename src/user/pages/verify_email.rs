@@ -2,7 +2,8 @@ use serde::Deserialize;
 use sqlx::PgPool;
 use topcoat::{
     Error, Result,
-    context::{Cx, try_request_context},
+    context::{Cx, try_context},
+    metadata::Metadata,
     router::{
         Body, Method,
         content::Form,
@@ -16,6 +17,7 @@ use topcoat::{
 
 use super::expired_link::expired_link;
 use super::new_password_form::new_password_form;
+use crate::app::page_title;
 use crate::config::Config;
 use crate::flash::{Flash, set_flash};
 use crate::layout::page_heading::page_heading;
@@ -52,9 +54,12 @@ struct SetPasswordFailed {
     problem: PasswordProblem,
 }
 
-#[page("/user/verify/{token}")]
+#[page(
+    "/user/verify/{token}",
+    with(Metadata::new().title(page_title("Set your password")))
+)]
 pub async fn verify_email_page(cx: &Cx) -> Result<impl View> {
-    let token_hash = get_token_hash_from_token_string(path_param::<Token>(cx));
+    let token_hash = get_token_hash_from_token_string(token(cx));
     let is_valid = query_find_valid_user_token(PURPOSE, &token_hash, db(cx))
         .await?
         .is_some();
@@ -75,7 +80,7 @@ pub async fn verify_email_page(cx: &Cx) -> Result<impl View> {
         .boxed());
     }
 
-    let problem = try_request_context::<SetPasswordFailed>(cx).map(|failed| failed.problem);
+    let problem = try_context::<SetPasswordFailed>(cx).map(|failed| failed.problem);
 
     Ok(view! {
         <section class="l-contain l-skinny">
@@ -103,7 +108,7 @@ pub async fn set_password_submit(cx: &Cx, Form(input): Form<SetPasswordInput>) -
         return Err(too_many_requests(RETRY_AFTER_SECS).into());
     }
 
-    let token_hash = get_token_hash_from_token_string(path_param::<Token>(cx));
+    let token_hash = get_token_hash_from_token_string(token(cx));
     if query_find_valid_user_token(PURPOSE, &token_hash, db(cx))
         .await?
         .is_none()

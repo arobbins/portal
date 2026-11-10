@@ -9,3 +9,9 @@ test("an unknown URL shows the 404 page with a 404 status", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
   await expect(page.getByText("You requested /does-not-exist")).toBeVisible();
 });
+
+test("an unknown URL has its own page title", async ({ page }) => {
+  await page.goto("/does-not-exist");
+
+  await expect(page).toHaveTitle("Page not found · Webserver");
+});

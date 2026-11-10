@@ -1,5 +1,6 @@
 use topcoat::{
     Result,
+    context::Cx,
     runtime::Signal,
     view::{Child, View, component, view},
 };
@@ -10,6 +11,7 @@ pub const NO_TOAST: &str = "";
 
 #[component]
 pub async fn toaster(
+    cx: &Cx,
     toast: &Signal<String>,
     name: &str,
     #[default] kind: NoticeKind,

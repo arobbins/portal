@@ -1,10 +1,11 @@
 use topcoat::{
     Result,
+    context::Cx,
     view::{View, component, view},
 };
 
 #[component]
-pub async fn account_placeholder(heading: &str) -> Result<impl View> {
+pub async fn account_placeholder(cx: &Cx, heading: &str) -> Result<impl View> {
     Ok(view! {
         <div class="account__sub-page-content">
             <h2 class="account__sub-page-heading">(heading)</h2>

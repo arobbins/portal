@@ -6,7 +6,9 @@ use topcoat::{
 };
 
 use crate::components::button::{ButtonType, button};
-use crate::components::form::{Autocomplete, FormVariant, InputType, form, form_error, form_field};
+use crate::components::form::{
+    Autocomplete, FormVariant, InputType, form, form_actions, form_error, form_field,
+};
 use crate::user::password::PasswordProblem;
 
 #[component]
@@ -45,10 +47,12 @@ pub async fn new_password_form(
             if let Some(problem) = problem {
                 form_error((problem.message()))
             }
-            button(
-                button_type: ButtonType::Submit,
-                busy: $(is_submitting.get()),
-                (submit_label)
+            form_actions(
+                button(
+                    button_type: ButtonType::Submit,
+                    busy: $(is_submitting.get()),
+                    (submit_label)
+                )
             )
         )
     })

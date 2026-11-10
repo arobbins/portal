@@ -1,7 +1,8 @@
 use serde::Deserialize;
 use topcoat::{
     Result,
-    context::{Cx, try_request_context},
+    context::{Cx, try_context},
+    metadata::Metadata,
     router::{
         Body, Method, StatusCode,
         content::Form,
@@ -14,8 +15,11 @@ use topcoat::{
     view::{View, attributes, view},
 };
 
+use crate::app::page_title;
 use crate::components::button::{ButtonType, button};
-use crate::components::form::{Autocomplete, FormVariant, InputType, form, form_error, form_field};
+use crate::components::form::{
+    Autocomplete, FormVariant, InputType, form, form_actions, form_error, form_field,
+};
 use crate::flash::{Flash, flash_toasts, set_flash, take_flash, toast_name};
 use crate::layout::page_heading::page_heading;
 use crate::user::auth::redirect_signed_in_users;
@@ -81,12 +85,12 @@ struct RegisterFailed {
     problem: RegisterProblem,
 }
 
-#[page("/register")]
+#[page("/register", with(Metadata::new().title(page_title("Register"))))]
 pub async fn register_page(cx: &Cx) -> Result<impl View> {
     redirect_signed_in_users(cx)?;
 
     let flash = take_flash(cx, FLASHES).await?;
-    let failed = try_request_context::<RegisterFailed>(cx);
+    let failed = try_context::<RegisterFailed>(cx);
     let name = failed.map(|failed| failed.name.clone());
     let email = failed.map(|failed| failed.email.clone());
     let problem = failed.map(|failed| failed.problem);
@@ -138,10 +142,12 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
                 if let Some(problem) = problem {
                     form_error((problem.message()))
                 }
-                button(
-                    button_type: ButtonType::Submit,
-                    busy: $(is_submitting.get()),
-                    "Register account"
+                form_actions(
+                    button(
+                        button_type: ButtonType::Submit,
+                        busy: $(is_submitting.get()),
+                        "Register account"
+                    )
                 )
             )
         </section>

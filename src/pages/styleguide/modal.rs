@@ -1,16 +1,17 @@
 use topcoat::{
     Result,
+    context::Cx,
     view::{View, attributes, component, view},
 };
 
 use super::forms::example_form_fields;
 use super::styleguide_section;
 use crate::components::button::{ButtonType, button};
-use crate::components::form::form;
+use crate::components::form::{form, form_actions};
 use crate::components::modal::modal;
 
 #[component]
-pub async fn modal_section() -> Result<impl View> {
+pub async fn modal_section(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         styleguide_section(
             title: "Modal",
@@ -23,7 +24,7 @@ pub async fn modal_section() -> Result<impl View> {
                 heading: "Update profile",
                 form(
                     example_form_fields(id_prefix: "styleguide-modal-form")
-                    button(button_type: ButtonType::Submit, "Submit")
+                    form_actions(button(button_type: ButtonType::Submit, "Submit"))
                 )
             )
         )

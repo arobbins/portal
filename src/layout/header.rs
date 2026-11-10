@@ -1,19 +1,32 @@
 use topcoat::{
     Result,
-    view::{View, component, view},
+    context::Cx,
+    view::{View, attributes, component, view},
 };
 
 use super::{logo::logo, nav::nav};
+use crate::components::button::{ButtonSize, ButtonVariant, button};
+use crate::components::icon::{IconName, icon};
 use crate::components::theme_switcher::theme_switcher;
 
+const MENU_ID: &str = "site-menu";
+
 #[component]
-pub async fn header() -> Result<impl View> {
+pub async fn header(cx: &Cx) -> Result<impl View> {
     Ok(view! {
-        <header class="l-contain l-flex header">
-            <div class="header__logo l-flex l-flex-center-col l-flex-1">logo()</div>
-            <div class="header__nav">nav()</div>
-            <div class="header__theme l-flex l-flex-center-col">
-                theme_switcher(compact: true)
+        <header class="l-contain header">
+            <div class="header__logo">logo()</div>
+            <div class="header__menu-toggle">
+                button(
+                    variant: ButtonVariant::Secondary,
+                    size: ButtonSize::Sm,
+                    attrs: attributes! { popovertarget=(MENU_ID) aria-label="Menu" },
+                    icon(name: IconName::Menu)
+                )
+            </div>
+            <div class="header__menu" id=(MENU_ID) popover="">
+                nav()
+                <div class="header__theme">theme_switcher(compact: true)</div>
             </div>
         </header>
     })

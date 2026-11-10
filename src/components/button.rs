@@ -1,5 +1,6 @@
 use topcoat::{
     Result,
+    context::Cx,
     runtime::Expr,
     view::{Attributes, Child, View, component, view},
 };
@@ -59,6 +60,7 @@ impl ButtonType {
 
 #[component]
 pub async fn button(
+    cx: &Cx,
     #[default] variant: ButtonVariant,
     #[default] size: ButtonSize,
     #[default] button_type: ButtonType,

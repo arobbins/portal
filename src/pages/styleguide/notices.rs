@@ -1,5 +1,6 @@
 use topcoat::{
     Result,
+    context::Cx,
     view::{View, component, view},
 };
 
@@ -7,7 +8,7 @@ use super::styleguide_section;
 use crate::components::notice::{NoticeKind, notice};
 
 #[component]
-pub async fn notices_section() -> Result<impl View> {
+pub async fn notices_section(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         styleguide_section(
             title: "Notices",

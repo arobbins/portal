@@ -71,6 +71,10 @@
   --control-font-size: 16px;
   --control-line-height: 1.25;
   --control-padding-block: 0.6em;
+  --form-gap: 1.4em;
+  --form-label-gap: 0.4em;
+  --form-choice-gap: 0.55em;
+  --form-column-gap: 1em;
 
   --spacing-fixed-m: 20px;
   --border-radius: 5px;

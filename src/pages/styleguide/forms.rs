@@ -1,13 +1,14 @@
 use topcoat::{
     Result,
+    context::Cx,
     view::{View, component, view},
 };
 
 use super::styleguide_section;
 use crate::components::button::{ButtonType, button};
 use crate::components::form::{
-    Choice, InputType, checkbox, checkbox_group, form, form_col, form_error, form_field, form_row,
-    radio_group, select_field, textarea_field,
+    Choice, InputType, checkbox, checkbox_group, form, form_actions, form_col, form_error,
+    form_field, form_row, radio_group, select_field, textarea_field,
 };
 
 const PLANS: &[Choice<'static>] = &[
@@ -52,7 +53,7 @@ const NOTIFICATIONS: &[Choice<'static>] = &[
 ];
 
 #[component]
-pub async fn example_form_fields(id_prefix: &str) -> Result<impl View> {
+pub async fn example_form_fields(cx: &Cx, id_prefix: &str) -> Result<impl View> {
     let first_name_id = format!("{id_prefix}-first-name");
     let email_id = format!("{id_prefix}-email");
     let password_id = format!("{id_prefix}-password");
@@ -100,7 +101,7 @@ pub async fn example_form_fields(id_prefix: &str) -> Result<impl View> {
 }
 
 #[component]
-pub async fn forms_section() -> Result<impl View> {
+pub async fn forms_section(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         styleguide_section(
             title: "Forms",
@@ -138,7 +139,7 @@ pub async fn forms_section() -> Result<impl View> {
                     id: "styleguide-terms",
                     name: "terms"
                 )
-                button(button_type: ButtonType::Submit, "Submit")
+                form_actions(button(button_type: ButtonType::Submit, "Submit"))
             )
             <h3>"Error state"</h3>
             form(
@@ -151,7 +152,7 @@ pub async fn forms_section() -> Result<impl View> {
                     invalid: true
                 )
                 form_error("Please enter a valid email address.")
-                button(button_type: ButtonType::Submit, "Submit")
+                form_actions(button(button_type: ButtonType::Submit, "Submit"))
             )
         )
     })

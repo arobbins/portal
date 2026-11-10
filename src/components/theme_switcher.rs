@@ -80,6 +80,7 @@ pub struct ThemeInput {
 
 #[route(POST "/theme")]
 pub async fn set_theme(
+    cx: &Cx,
     Form(input): Form<ThemeInput>,
 ) -> Result<([(HeaderName, String); 1], SeeOther)> {
     let theme = Theme::from_slug(&input.theme).ok_or_else(|| bad_request("Unknown theme."))?;

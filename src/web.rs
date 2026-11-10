@@ -19,7 +19,7 @@ use chrono::Datelike;
 use sqlx::PgPool;
 use topcoat::{
     Error, Result,
-    context::{Cx, app_context},
+    context::{Cx, context},
     router::{RemoteAddr, request},
 };
 use tower_sessions::Session;
@@ -47,11 +47,11 @@ pub fn session(cx: &Cx) -> Result<Session> {
 }
 
 pub fn db(cx: &Cx) -> &PgPool {
-    app_context::<PgPool>(cx)
+    context::<PgPool>(cx)
 }
 
 pub fn config(cx: &Cx) -> &Config {
-    app_context::<Config>(cx)
+    context::<Config>(cx)
 }
 
 pub fn mailer(cx: &Cx) -> &Mailer {
@@ -63,7 +63,7 @@ pub fn app_url(cx: &Cx, path: &str) -> String {
 }
 
 pub fn rate_limits(cx: &Cx) -> &RateLimits {
-    app_context::<Arc<RateLimits>>(cx)
+    context::<Arc<RateLimits>>(cx)
 }
 
 pub async fn attach_remote_addr(mut req: Request, next: Next) -> Response {

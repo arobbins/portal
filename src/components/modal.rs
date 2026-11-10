@@ -1,5 +1,6 @@
 use topcoat::{
     Result,
+    context::Cx,
     view::{Child, View, component, view},
 };
 
@@ -24,6 +25,7 @@ impl ClosedBy {
 
 #[component]
 pub async fn modal(
+    cx: &Cx,
     id: &str,
     heading: &str,
     #[default] closed_by: ClosedBy,

@@ -1,5 +1,6 @@
 use topcoat::{
     Result,
+    context::Cx,
     router::href,
     runtime::Signal,
     view::{View, component, view},
@@ -10,7 +11,11 @@ use crate::components::icon::{IconName, icon};
 use crate::user::model::User;
 
 #[component]
-pub async fn profile_menu(user: &User, display_name: &Signal<String>) -> Result<impl View> {
+pub async fn profile_menu(
+    cx: &Cx,
+    user: &User,
+    display_name: &Signal<String>,
+) -> Result<impl View> {
     Ok(view! {
         <button popovertarget="account-menu" class="account__profile-dropdown l-flex">
             match &user.photo {

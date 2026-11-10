@@ -1,5 +1,6 @@
 use topcoat::{
     Result,
+    context::Cx,
     runtime::{Event, Expr, Signal},
     view::{Attributes, Child, View, class, component, view},
 };
@@ -92,6 +93,7 @@ fn error_link(invalid: bool) -> Option<&'static str> {
 
 #[component]
 pub async fn form(
+    cx: &Cx,
     #[default] variant: FormVariant,
     #[default] submitting: Option<&Signal<bool>>,
     #[default] mut attrs: Attributes,
@@ -120,6 +122,7 @@ pub async fn form(
 
 #[component]
 pub async fn form_error(
+    cx: &Cx,
     #[into]
     #[default(false.into())]
     hidden: Expr<bool>,
@@ -140,17 +143,26 @@ pub async fn form_error(
 }
 
 #[component]
-pub async fn form_group(#[default] child: Child<'_>) -> Result<impl View> {
+pub async fn form_actions(cx: &Cx, #[default] child: Child<'_>) -> Result<impl View> {
+    Ok(view! { <div class="a-form-actions">(child)</div> })
+}
+
+#[component]
+pub async fn form_group(cx: &Cx, #[default] child: Child<'_>) -> Result<impl View> {
     Ok(view! { <div class="a-form-group">(child)</div> })
 }
 
 #[component]
-pub async fn form_row(#[default] child: Child<'_>) -> Result<impl View> {
+pub async fn form_row(cx: &Cx, #[default] child: Child<'_>) -> Result<impl View> {
     Ok(view! { <div class="a-form-row">(child)</div> })
 }
 
 #[component]
-pub async fn form_col(#[default] half: bool, #[default] child: Child<'_>) -> Result<impl View> {
+pub async fn form_col(
+    cx: &Cx,
+    #[default] half: bool,
+    #[default] child: Child<'_>,
+) -> Result<impl View> {
     let class = if half {
         "a-form-col a-form-col--half"
     } else {
@@ -161,12 +173,13 @@ pub async fn form_col(#[default] half: bool, #[default] child: Child<'_>) -> Res
 }
 
 #[component]
-pub async fn form_label(for_id: &str, #[default] child: Child<'_>) -> Result<impl View> {
+pub async fn form_label(cx: &Cx, for_id: &str, #[default] child: Child<'_>) -> Result<impl View> {
     Ok(view! { <label class="a-form-label" for=(for_id)>(child)</label> })
 }
 
 #[component]
 pub async fn form_input(
+    cx: &Cx,
     id: &str,
     name: &str,
     #[default] input_type: InputType,
@@ -196,6 +209,7 @@ pub async fn form_input(
 
 #[component]
 pub async fn form_field(
+    cx: &Cx,
     label: &str,
     id: &str,
     name: &str,
@@ -227,6 +241,7 @@ pub async fn form_field(
 
 #[component]
 pub async fn textarea_field(
+    cx: &Cx,
     label: &str,
     id: &str,
     name: &str,
@@ -259,6 +274,7 @@ pub async fn textarea_field(
 
 #[component]
 pub async fn select_field(
+    cx: &Cx,
     label: &str,
     id: &str,
     name: &str,
@@ -306,6 +322,7 @@ pub async fn select_field(
 
 #[component]
 async fn choice_group(
+    cx: &Cx,
     kind: ChoiceKind,
     legend: &str,
     id: &str,
@@ -349,6 +366,7 @@ async fn choice_group(
 
 #[component]
 pub async fn radio_group(
+    cx: &Cx,
     legend: &str,
     id: &str,
     name: &str,
@@ -373,6 +391,7 @@ pub async fn radio_group(
 
 #[component]
 pub async fn checkbox_group(
+    cx: &Cx,
     legend: &str,
     id: &str,
     name: &str,
@@ -394,6 +413,7 @@ pub async fn checkbox_group(
 
 #[component]
 pub async fn checkbox(
+    cx: &Cx,
     label: &str,
     id: &str,
     name: &str,

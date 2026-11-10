@@ -228,3 +228,41 @@ body[class*="page-account"] .page-heading {
 .account__menu .nav__list .nav__link svg {
   margin-right: 10px;
 }
+
+.account__layout {
+  display: flex;
+  flex: 1;
+}
+
+@media (max-width: 760px) {
+  .account__layout {
+    flex-direction: column;
+  }
+
+  .account__sub-nav {
+    min-width: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border-lines);
+  }
+
+  .account__nav-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .account__nav-links,
+  .account__nav-external {
+    display: none;
+  }
+
+  .account__nav-list .nav__list-item-group {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .account__content {
+    padding: 24px 16px;
+  }
+}

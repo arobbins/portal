@@ -7,7 +7,7 @@ use topcoat::{
 use crate::web::globals;
 
 #[component]
-async fn nav_item(href: &str, label: &str) -> Result<impl View> {
+async fn nav_item(cx: &Cx, href: &str, label: &str) -> Result<impl View> {
     Ok(view! {
         <li class="nav__list-item"><a href=(href) class="nav__link">(label)</a></li>
     })
@@ -18,8 +18,8 @@ pub async fn nav(cx: &Cx) -> Result<impl View> {
     let is_signed_in = globals(cx).current_user.is_some();
 
     Ok(view! {
-        <nav class="l-contain l-flex nav">
-            <ul class="nav__list l-flex">
+        <nav class="nav nav--site" aria-label="Main">
+            <ul class="nav__list nav__list--site">
                 nav_item(href: "/", label: "Home")
                 nav_item(href: "/about", label: "About")
                 nav_item(href: "/webtransport", label: "WebTransport")

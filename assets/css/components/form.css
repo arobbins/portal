@@ -18,11 +18,11 @@
 .a-form-group {
   display: flex;
   flex-direction: column;
-  margin-bottom: 1.4em;
+  margin-bottom: var(--form-gap);
 }
 
 .a-form-fieldset {
-  gap: 0.55em;
+  gap: var(--form-choice-gap);
   min-inline-size: 0;
   margin-inline: 0;
   padding: 0;
@@ -32,14 +32,10 @@
 .a-form-label,
 .a-form-legend {
   display: block;
-  margin-bottom: 0.4em;
+  margin-bottom: var(--form-label-gap);
   padding: 0;
   font-family: var(--font-body);
   font-size: var(--control-font-size);
-}
-
-.a-form-legend {
-  margin-bottom: 0.15em;
 }
 
 .a-form-input {
@@ -132,7 +128,7 @@
 }
 
 .a-form-error {
-  margin-bottom: 1.4em;
+  margin-bottom: var(--form-gap);
 }
 
 .a-form-error--is-hidden {
@@ -141,7 +137,14 @@
 
 .a-form-row {
   display: flex;
-  gap: 1em;
+  gap: var(--form-column-gap);
+}
+
+.a-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--form-column-gap);
 }
 
 .a-form-col {

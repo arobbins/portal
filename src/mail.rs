@@ -1,8 +1,11 @@
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use reqwest::header::ACCEPT;
 use serde::Serialize;
+
+static NEXT_MAIL_FILE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Serialize)]
 pub struct Email {
@@ -49,12 +52,13 @@ impl Mailer {
                     .duration_since(UNIX_EPOCH)
                     .map_err(|e| e.to_string())?
                     .as_nanos();
+                let sequence = NEXT_MAIL_FILE.fetch_add(1, Ordering::Relaxed);
                 let json = serde_json::to_vec_pretty(email).map_err(|e| e.to_string())?;
 
                 tokio::fs::create_dir_all(dir)
                     .await
                     .map_err(|e| e.to_string())?;
-                tokio::fs::write(dir.join(format!("{nanos}.json")), json)
+                tokio::fs::write(dir.join(format!("{nanos}-{sequence:08}.json")), json)
                     .await
                     .map_err(|e| e.to_string())
             }

@@ -16,6 +16,7 @@ pub enum IconName {
     Info,
     Loading,
     Logout,
+    Menu,
     Monitor,
     Moon,
     Pinwheel,
@@ -37,6 +38,7 @@ impl IconName {
             Self::ExternalLink => include_str!("../../assets/icons/external-link.svg"),
             Self::Info => include_str!("../../assets/icons/info.svg"),
             Self::Loading => include_str!("../../assets/icons/loading.svg"),
+            Self::Menu => include_str!("../../assets/icons/menu.svg"),
             Self::Logout => include_str!("../../assets/icons/logout.svg"),
             Self::Monitor => include_str!("../../assets/icons/monitor.svg"),
             Self::Moon => include_str!("../../assets/icons/moon.svg"),
@@ -57,6 +59,6 @@ impl NodeViewParts for IconName {
 }
 
 #[component]
-pub async fn icon(name: IconName) -> Result<impl View> {
+pub async fn icon(cx: &Cx, name: IconName) -> Result<impl View> {
     Ok(view! { <span class="a-icon">(name)</span> })
 }

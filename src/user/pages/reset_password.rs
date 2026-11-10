@@ -2,7 +2,8 @@ use serde::Deserialize;
 use sqlx::PgPool;
 use topcoat::{
     Error, Result,
-    context::{Cx, try_request_context},
+    context::{Cx, try_context},
+    metadata::Metadata,
     router::{
         Body, Method, StatusCode,
         content::Form,
@@ -18,8 +19,11 @@ use topcoat::{
 use super::expired_link::expired_link;
 use super::new_password_form::new_password_form;
 use super::verify_email::issue_verification;
+use crate::app::page_title;
 use crate::components::button::{ButtonType, button};
-use crate::components::form::{Autocomplete, FormVariant, InputType, form, form_error, form_field};
+use crate::components::form::{
+    Autocomplete, FormVariant, InputType, form, form_actions, form_error, form_field,
+};
 use crate::config::Config;
 use crate::flash::{Flash, flash_toasts, set_flash, take_flash, toast_name};
 use crate::layout::page_heading::page_heading;
@@ -73,12 +77,12 @@ struct ResetRequestFailed {
     problem: ResetRequestProblem,
 }
 
-#[page("/reset-password")]
+#[page("/reset-password", with(Metadata::new().title(page_title("Reset password"))))]
 pub async fn reset_password_page(cx: &Cx) -> Result<impl View> {
     redirect_signed_in_users(cx)?;
 
     let flash = take_flash(cx, FLASHES).await?;
-    let failed = try_request_context::<ResetRequestFailed>(cx);
+    let failed = try_context::<ResetRequestFailed>(cx);
     let email = failed.map(|failed| failed.email.clone());
     let problem = failed.map(|failed| failed.problem);
     let is_submitting = signal(cx, || false);
@@ -112,10 +116,12 @@ pub async fn reset_password_page(cx: &Cx) -> Result<impl View> {
                 if let Some(problem) = problem {
                     form_error((problem.message()))
                 }
-                button(
-                    button_type: ButtonType::Submit,
-                    busy: $(is_submitting.get()),
-                    "Send reset link"
+                form_actions(
+                    button(
+                        button_type: ButtonType::Submit,
+                        busy: $(is_submitting.get()),
+                        "Send reset link"
+                    )
                 )
             )
             <p><a href="/login">"Back to login"</a></p>
@@ -203,9 +209,12 @@ struct NewPasswordFailed {
     problem: PasswordProblem,
 }
 
-#[page("/reset-password/{token}")]
+#[page(
+    "/reset-password/{token}",
+    with(Metadata::new().title(page_title("Choose a new password")))
+)]
 pub async fn choose_password_page(cx: &Cx) -> Result<impl View> {
-    let token_hash = get_token_hash_from_token_string(path_param::<Token>(cx));
+    let token_hash = get_token_hash_from_token_string(token(cx));
     let is_valid = query_find_valid_user_token(PURPOSE, &token_hash, db(cx))
         .await?
         .is_some();
@@ -226,7 +235,7 @@ pub async fn choose_password_page(cx: &Cx) -> Result<impl View> {
         .boxed());
     }
 
-    let problem = try_request_context::<NewPasswordFailed>(cx).map(|failed| failed.problem);
+    let problem = try_context::<NewPasswordFailed>(cx).map(|failed| failed.problem);
 
     Ok(view! {
         <section class="l-contain l-skinny">
@@ -255,7 +264,7 @@ pub async fn choose_password_submit(
         return Err(too_many_requests(RETRY_AFTER_SECS).into());
     }
 
-    let token_hash = get_token_hash_from_token_string(path_param::<Token>(cx));
+    let token_hash = get_token_hash_from_token_string(token(cx));
     if query_find_valid_user_token(PURPOSE, &token_hash, db(cx))
         .await?
         .is_none()

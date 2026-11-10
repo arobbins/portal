@@ -31,3 +31,15 @@
 .nav__link-external svg {
   color: var(--color-text-muted);
 }
+
+.nav__list--site {
+  display: flex;
+}
+
+@media (max-width: 760px) {
+  .nav__list--site {
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+  }
+}

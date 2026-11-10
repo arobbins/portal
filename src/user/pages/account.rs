@@ -1,6 +1,7 @@
 use topcoat::{
     Result,
     context::Cx,
+    metadata::Metadata,
     router::{error::not_found, page, path_param},
     runtime::signal,
     view::{View, component, view},
@@ -10,6 +11,7 @@ use super::account_nav::account_nav;
 use super::account_placeholder::account_placeholder;
 use super::account_profile::account_profile;
 use super::profile_menu::profile_menu;
+use crate::app::page_title;
 use crate::components::theme_switcher::theme_switcher;
 use crate::user::auth::require_user;
 use crate::user::model::User;
@@ -61,17 +63,28 @@ impl AccountTab {
     }
 }
 
-#[page("/account")]
+#[page("/account", with(Metadata::new().title(page_title("Profile"))))]
 pub async fn account_page(cx: &Cx) -> Result<impl View> {
     let user = require_user(cx)?;
 
     Ok(view! { account_layout(user: user.as_ref(), tab: AccountTab::Profile) })
 }
 
-#[page("/account/{tab}")]
+#[page(
+    "/account/{tab}",
+    with(Metadata::from_fn(
+        async |cx| {
+            let title = AccountTab::from_slug(tab(cx)).map_or(
+                "Account",
+                AccountTab::heading,
+            );
+            Ok(Metadata::new().title(page_title(title)))
+        },
+    ))
+)]
 pub async fn account_tab_page(cx: &Cx) -> Result<impl View> {
     let user = require_user(cx)?;
-    let Some(tab) = AccountTab::from_slug(path_param::<Tab>(cx)) else {
+    let Some(tab) = AccountTab::from_slug(tab(cx)) else {
         return Err(not_found().into());
     };
 
@@ -84,7 +97,7 @@ async fn account_layout(cx: &Cx, user: &User, tab: AccountTab) -> Result<impl Vi
 
     Ok(view! {
         <section class="account">
-            <div class="l-flex l-flex-1">
+            <div class="account__layout">
                 <nav class="account__sub-nav nav">
                     <div
                         class="l-flex l-flex-space-between l-flex-align-items-center account__header"

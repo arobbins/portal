@@ -51,7 +51,11 @@ pub fn toast_name(flash: Option<Flash>) -> &'static str {
 }
 
 #[component]
-pub async fn flash_toasts(toast: &Signal<String>, flashes: &'static [Flash]) -> Result<impl View> {
+pub async fn flash_toasts(
+    cx: &Cx,
+    toast: &Signal<String>,
+    flashes: &'static [Flash],
+) -> Result<impl View> {
     Ok(view! {
         #[key(flash.name())]
         for flash in flashes {

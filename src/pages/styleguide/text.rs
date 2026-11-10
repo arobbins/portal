@@ -1,12 +1,13 @@
 use topcoat::{
     Result,
+    context::Cx,
     view::{View, component, view},
 };
 
 use super::styleguide_section;
 
 #[component]
-pub async fn text_section() -> Result<impl View> {
+pub async fn text_section(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         styleguide_section(
             title: "Text, lists, and links (h2)",
