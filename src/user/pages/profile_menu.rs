@@ -11,14 +11,12 @@ use crate::user::model::User;
 
 #[component]
 pub async fn profile_menu(user: &User, display_name: &Signal<String>) -> Result<impl View> {
-    let photo_alt = format!("Profile photo of {}", user.name);
-
     Ok(view! {
         <button popovertarget="account-menu" class="account__profile-dropdown l-flex">
             match &user.photo {
                 Some(photo) => <img
                     src=(photo)
-                    alt=(photo_alt)
+                    alt=""
                     class="account__profile-dropdown-photo"
                 >,
                 None => {

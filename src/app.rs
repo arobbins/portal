@@ -10,32 +10,29 @@ use topcoat::{
     view::{View, error_boundary, view},
 };
 
+use crate::config::Config;
 use crate::layout::{footer::footer, header::header};
-use crate::mail::Mailer;
 use crate::rate_limit::RateLimits;
 
 use crate::pages::not_found::not_found_page;
 use crate::web::globals;
-use std::env;
 use std::sync::Arc;
 use topcoat::router::TrustedProxies;
 
 pub fn router(
     db: PgPool,
-    mailer: Mailer,
+    config: Config,
     rate_limits: Arc<RateLimits>,
     assets: AssetBundle,
 ) -> Router {
+    let trusted_proxy_hops = config.trusted_proxy_hops;
     let mut builder = Router::builder()
         .discover()
         .app_context(db)
-        .app_context(mailer)
+        .app_context(config)
         .app_context(rate_limits);
 
-    if let Some(hops) = env::var("TRUSTED_PROXY_HOPS")
-        .ok()
-        .and_then(|hops| hops.parse::<usize>().ok())
-    {
+    if let Some(hops) = trusted_proxy_hops {
         builder = builder.trusted_proxies(TrustedProxies::new().nearest(hops));
     }
 

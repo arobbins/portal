@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::mail::Mailer;
 use crate::rate_limit::RateLimits;
 use crate::theme::Theme;
@@ -10,7 +11,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::{ConnectInfo, Request, State},
-    http::{StatusCode, Uri},
+    http::{HeaderValue, StatusCode, Uri, header::CACHE_CONTROL},
     middleware::Next,
     response::{IntoResponse, Response},
 };
@@ -49,14 +50,16 @@ pub fn db(cx: &Cx) -> &PgPool {
     app_context::<PgPool>(cx)
 }
 
-pub fn mailer(cx: &Cx) -> &Mailer {
-    app_context::<Mailer>(cx)
+pub fn config(cx: &Cx) -> &Config {
+    app_context::<Config>(cx)
 }
 
-pub fn app_url(path: &str) -> Result<String> {
-    let base_url = std::env::var("APP_BASE_URL")
-        .map_err(|e| Error::from(e).context("APP_BASE_URL is not set"))?;
-    Ok(format!("{base_url}{path}"))
+pub fn mailer(cx: &Cx) -> &Mailer {
+    &config(cx).mailer
+}
+
+pub fn app_url(cx: &Cx, path: &str) -> String {
+    config(cx).url(path)
 }
 
 pub fn rate_limits(cx: &Cx) -> &RateLimits {
@@ -89,6 +92,7 @@ pub async fn inject_globals(
     let current_path = uri.path().trim_start_matches('/').to_string();
 
     let theme = Theme::from_headers(req.headers());
+    let is_signed_in = current_user.is_some();
 
     req.extensions_mut().insert(GlobalState {
         year: chrono::Local::now().year(),
@@ -97,5 +101,11 @@ pub async fn inject_globals(
         theme,
     });
 
-    next.run(req).await
+    let mut response = next.run(req).await;
+    if is_signed_in {
+        response
+            .headers_mut()
+            .insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    }
+    response
 }

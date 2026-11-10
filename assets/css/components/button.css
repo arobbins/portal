@@ -71,7 +71,6 @@
 
   &:hover {
     cursor: not-allowed;
-    background-color: var(--color-control-bg);
   }
 
   &:active {

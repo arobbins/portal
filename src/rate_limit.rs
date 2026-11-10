@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::env;
 use std::hash::Hash;
 use std::net::{IpAddr, Ipv4Addr};
 use std::num::NonZeroU32;
@@ -70,15 +69,22 @@ pub enum RateLimitMode {
 }
 
 pub struct RateLimits {
-    logins_by_ip: DefaultKeyedRateLimiter<IpAddr>,
+    password_submissions_by_ip: DefaultKeyedRateLimiter<IpAddr>,
     email_requests_by_ip: DefaultKeyedRateLimiter<IpAddr>,
     emails_by_address: DefaultKeyedRateLimiter<String>,
     failed_logins_by_account_and_ip: FailureWindow<(String, IpAddr)>,
     failed_logins_by_account: FailureWindow<String>,
 }
 
+const MAX_KEY_LENGTH: usize = 254;
+
 fn account_key(email: &str) -> String {
-    email.trim().to_lowercase()
+    email
+        .trim()
+        .chars()
+        .take(MAX_KEY_LENGTH)
+        .collect::<String>()
+        .to_lowercase()
 }
 
 fn quota(refill_every: Duration, burst: u32) -> Quota {
@@ -95,7 +101,10 @@ impl RateLimits {
         };
 
         Self {
-            logins_by_ip: RateLimiter::keyed(quota(Duration::from_secs(6), 10 * scale)),
+            password_submissions_by_ip: RateLimiter::keyed(quota(
+                Duration::from_secs(6),
+                10 * scale,
+            )),
             email_requests_by_ip: RateLimiter::keyed(quota(Duration::from_secs(120), 5 * scale)),
             emails_by_address: RateLimiter::keyed(quota(Duration::from_secs(1200), 3 * scale)),
             failed_logins_by_account_and_ip: FailureWindow::new(Duration::from_secs(15 * 60), 5),
@@ -103,15 +112,8 @@ impl RateLimits {
         }
     }
 
-    pub fn from_env() -> Self {
-        match env::var("RATE_LIMITS").as_deref() {
-            Ok("relaxed") => Self::new(RateLimitMode::Relaxed),
-            _ => Self::new(RateLimitMode::Strict),
-        }
-    }
-
-    pub fn allow_login(&self, ip: Option<IpAddr>) -> bool {
-        self.logins_by_ip
+    pub fn allow_password_submission(&self, ip: Option<IpAddr>) -> bool {
+        self.password_submissions_by_ip
             .check_key(&ip.unwrap_or(UNKNOWN_IP))
             .is_ok()
     }
@@ -152,7 +154,7 @@ impl RateLimits {
     }
 
     pub fn forget_idle_keys(&self) {
-        self.logins_by_ip.retain_recent();
+        self.password_submissions_by_ip.retain_recent();
         self.email_requests_by_ip.retain_recent();
         self.emails_by_address.retain_recent();
         self.failed_logins_by_account_and_ip.forget_idle();
@@ -169,14 +171,14 @@ mod tests {
     }
 
     #[test]
-    fn logins_are_limited_per_ip() {
+    fn password_submissions_are_limited_per_ip() {
         let limits = RateLimits::new(RateLimitMode::Strict);
 
         for _ in 0..10 {
-            assert!(limits.allow_login(ip(1)));
+            assert!(limits.allow_password_submission(ip(1)));
         }
-        assert!(!limits.allow_login(ip(1)));
-        assert!(limits.allow_login(ip(2)));
+        assert!(!limits.allow_password_submission(ip(1)));
+        assert!(limits.allow_password_submission(ip(2)));
     }
 
     #[test]
@@ -255,7 +257,7 @@ mod tests {
         let limits = RateLimits::new(RateLimitMode::Relaxed);
 
         for _ in 0..100 {
-            assert!(limits.allow_login(ip(1)));
+            assert!(limits.allow_password_submission(ip(1)));
             assert!(limits.allow_email_to("victim@example.test"));
         }
     }

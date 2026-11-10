@@ -6,8 +6,7 @@ use topcoat::{
 };
 
 use crate::components::button::{ButtonType, button};
-use crate::components::form::{Autocomplete, InputType, form, form_field};
-use crate::components::notice::{NoticeKind, notice};
+use crate::components::form::{Autocomplete, FormVariant, InputType, form, form_error, form_field};
 use crate::user::password::PasswordProblem;
 
 #[component]
@@ -21,7 +20,8 @@ pub async fn new_password_form(
     Ok(view! {
         form(
             submitting: Some(&is_submitting),
-            attrs: attributes! { class="form form--skinny" method="post" },
+            variant: FormVariant::Page,
+            attrs: attributes! { method="post" },
             form_field(
                 label: "New password",
                 id: "new-password",
@@ -29,7 +29,8 @@ pub async fn new_password_form(
                 name: "password",
                 input_type: InputType::Password,
                 placeholder: Some("At least 8 characters"),
-                required: true
+                required: true,
+                invalid: problem.is_some_and(PasswordProblem::invalid_password)
             )
             form_field(
                 label: "Confirm new password",
@@ -38,17 +39,17 @@ pub async fn new_password_form(
                 name: "confirm_password",
                 input_type: InputType::Password,
                 placeholder: Some("Confirm password"),
-                required: true
+                required: true,
+                invalid: problem.is_some_and(PasswordProblem::invalid_confirmation)
             )
+            if let Some(problem) = problem {
+                form_error((problem.message()))
+            }
             button(
                 button_type: ButtonType::Submit,
                 busy: $(is_submitting.get()),
-                disabled: $(is_submitting.get()),
                 (submit_label)
             )
-            if let Some(problem) = problem {
-                notice(kind: NoticeKind::Error, (problem.message()))
-            }
         )
     })
 }

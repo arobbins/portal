@@ -78,7 +78,7 @@ pub async fn button(
         <button
             type=(button_type.as_str())
             :class=$(if busy { busy_class.clone() } else { class.clone() })
-            :disabled=$(disabled)
+            :disabled=$(if busy { true } else { disabled })
             (attrs)
         >
             (child)

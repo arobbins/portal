@@ -180,3 +180,14 @@ pub async fn query_reset_password(
 
     Ok(user)
 }
+
+pub async fn query_delete_abandoned_signup(user_id: i32, db: &PgPool) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "DELETE FROM users WHERE id = $1 AND password IS NULL AND NOT EXISTS (SELECT 1 FROM user_tokens WHERE user_tokens.user_id = users.id)",
+        user_id,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(())
+}

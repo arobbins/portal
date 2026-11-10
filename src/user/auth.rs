@@ -1,17 +1,39 @@
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use crate::user::model::User;
 use crate::user::queries::query_get_user_by_id;
 use crate::web::globals;
 
-use argon2::{Argon2, PasswordHasher};
-use password_hash::SaltString;
+use argon2::{Argon2, PasswordHasher, PasswordVerifier};
+use password_hash::{PasswordHash, SaltString};
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use topcoat::{Result, context::Cx, router::error::redirect};
 use tower_sessions::Session;
 
-const SESSION_USER_ID: &str = "user_id";
-const SESSION_VERSION: &str = "session_version";
+const SESSION_AUTH: &str = "auth";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+struct SessionAuth {
+    user_id: i32,
+    session_version: i32,
+}
+
+static UNMATCHABLE_HASH: LazyLock<String> = LazyLock::new(|| {
+    hash_password(&crate::user::tokens::generate_token().raw)
+        .expect("argon2 can hash a random password")
+});
+
+pub fn password_matches(password_hash: Option<&str>, password: &str) -> bool {
+    let checked_hash = password_hash.unwrap_or(&UNMATCHABLE_HASH);
+    let matches = PasswordHash::new(checked_hash).is_ok_and(|parsed| {
+        Argon2::default()
+            .verify_password(password.as_bytes(), &parsed)
+            .is_ok()
+    });
+
+    matches && password_hash.is_some()
+}
 
 pub fn hash_password(password: &str) -> Result<String, password_hash::Error> {
     let salt = SaltString::generate(rand::thread_rng());
@@ -24,25 +46,18 @@ pub async fn load_signed_in_user(
     session: &Session,
     db: &PgPool,
 ) -> std::result::Result<Option<Arc<User>>, String> {
-    let user_id: Option<i32> = session
-        .get(SESSION_USER_ID)
-        .await
-        .map_err(|e| e.to_string())?;
+    let auth: Option<SessionAuth> = session.get(SESSION_AUTH).await.map_err(|e| e.to_string())?;
 
-    let Some(user_id) = user_id else {
+    let Some(auth) = auth else {
         return Ok(None);
     };
 
-    let version: Option<i32> = session
-        .get(SESSION_VERSION)
-        .await
-        .map_err(|e| e.to_string())?;
-    let user = query_get_user_by_id(&user_id, db)
+    let user = query_get_user_by_id(&auth.user_id, db)
         .await
         .map_err(|e| e.to_string())?;
 
     match user {
-        Some(user) if Some(user.session_version) == version => Ok(Some(Arc::new(user))),
+        Some(user) if user.session_version == auth.session_version => Ok(Some(Arc::new(user))),
         _ => {
             session.flush().await.map_err(|e| e.to_string())?;
             Ok(None)
@@ -68,9 +83,14 @@ pub fn redirect_signed_in_users(cx: &Cx) -> Result<()> {
 
 pub async fn sign_in(session: &Session, user: &User) -> Result<()> {
     session.cycle_id().await?;
-    session.insert(SESSION_USER_ID, user.id).await?;
     session
-        .insert(SESSION_VERSION, user.session_version)
+        .insert(
+            SESSION_AUTH,
+            SessionAuth {
+                user_id: user.id,
+                session_version: user.session_version,
+            },
+        )
         .await?;
 
     Ok(())
@@ -94,6 +114,16 @@ mod tests {
             .unwrap()
     }
 
+    #[test]
+    fn passwords_match_only_their_own_hash() {
+        let hash = hash_password("correct-password").unwrap();
+
+        assert!(password_matches(Some(&hash), "correct-password"));
+        assert!(!password_matches(Some(&hash), "wrong-password"));
+        assert!(!password_matches(Some("not-a-hash"), "correct-password"));
+        assert!(!password_matches(None, "correct-password"));
+    }
+
     #[sqlx::test]
     async fn a_password_change_signs_out_existing_sessions(db: PgPool) {
         let user = active_user(&db).await;
@@ -111,11 +141,16 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn a_session_from_before_versions_existed_is_signed_out(db: PgPool) {
+    async fn a_session_for_a_deleted_user_is_signed_out(db: PgPool) {
         let user = active_user(&db).await;
         let session = Session::new(None, Arc::new(MemoryStore::default()), None);
-        session.insert(SESSION_USER_ID, user.id).await.unwrap();
+        sign_in(&session, &user).await.unwrap();
+        sqlx::query!("DELETE FROM users WHERE id = $1", user.id)
+            .execute(&db)
+            .await
+            .unwrap();
 
         assert!(load_signed_in_user(&session, &db).await.unwrap().is_none());
+        assert!(session.is_empty().await);
     }
 }

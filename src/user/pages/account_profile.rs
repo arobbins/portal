@@ -13,24 +13,27 @@ use topcoat::{
 };
 
 use crate::components::button::{ButtonSize, ButtonType, button};
-use crate::components::form::{Autocomplete, form, form_field};
+use crate::components::form::{Autocomplete, FORM_ERROR_ID, form, form_error, form_field};
 use crate::components::icon::{IconName, icon};
 use crate::components::modal::modal;
-use crate::components::notice::{NoticeKind, notice};
+use crate::components::notice::NoticeKind;
 use crate::components::toaster::{NO_TOAST, toaster};
-use crate::flash::{Flash, set_flash, take_flash};
+use crate::flash::{Flash, flash_toasts, set_flash, take_flash, toast_name};
 use crate::user::auth::current_user;
 use crate::user::model::User;
+use crate::user::name::{NameProblem, check_name};
 use crate::user::queries::query_update_user_name;
 use crate::web::{db, session};
 
 const PROFILE_URL: &str = "/account/profile";
 const MODAL_ID: &str = "edit-profile";
-const MAX_NAME_LENGTH: usize = 100;
-const SAVED_TOAST: &str = "saved";
-const VERIFIED_TOAST: &str = "verified";
+const FLASHES: &[Flash] = &[
+    Flash::ProfileSaved,
+    Flash::EmailConfirmed,
+    Flash::PasswordReset,
+];
 const ERROR_TOAST: &str = "error";
-const PASSWORD_RESET_TOAST: &str = "password-reset";
+const SESSION_EXPIRED: &str = "Your session has expired. Please log in again.";
 const UNREACHABLE: &str = "We couldn't save your profile. Please try again.";
 
 #[derive(Deserialize)]
@@ -40,7 +43,7 @@ pub struct ProfileInput {
 
 struct ProfileUpdateFailed {
     name: String,
-    message: &'static str,
+    problem: NameProblem,
 }
 
 #[component]
@@ -49,37 +52,25 @@ pub async fn account_profile(
     user: &User,
     display_name: &Signal<String>,
 ) -> Result<impl View> {
-    let flash = take_flash(
-        cx,
-        &[
-            Flash::ProfileSaved,
-            Flash::EmailConfirmed,
-            Flash::PasswordReset,
-        ],
-    )
-    .await?;
+    let flash = take_flash(cx, FLASHES).await?;
     let failed = try_request_context::<ProfileUpdateFailed>(cx);
     let name_value = failed.map_or_else(|| user.name.clone(), |failed| failed.name.clone());
 
+    let field_value = signal(cx, || name_value.clone());
     let draft_name = signal(cx, || name_value.clone());
     let error_message = signal(cx, || {
-        failed.map_or_else(String::new, |failed| failed.message.to_string())
+        failed.map_or_else(String::new, |failed| failed.problem.message().to_string())
     });
     let initial_toast = if failed.is_some() {
         ERROR_TOAST
-    } else if flash == Some(Flash::ProfileSaved) {
-        SAVED_TOAST
-    } else if flash == Some(Flash::EmailConfirmed) {
-        VERIFIED_TOAST
-    } else if flash == Some(Flash::PasswordReset) {
-        PASSWORD_RESET_TOAST
     } else {
-        NO_TOAST
+        toast_name(flash)
     };
     let toast = signal(cx, || initial_toast.to_string());
+    let saved_toast = Flash::ProfileSaved.name().to_string();
+    let modal_id = MODAL_ID;
+    let save_failed: std::result::Result<String, String> = Err(UNREACHABLE.to_string());
     let is_submitting = signal(cx, || false);
-    let error_class = "account__profile-error";
-    let hidden_error_class = "account__profile-error account__profile-error--is-hidden";
 
     Ok(view! {
         <div class="account__sub-page-content">
@@ -95,6 +86,7 @@ pub async fn account_profile(
                             command="show-modal"
                             commandfor=(MODAL_ID)
                             @click=$(|_e: Event| {
+                                field_value.set(display_name.get());
                                 draft_name.set(display_name.get());
                                 error_message.set("".to_owned());
                             })
@@ -126,23 +118,21 @@ pub async fn account_profile(
                             is_submitting.set(true);
                             error_message.set("".to_owned());
                             toast.set(NO_TOAST.to_owned());
-                            let unreachable = UNREACHABLE.to_owned();
-                            let pending = save_profile_name(draft_name.get());
-                            let idle = false;
-                            raw!(
-                                "${pending} = Promise.resolve(${pending}).catch(() => {
-                                ${is_submitting}.set(${idle});
-                                ${error_message}.set(${unreachable});
-                                return new Promise(() => {});
-                            });",
-                                drop((unreachable, idle)),
+                            let _pending = save_profile_name(draft_name.get());
+                            let result = raw!(
+                                "await Promise.resolve(${_pending}).catch(() => ${save_failed})",
+                                save_failed.clone(),
                             );
-                            let result = pending.await;
                             is_submitting.set(false);
                             if result.is_ok() {
                                 display_name.set(result.unwrap());
-                                toast.set(SAVED_TOAST.to_owned());
-                                raw!("document.getElementById('edit-profile').close()", ());
+                                toast.set(saved_toast.clone());
+                                raw!(
+                                    "document.getElementById(String(${modal_id})).close()",
+                                    {
+                                        let _ = modal_id;
+                                    },
+                                );
                             } else {
                                 error_message.set(result.unwrap_err());
                             }
@@ -154,46 +144,29 @@ pub async fn account_profile(
                         autocomplete: Some(Autocomplete::Name),
                         name: "name",
                         required: true,
-                        input_attrs: attributes! {
-                            :value=$(draft_name.get())
+                        attrs: attributes! {
+                            :value=$(field_value.get())
+                            :aria-invalid=$(if error_message.get().is_empty() {
+                                "false"
+                            } else {
+                                "true"
+                            })
+                            aria-describedby=(FORM_ERROR_ID)
                             @input=$(|e: Event| draft_name.set(e.target.value))
                         }
                     )
-                    <div
-                        :class=$(if error_message.get().is_empty() {
-                            hidden_error_class
-                        } else {
-                            error_class
-                        })
-                    >
-                        notice(kind: NoticeKind::Error, $(error_message.get()))
-                    </div>
+                    form_error(
+                        hidden: $(error_message.get().is_empty()),
+                        $(error_message.get())
+                    )
                     button(
                         button_type: ButtonType::Submit,
                         busy: $(is_submitting.get()),
-                        disabled: $(is_submitting.get()),
                         "Save profile"
                     )
                 )
             )
-            toaster(
-                toast: &toast,
-                name: SAVED_TOAST,
-                kind: NoticeKind::Success,
-                "Profile saved."
-            )
-            toaster(
-                toast: &toast,
-                name: VERIFIED_TOAST,
-                kind: NoticeKind::Success,
-                "Your email is confirmed. Welcome!"
-            )
-            toaster(
-                toast: &toast,
-                name: PASSWORD_RESET_TOAST,
-                kind: NoticeKind::Success,
-                "Your password has been reset."
-            )
+            flash_toasts(toast: &toast, flashes: FLASHES)
             toaster(
                 toast: &toast,
                 name: ERROR_TOAST,
@@ -207,12 +180,12 @@ pub async fn account_profile(
 #[procedure]
 async fn save_profile_name(cx: &Cx, name: String) -> Result<Result<String, String>> {
     let Some(user) = current_user(cx) else {
-        return Ok(Err(
-            "Your session has expired. Please log in again.".to_string()
-        ));
+        return Ok(Err(SESSION_EXPIRED.to_string()));
     };
 
-    Ok(update_name(cx, &user, &name).await?.map_err(str::to_string))
+    Ok(update_name(cx, &user, &name)
+        .await?
+        .map_err(|problem| problem.message().to_string()))
 }
 
 #[route(POST "/account/profile/update")]
@@ -226,26 +199,21 @@ pub async fn update_profile(cx: &Cx, Form(input): Form<ProfileInput>) -> Result<
             set_flash(&session(cx)?, Flash::ProfileSaved).await?;
             Ok(see_other(PROFILE_URL))
         }
-        Err(message) => Err(rewrite(PROFILE_URL, Body::empty())
+        Err(problem) => Err(rewrite(PROFILE_URL, Body::empty())
             .method(Method::GET)
             .with(ProfileUpdateFailed {
                 name: input.name,
-                message,
+                problem,
             })
             .into()),
     }
 }
 
-async fn update_name(cx: &Cx, user: &User, name: &str) -> Result<Result<String, &'static str>> {
-    let name = name.trim();
-
-    if name.is_empty() {
-        return Ok(Err("Name is required."));
-    }
-
-    if name.chars().count() > MAX_NAME_LENGTH {
-        return Ok(Err("Name must be 100 characters or fewer."));
-    }
+async fn update_name(cx: &Cx, user: &User, name: &str) -> Result<Result<String, NameProblem>> {
+    let name = match check_name(name) {
+        Ok(name) => name,
+        Err(problem) => return Ok(Err(problem)),
+    };
 
     query_update_user_name(user.id, name, db(cx)).await?;
 

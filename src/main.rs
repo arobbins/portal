@@ -1,6 +1,7 @@
 mod app;
 mod cleanup;
 mod components;
+mod config;
 mod flash;
 mod layout;
 mod mail;
@@ -12,10 +13,14 @@ mod user;
 mod utils;
 mod web;
 
-use crate::mail::Mailer;
+use crate::config::Config;
 use crate::rate_limit::RateLimits;
 use crate::web::{attach_remote_addr, inject_globals};
 
+use axum::http::header::{
+    CONTENT_SECURITY_POLICY, HeaderName, HeaderValue, REFERRER_POLICY, STRICT_TRANSPORT_SECURITY,
+    X_CONTENT_TYPE_OPTIONS, X_FRAME_OPTIONS,
+};
 use axum::{Router, ServiceExt, extract::Request, middleware};
 use listenfd::ListenFd;
 use sqlx::PgPool;
@@ -28,6 +33,7 @@ use topcoat::router::tower::TowerService;
 use tower::Layer;
 use tower_http::normalize_path::NormalizePathLayer;
 use tower_http::services::ServeDir;
+use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 use tower_sessions::cookie::{SameSite, time::Duration};
 use tower_sessions::{Expiry, SessionManagerLayer};
@@ -39,7 +45,7 @@ async fn main() {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                format!("{}=debug,tower_http=debug", env!("CARGO_CRATE_NAME")).into()
+                format!("{}=info,tower_http=info", env!("CARGO_CRATE_NAME")).into()
             }),
         )
         .with(tracing_subscriber::fmt::layer())
@@ -54,13 +60,21 @@ async fn main() {
         return;
     }
 
+    let config = match Config::from_env() {
+        Ok(config) => config,
+        Err(problems) => {
+            eprintln!("Invalid configuration:\n  - {}", problems.join("\n  - "));
+            std::process::exit(1);
+        }
+    };
+
     let db = PgPool::connect(&database_url).await.unwrap();
 
     let session_store = PostgresStore::new(db.clone());
     session_store.migrate().await.unwrap();
 
-    let session_layer = SessionManagerLayer::new(session_store)
-        .with_secure(false)
+    let session_layer = SessionManagerLayer::new(session_store.clone())
+        .with_secure(config.secure_cookies())
         .with_http_only(true)
         .with_same_site(SameSite::Lax)
         .with_expiry(Expiry::OnInactivity(Duration::days(1)));
@@ -68,7 +82,7 @@ async fn main() {
     let assets = AssetBundle::load()
         .expect("missing Topcoat asset bundle: run `topcoat dev` or `topcoat asset bundle`");
 
-    let rate_limits = Arc::new(RateLimits::from_env());
+    let rate_limits = Arc::new(RateLimits::new(config.rate_limit_mode));
     tokio::spawn({
         let rate_limits = rate_limits.clone();
         async move {
@@ -80,9 +94,10 @@ async fn main() {
         }
     });
 
-    cleanup::spawn(db.clone());
+    cleanup::spawn(db.clone(), session_store.clone());
 
-    let app = app(db, Mailer::from_env(), rate_limits, assets).layer(session_layer);
+    let bind_address = config.bind_address.clone();
+    let app = app(db, config, rate_limits, assets).layer(session_layer);
     let app = NormalizePathLayer::trim_trailing_slash().layer(app);
 
     let mut listenfd = ListenFd::from_env();
@@ -92,7 +107,7 @@ async fn main() {
             listener.set_nonblocking(true).unwrap();
             TcpListener::from_std(listener).unwrap()
         }
-        None => TcpListener::bind(bind_address()).await.unwrap(),
+        None => TcpListener::bind(&bind_address).await.unwrap(),
     };
 
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
@@ -105,21 +120,40 @@ async fn main() {
     .await;
 }
 
-fn bind_address() -> String {
-    let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
-    format!("{host}:{port}")
-}
+fn app(db: PgPool, config: Config, rate_limits: Arc<RateLimits>, assets: AssetBundle) -> Router {
+    let https = config.secure_cookies();
+    let pages = app::router(db.clone(), config, rate_limits, assets);
 
-fn app(db: PgPool, mailer: Mailer, rate_limits: Arc<RateLimits>, assets: AssetBundle) -> Router {
-    let pages = app::router(db.clone(), mailer, rate_limits, assets);
-
-    Router::new()
+    let router = Router::new()
         .fallback_service(TowerService::new(pages))
         .layer(middleware::from_fn_with_state(db, inject_globals))
         .nest_service("/assets", ServeDir::new("assets"))
         .layer(middleware::from_fn(attach_remote_addr))
-        .layer(TraceLayer::new_for_http())
+        .layer(security_header(X_FRAME_OPTIONS, "DENY"))
+        .layer(security_header(
+            CONTENT_SECURITY_POLICY,
+            "frame-ancestors 'none'",
+        ))
+        .layer(security_header(X_CONTENT_TYPE_OPTIONS, "nosniff"))
+        .layer(security_header(
+            REFERRER_POLICY,
+            "strict-origin-when-cross-origin",
+        ));
+
+    let router = if https {
+        router.layer(security_header(
+            STRICT_TRANSPORT_SECURITY,
+            "max-age=31536000; includeSubDomains",
+        ))
+    } else {
+        router
+    };
+
+    router.layer(TraceLayer::new_for_http())
+}
+
+fn security_header(name: HeaderName, value: &'static str) -> SetResponseHeaderLayer<HeaderValue> {
+    SetResponseHeaderLayer::if_not_present(name, HeaderValue::from_static(value))
 }
 
 #[cfg(test)]
@@ -144,8 +178,14 @@ mod tests {
 
         let rate_limits = Arc::new(RateLimits::new(RateLimitMode::Strict));
 
-        app(db, Mailer::Log, rate_limits, assets)
-            .layer(SessionManagerLayer::new(MemoryStore::default()))
+        let config = Config::from_lookup(|key| match key {
+            "APP_BASE_URL" => Some("http://localhost".to_string()),
+            "MAIL_TRANSPORT" => Some("log".to_string()),
+            _ => None,
+        })
+        .unwrap();
+
+        app(db, config, rate_limits, assets).layer(SessionManagerLayer::new(MemoryStore::default()))
     }
 
     async fn get_status(path: &str) -> StatusCode {

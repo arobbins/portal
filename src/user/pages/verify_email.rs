@@ -1,19 +1,22 @@
 use serde::Deserialize;
-use sqlx::{Postgres, Transaction};
+use sqlx::PgPool;
 use topcoat::{
     Error, Result,
     context::{Cx, try_request_context},
     router::{
         Body, Method,
         content::Form,
-        error::{SeeOther, rewrite, see_other},
-        page, path_param, request, route,
+        error::{SeeOther, rewrite, see_other, too_many_requests},
+        page, path_param,
+        request::{self, client_ip},
+        route,
     },
     view::{View, ViewExt, view},
 };
 
 use super::expired_link::expired_link;
 use super::new_password_form::new_password_form;
+use crate::config::Config;
 use crate::flash::{Flash, set_flash};
 use crate::layout::page_heading::page_heading;
 use crate::user::auth::{hash_password, sign_in};
@@ -26,30 +29,21 @@ use crate::user::queries::{
 use crate::user::service::register_verification_email;
 use crate::user::tokens::TokenPurpose;
 use crate::utils::get_token_hash_from_token_string;
-use crate::web::{app_url, db, session};
+use crate::web::{db, rate_limits, session};
 
+const RETRY_AFTER_SECS: u64 = 10;
 const PURPOSE: TokenPurpose = TokenPurpose::EmailVerification;
 
 path_param!(token);
 
 pub async fn issue_verification(
-    cx: &Cx,
+    db: &PgPool,
+    config: &Config,
     user_id: i32,
     email: &str,
-) -> Result<std::result::Result<(), String>> {
-    let tx = db(cx).begin().await?;
-    issue_verification_in(cx, tx, user_id, email).await
-}
-
-pub async fn issue_verification_in(
-    cx: &Cx,
-    tx: Transaction<'_, Postgres>,
-    user_id: i32,
-    email: &str,
-) -> Result<std::result::Result<(), String>> {
-    email_user_link(cx, tx, user_id, PURPOSE, |token| {
-        let verify_url = app_url(&format!("/user/verify/{token}"))?;
-        Ok(register_verification_email(email, &verify_url))
+) -> std::result::Result<std::result::Result<(), String>, sqlx::Error> {
+    email_user_link(db, &config.mailer, user_id, PURPOSE, |token| {
+        register_verification_email(email, &config.url(&format!("/user/verify/{token}")))
     })
     .await
 }
@@ -105,12 +99,23 @@ pub struct SetPasswordInput {
 pub async fn set_password_submit(cx: &Cx, Form(input): Form<SetPasswordInput>) -> Result<SeeOther> {
     let back_to_form = || rewrite(request::uri(cx).path(), Body::empty()).method(Method::GET);
 
+    if !rate_limits(cx).allow_password_submission(client_ip(cx)) {
+        return Err(too_many_requests(RETRY_AFTER_SECS).into());
+    }
+
+    let token_hash = get_token_hash_from_token_string(path_param::<Token>(cx));
+    if query_find_valid_user_token(PURPOSE, &token_hash, db(cx))
+        .await?
+        .is_none()
+    {
+        return Err(back_to_form().into());
+    }
+
     if let Err(problem) = check_new_password(&input.password, &input.confirm_password) {
         return Err(back_to_form().with(SetPasswordFailed { problem }).into());
     }
 
     let password_hash = hash_password(&input.password).map_err(|e| Error::msg(e.to_string()))?;
-    let token_hash = get_token_hash_from_token_string(path_param::<Token>(cx));
     let mut tx = db(cx).begin().await?;
 
     let Some(user_id) = query_consume_user_token(PURPOSE, &token_hash, &mut *tx).await? else {

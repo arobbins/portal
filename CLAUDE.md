@@ -22,24 +22,40 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
   (see the styleguide toaster section). Prefer one signal holding *which*
   state you're in over several booleans that must agree: toasts use one
   `toast: Signal<String>` per page holding the visible toast's name (or
-  `NO_TOAST`), and `toaster(toast: &toast, name: SAVED_TOAST, …)` shows itself
-  when it matches, so only one toast can ever be open. Toast names are
-  per-page `const`s, never string literals. Errors inside a `<dialog>` go in
-  the dialog, not a toast (an open modal covers toasts).
+  `NO_TOAST`), and `toaster(toast: &toast, name: …, …)` shows itself when it
+  matches, so only one toast can ever be open. Success toasts are flashes:
+  `flash_toasts(toast: &toast, flashes: FLASHES)` renders one per accepted
+  `Flash` (name + message come from `Flash::name()`/`message()`), and JS can
+  show the same toast with `Flash::X.name()`. Other toast names are per-page
+  `const`s, never literals. Errors inside a `<dialog>` go in the dialog, not
+  a toast (an open modal covers toasts).
 - **Submit busy state**: pass `submitting: Some(&is_submitting)` to `form(…)`
   instead of writing your own `@submit`; it sets the busy state and reloads
   the page if the browser restores it from the back/forward cache (otherwise
-  the button would stay disabled after pressing Back).
+  the button would stay disabled after pressing Back). Give the button
+  `busy: $(is_submitting.get())` only: a busy button is always disabled.
 - **Forms are plain HTML POSTs**: a `#[route(POST ...)]` handler either
   `see_other(...)` redirects on success or `rewrite(...)`s back to the GET page
   with a request-context value carrying the error (see `user/pages/login.rs`).
   They work without JS; `@submit` only adds the busy state.
 - **Success messages after a redirect are session flashes** (`src/flash.rs`):
   `set_flash(&session, Flash::ProfileSaved)` before `see_other(...)`, and the
-  target page calls `take_flash(cx, &[Flash::ProfileSaved])`, which removes it
-  only if it's one the page accepts. Never put message flags in the URL (they
-  reappear on refresh and can be faked). Add a `Flash` variant for new
-  messages.
+  target page calls `take_flash(cx, FLASHES)` (a page `const` listing what it
+  accepts), which removes it only if it's one the page accepts. Never put
+  message flags in the URL (they reappear on refresh and can be faked). Add a
+  `Flash` variant (with its `name()` and `message()`) for new messages.
+- **Failure reasons are enums** with `message()` and, where it matters,
+  `status()` (`LoginProblem`, `RegisterProblem`, `ResetRequestProblem`,
+  `NameProblem`, `PasswordProblem`); render `(problem.status())` and
+  `(problem.message())`, never compare message text. Shared rules live in
+  `user/name.rs` and `user/password.rs`.
+- **Configuration is parsed once** (`src/config.rs`): `Config::from_env()`
+  turns env vars into typed values (`Mailer`, `RateLimitMode`, …) at startup
+  and lists every problem at once; nothing else reads env vars (except
+  `DATABASE_URL`, read in `main.rs` so `webserver seed` needs nothing else).
+  Read it with `config(cx)` / `app_url(cx, path)`. Cookies are `Secure`
+  automatically when `APP_BASE_URL` is `https://`. Settings are listed in
+  `.env.example`.
 - **BEM classes are the styling contract**: components emit stable class names
   (e.g. `a-notice--success`); CSS targets only those, never element structure.
 - **Colors are role-named variables** in `assets/css/variables.css`
@@ -60,8 +76,10 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
 
 - `src/main.rs` — axum server: sessions, db pool, `/assets`, the Topcoat
   fallback, and the `webserver seed` subcommand.
-- `src/mail.rs` — `Mailer` (`postmark` | `log` | `file`, from `MAIL_TRANSPORT`),
-  in Topcoat app context as `mailer(cx)`.
+- `src/config.rs` — `Config` (all settings, parsed and validated at startup),
+  in Topcoat app context as `config(cx)`.
+- `src/mail.rs` — `Mailer` (`postmark` | `log` | `file`), built by `Config`,
+  read with `mailer(cx)`.
 - `src/seed.rs` — `webserver seed`: creates/migrates/resets a `*_test` database
   and inserts the e2e users (refuses any other database name).
 - `src/theme.rs` — `Theme` enum and `theme` cookie parsing.
@@ -82,15 +100,15 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
 - **Registration is email-first**: `/register` takes name + email (+ a hidden
   `website` honeypot) and always redirects to `/register` with the
   `RegistrationSent` flash, whatever the email's state (new → user with
-  `password = NULL` + link, inserted in the same transaction as the token and
-  rolled back if the email fails; awaiting password → fresh link; active →
+  `password = NULL` + link, deleted again if the email fails; awaiting
+  password → fresh link; active →
   "you already have an account" email), so it never
   reveals whether an account exists. The link (`GET /user/verify/{token}`)
   only *shows* the set-password form; `POST` to the same URL consumes the
   token, sets the password, verifies and signs in. GETs never consume tokens
   (email scanners prefetch links). Users without a password can't log in.
-- **Signed-in state**: the session stores only `user_id` and the user's
-  `session_version`; a session whose version no longer matches the user's is
+- **Signed-in state**: the session stores one `SessionAuth { user_id,
+  session_version }` value (never separate keys); a session whose version no longer matches the user's is
   flushed, so **any query that changes a password (or should log out every
   device) must do `session_version = session_version + 1`**. `inject_globals`
   loads the user once per request (skipped for `/assets`) into
@@ -106,10 +124,25 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
   always inserted without a password. `role` / `subscriber_status` are the
   `Role` / `SubscriberStatus` enums (select them with
   `role AS "role: Role"`; the DB has matching `CHECK`s).
-- **Cleanup** (`src/cleanup.rs`, hourly): deletes expired `user_tokens` and
-  sign-ups that never set a password after 7 days and have no live link.
+- **Cleanup** (`src/cleanup.rs`, hourly): deletes expired `user_tokens`,
+  expired sessions, and sign-ups that never set a password after 7 days and
+  have no live link.
+- **Untrusted input limits**: parse emails with `utils::parse_email` (trims,
+  lowercases, rejects >254 chars or no `@`) before they reach rate limiters,
+  queries or the DB; names are capped by `check_name`, passwords by
+  `check_new_password`.
+- **Security headers** (`main.rs`): every response gets `X-Frame-Options:
+  DENY`, `frame-ancestors 'none'`, `nosniff` and a strict referrer policy;
+  HSTS is added when `APP_BASE_URL` is https. `inject_globals` adds
+  `Cache-Control: no-store` to every response for a signed-in user.
+- **Logging** defaults to `info` (debug logs every URL, including link
+  tokens); set `RUST_LOG` to change it.
+- **Checking a password**: always use `password_matches(hash, password)`; pass
+  `None` when there's no usable account so it still does a full argon2 check
+  (against an unmatchable hash) and logins take the same time whether or not
+  the email exists.
 - **Rate limits** (`src/rate_limit.rs`, `governor`, in memory, read with
-  `rate_limits(cx)`): logins 10/min per IP, email requests (sign-ups + password resets) 5 per 10 min per
+  `rate_limits(cx)`): password submissions (login + both set-password forms) 10/min per IP, email requests (sign-ups + password resets) 5 per 10 min per
   IP, and at most 3 emails per hour to any one address. Failed logins are
   counted per account (`FailureWindow`, only wrong email/password counts, a
   successful login clears it): 5 per 15 min per account+IP, 50 per hour per
@@ -124,27 +157,80 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
 - Failure reasons are enums with a `message()` (`LoginProblem`,
   `RegisterProblem`); pick status codes by matching the variant, never by
   comparing message text.
+- **Form controls** (`components/form.rs`): `form_field` (text/email/password),
+  `textarea_field`, `select_field` (optional placeholder option), `radio_group`
+  and `checkbox_group` (a `<fieldset>` + `<legend>`; options are
+  `&[Choice { value, label }]`; option ids are `{id}-{value}`), and a single
+  `checkbox`. Every control takes `id`, `name`, `invalid` and `attrs` (extra
+  attributes for the control itself). Single fields are wrapped in a `<div
+  class="a-form-group">`; only groups use `<fieldset>`.
+- **Form layout**: `form(variant: FormVariant::Page, …)` for a stand-alone
+  page form (narrow, centred), the default `Inline` everywhere else; never
+  pass layout classes as strings. Classes all use the `a-form` prefix.
+- **Form errors**: render the problem with `form_error((problem.message()))`
+  just above the submit button, and pass `invalid: true` to the fields it's
+  about (each failure enum has `invalid_*()` helpers). `form_error` has
+  `role="alert"` and the id `FORM_ERROR_ID`, which invalid fields reference
+  through `aria-describedby`; for JS-driven errors pass
+  `hidden: $(message.is_empty())`.
 - Form fields take typed `autocomplete: Some(Autocomplete::…)` hints (name,
   email, current/new password) for password managers.
 - Emailed links use the `user_tokens` table: one row per token with a
   `purpose`, only the SHA-256 hash stored, single use (consumed with
   `DELETE … RETURNING`), expiry per purpose. Send one with
-  `links::email_user_link(cx, tx, user_id, purpose, |token| email)`: it
-  replaces the user's older links for that purpose and commits only if the
-  email sent. Add a `TokenPurpose` variant for new flows (e.g. email change).
+  `links::email_user_link(db, mailer, user_id, purpose, |token| email)`: it
+  replaces the user's older links for that purpose, commits *before* sending
+  (never hold a DB connection across a network call), and deletes the new
+  link if the email fails. Postmark calls time out after 10 s. Add a `TokenPurpose` variant for new flows (e.g. email change).
   Link pages share `expired_link` (400) and new passwords share
   `new_password_form` + `password::check_new_password`.
 - **Password reset** (`reset_password.rs`): `/reset-password` always answers
   "if an account exists, we've sent a link" (active → 1-hour reset link;
   awaiting password → a fresh sign-up link; unknown → nothing).
-  `GET /reset-password/{token}` only shows the form; `POST` consumes the
+  The email is sent from a background task so the response takes the same
+  time whether or not the account exists.
+  `GET /reset-password/{token}` only shows the form; `POST` (rate-limited,
+  and it checks the link exists *before* running argon2) consumes the
   token, sets the password with `query_reset_password` (bumps
   `session_version`, so other devices are signed out), signs in and shows a
   toast on `/account`.
 - `src/web.rs` — `GlobalState`, `globals(cx)`, `session(cx)`, `db(cx)`,
   `inject_globals` axum middleware.
 
+## State machines
+
+Every piece of state with more than two values is a Rust enum (or one signal
+holding one name), and its transitions live in one place:
+
+| State | Type | Transitions |
+|---|---|---|
+| Account | `AccountStatus` (`AwaitingPassword` → `Active`) | `query_set_password_and_verify_user`; DB `CHECK ((password IS NULL) = (verified_at IS NULL))` |
+| Signed in | `SessionAuth` in the session | `sign_in`; dropped by `load_signed_in_user` when the user or `session_version` changes; `logout` |
+| Emailed link | `user_tokens` row per `TokenPurpose` | `email_user_link` (replaces) → `query_consume_user_token` (once) / expiry → `cleanup` |
+| Flash | `Flash` (one slot) | `set_flash` → `take_flash` on a page that accepts it |
+| Toast | one `Signal<String>` per page | name or `NO_TOAST`; click / animation end → `NO_TOAST` |
+| Notice | one `stage` signal | `shown` → `dismissing` → `dismissed` |
+| Form submit | `submitting` signal | idle → busy on submit → idle on bfcache restore (reload) |
+| Form failure | `*Problem` enums | rendered after `rewrite(…)` |
+| Theme | `Theme` + cookie | `POST /theme` or `window.setTheme` (`assets/js/theme.js`) |
+| Account tab | `AccountTab` (`ALL`, `href()`) | URL → `from_slug`, unknown → 404 |
+| Config | `Config`, `Mailer`, `RateLimitMode` | parsed once at startup |
+
+When adding state, extend one of these or add a row here.
+
 ## Topcoat gotchas
+
+- A procedure call rejects (it doesn't return `Err`) when the request fails
+  or the server errors. Turn that into an `Err` with one `raw!`, using a
+  fallback built in server-side Rust:
+  `let save_failed: std::result::Result<String, String> = Err(…);` before
+  `view!`, then inside the handler
+  `let result = raw!("await Promise.resolve(${_pending}).catch(() => ${save_failed})", save_failed.clone());`
+  (see `account_profile.rs`).
+- Don't bind an input's `:value` to the same signal its `@input` writes: the
+  binding rewrites the field whenever the signal changes. Keep a separate
+  signal for `:value` that only changes when you deliberately reset the field
+  (`field_value` vs `draft_name` in `account_profile.rs`).
 
 - Pages, routes and the layout use explicit paths and are collected by
   `.discover()`; nothing needs registering by hand.
@@ -191,8 +277,10 @@ bodies; never use `leptosfmt`).
 the dev database (sqlx macros check queries against it at compile time). The
 test database is migrated automatically by `webserver seed`.
 
-**Email**: `MAIL_TRANSPORT` = `postmark` (default; needs `POSTMARK_*`), `log`
+**Email**: `MAIL_TRANSPORT` = `postmark` (default; needs
+`POSTMARK_SERVER_TOKEN`, `POSTMARK_BASE_URL`, `POSTMARK_FROM_EMAIL`), `log`
 (prints emails, including links), or `file` (writes JSON to `MAIL_DIR`).
+Unknown values stop the server at startup.
 
 **Behavior tests** (Playwright, `e2e/`, Chromium + Firefox + WebKit):
 `cd e2e && npm test` (headless), `npm run ui` (dashboard), `npm run report`.
@@ -207,5 +295,8 @@ the dev server or dev data. Conventions:
   `support/mail.ts` (`waitForEmails`, `verificationLink`), `support/users.ts`
   (seeded users — keep in sync with `src/seed.rs`). Tests that change data use
   their own `uniqueEmail` user, never the seeded ones.
+- Inside a modal `<dialog>`, submit with `press("Enter")` on a field, not a
+  click on the submit button: Firefox under Playwright sometimes drops the
+  first click after typing in a modal (the click never reaches the page).
 - Find elements by role/label/text (`getByRole("button", { name: "Show toast" })`),
   not CSS classes; assert visible behavior. One spec file per feature.

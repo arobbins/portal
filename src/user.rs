@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod links;
 pub mod model;
+pub mod name;
 pub mod pages;
 pub mod password;
 pub mod queries;

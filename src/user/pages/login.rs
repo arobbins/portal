@@ -1,5 +1,3 @@
-use argon2::{Argon2, PasswordVerifier};
-use password_hash::PasswordHash;
 use serde::Deserialize;
 use topcoat::{
     Result,
@@ -18,13 +16,12 @@ use topcoat::{
 
 use super::reset_password::reset_password_page;
 use crate::components::button::{ButtonType, button};
-use crate::components::form::{Autocomplete, InputType, form, form_field};
-use crate::components::notice::{NoticeKind, notice};
+use crate::components::form::{Autocomplete, FormVariant, InputType, form, form_error, form_field};
 use crate::layout::page_heading::page_heading;
-use crate::user::auth::{redirect_signed_in_users, sign_in};
+use crate::user::auth::{password_matches, redirect_signed_in_users, sign_in};
 use crate::user::model::AccountStatus;
 use crate::user::queries::query_get_user_by_email;
-use crate::utils::normalize_email;
+use crate::utils::parse_email;
 use crate::web::{db, rate_limits, session};
 
 #[derive(Deserialize)]
@@ -40,6 +37,17 @@ enum LoginProblem {
 }
 
 impl LoginProblem {
+    fn invalid_credentials(self) -> bool {
+        self == Self::InvalidCredentials
+    }
+
+    fn status(self) -> StatusCode {
+        match self {
+            Self::TooManyAttempts => StatusCode::TOO_MANY_REQUESTS,
+            _ => StatusCode::OK,
+        }
+    }
+
     fn message(self) -> &'static str {
         match self {
             Self::InvalidCredentials => "Invalid email or password.",
@@ -61,20 +69,18 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
     let email = failed.map(|failed| failed.email.clone());
     let problem = failed.map(|failed| failed.problem);
     let is_submitting = signal(cx, || false);
+    let invalid_credentials = problem.is_some_and(LoginProblem::invalid_credentials);
 
     Ok(view! {
         <section class="l-contain l-skinny">
-            if problem == Some(LoginProblem::TooManyAttempts) {
-                (StatusCode::TOO_MANY_REQUESTS)
+            if let Some(problem) = problem {
+                (problem.status())
             }
             page_heading(text: "Login")
             form(
                 submitting: Some(&is_submitting),
-                attrs: attributes! {
-                    class="form form--skinny"
-                    method="post"
-                    action=(href!(login_submit))
-                },
+                variant: FormVariant::Page,
+                attrs: attributes! { method="post" action=(href!(login_submit)) },
                 form_field(
                     label: "Email",
                     id: "email",
@@ -82,7 +88,8 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
                     name: "email",
                     input_type: InputType::Email,
                     placeholder: Some("Enter email"),
-                    value: email.as_deref()
+                    value: email.as_deref(),
+                    invalid: invalid_credentials
                 )
                 form_field(
                     label: "Password",
@@ -90,22 +97,22 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
                     autocomplete: Some(Autocomplete::CurrentPassword),
                     name: "password",
                     input_type: InputType::Password,
-                    placeholder: Some("Enter password")
+                    placeholder: Some("Enter password"),
+                    invalid: invalid_credentials
                 )
+                if let Some(problem) = problem {
+                    form_error((problem.message()))
+                }
                 <div class="l-flex l-flex-space-between l-flex-align-items-center">
                     button(
                         button_type: ButtonType::Submit,
                         busy: $(is_submitting.get()),
-                        disabled: $(is_submitting.get()),
                         "Login"
                     )
                     <a href=(href!(reset_password_page).resolve(cx))>
                         "Forgot password?"
                     </a>
                 </div>
-                if let Some(problem) = problem {
-                    notice(kind: NoticeKind::Error, (problem.message()))
-                }
             )
         </section>
     })
@@ -116,16 +123,21 @@ pub async fn login_submit(cx: &Cx, Form(input): Form<LoginInput>) -> Result<SeeO
     let limits = rate_limits(cx);
     let ip = client_ip(cx);
 
-    let outcome = if !limits.allow_login(ip) || limits.login_blocked(&input.email, ip) {
-        Err(LoginProblem::TooManyAttempts)
-    } else {
-        attempt_login(cx, &input).await?
+    let email = parse_email(&input.email);
+
+    let outcome = match &email {
+        _ if !limits.allow_password_submission(ip) => Err(LoginProblem::TooManyAttempts),
+        Some(email) if limits.login_blocked(email, ip) => Err(LoginProblem::TooManyAttempts),
+        Some(email) => attempt_login(cx, email, &input.password).await?,
+        None => Err(LoginProblem::InvalidCredentials),
     };
 
-    match outcome {
-        Ok(()) => limits.clear_failed_logins(&input.email, ip),
-        Err(LoginProblem::InvalidCredentials) => limits.record_failed_login(&input.email, ip),
-        Err(_) => {}
+    if let Some(email) = &email {
+        match outcome {
+            Ok(()) => limits.clear_failed_logins(email, ip),
+            Err(LoginProblem::InvalidCredentials) => limits.record_failed_login(email, ip),
+            Err(LoginProblem::TooManyAttempts) => {}
+        }
     }
 
     match outcome {
@@ -140,29 +152,19 @@ pub async fn login_submit(cx: &Cx, Form(input): Form<LoginInput>) -> Result<SeeO
     }
 }
 
-async fn attempt_login(cx: &Cx, input: &LoginInput) -> Result<Result<(), LoginProblem>> {
-    let email = normalize_email(&input.email);
+async fn attempt_login(cx: &Cx, email: &str, password: &str) -> Result<Result<(), LoginProblem>> {
+    let user = query_get_user_by_email(email, db(cx)).await?;
+    let active = user.as_ref().and_then(|user| match user.status() {
+        AccountStatus::Active { password_hash } => Some((user, password_hash)),
+        AccountStatus::AwaitingPassword => None,
+    });
 
-    let Some(user) = query_get_user_by_email(&email, db(cx)).await? else {
+    let matches = password_matches(active.map(|(_, hash)| hash), password);
+    let Some((user, _)) = active.filter(|_| matches) else {
         return Ok(Err(LoginProblem::InvalidCredentials));
     };
 
-    let AccountStatus::Active { password_hash } = user.status() else {
-        return Ok(Err(LoginProblem::InvalidCredentials));
-    };
-
-    let Ok(parsed_hash) = PasswordHash::new(password_hash) else {
-        return Ok(Err(LoginProblem::InvalidCredentials));
-    };
-
-    if Argon2::default()
-        .verify_password(input.password.as_bytes(), &parsed_hash)
-        .is_err()
-    {
-        return Ok(Err(LoginProblem::InvalidCredentials));
-    }
-
-    sign_in(&session(cx)?, &user).await?;
+    sign_in(&session(cx)?, user).await?;
 
     Ok(Ok(()))
 }

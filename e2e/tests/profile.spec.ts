@@ -2,10 +2,14 @@ import type { Page } from "@playwright/test";
 import { createAccount } from "../support/flows";
 import { expect, test } from "../support/test";
 
+async function submitName(page: Page, name: string) {
+  await page.getByLabel("Name").fill(name);
+  await page.getByLabel("Name").press("Enter");
+}
+
 async function saveName(page: Page, name: string) {
   await page.getByRole("button", { name: "Edit details" }).click();
-  await page.getByLabel("Name").fill(name);
-  await page.getByRole("button", { name: "Save profile" }).click();
+  await submitName(page, name);
 }
 
 test("saving a new name updates the page without reloading", async ({ page }, testInfo) => {
@@ -32,8 +36,7 @@ test("a name error is shown inside the dialog, not behind it", async ({ page }, 
   const dialog = page.getByRole("dialog", { name: "Edit profile details" });
   await expect(dialog.getByText("Name is required.")).toBeVisible();
 
-  await page.getByLabel("Name").fill("Valid Name");
-  await page.getByRole("button", { name: "Save profile" }).click();
+  await submitName(page, "Valid Name");
 
   await expect(page.getByText("Profile saved.")).toHaveCSS("opacity", "1");
   await expect(dialog).toBeHidden();

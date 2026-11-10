@@ -1,11 +1,12 @@
 use serde::Deserialize;
+use sqlx::PgPool;
 use topcoat::{
     Error, Result,
     context::{Cx, try_request_context},
     router::{
         Body, Method, StatusCode,
         content::Form,
-        error::{SeeOther, rewrite, see_other},
+        error::{SeeOther, rewrite, see_other, too_many_requests},
         href, page, path_param,
         request::{self, client_ip},
         route,
@@ -18,10 +19,9 @@ use super::expired_link::expired_link;
 use super::new_password_form::new_password_form;
 use super::verify_email::issue_verification;
 use crate::components::button::{ButtonType, button};
-use crate::components::form::{Autocomplete, InputType, form, form_field};
-use crate::components::notice::{NoticeKind, notice};
-use crate::components::toaster::{NO_TOAST, toaster};
-use crate::flash::{Flash, set_flash, take_flash};
+use crate::components::form::{Autocomplete, FormVariant, InputType, form, form_error, form_field};
+use crate::config::Config;
+use crate::flash::{Flash, flash_toasts, set_flash, take_flash, toast_name};
 use crate::layout::page_heading::page_heading;
 use crate::user::auth::{hash_password, redirect_signed_in_users, sign_in};
 use crate::user::links::email_user_link;
@@ -33,11 +33,12 @@ use crate::user::queries::{
 };
 use crate::user::service::password_reset_email;
 use crate::user::tokens::TokenPurpose;
-use crate::utils::{get_token_hash_from_token_string, normalize_email};
-use crate::web::{app_url, db, rate_limits, session};
+use crate::utils::{get_token_hash_from_token_string, parse_email};
+use crate::web::{config, db, rate_limits, session};
 
+const RETRY_AFTER_SECS: u64 = 10;
 const PURPOSE: TokenPurpose = TokenPurpose::PasswordReset;
-const SENT_TOAST: &str = "sent";
+const FLASHES: &[Flash] = &[Flash::ResetLinkSent];
 
 path_param!(token);
 
@@ -48,6 +49,17 @@ enum ResetRequestProblem {
 }
 
 impl ResetRequestProblem {
+    fn invalid_email(self) -> bool {
+        self == Self::InvalidEmail
+    }
+
+    fn status(self) -> StatusCode {
+        match self {
+            Self::TooManyAttempts => StatusCode::TOO_MANY_REQUESTS,
+            _ => StatusCode::OK,
+        }
+    }
+
     fn message(self) -> &'static str {
         match self {
             Self::InvalidEmail => "Please enter a valid email address.",
@@ -65,35 +77,27 @@ struct ResetRequestFailed {
 pub async fn reset_password_page(cx: &Cx) -> Result<impl View> {
     redirect_signed_in_users(cx)?;
 
-    let sent = take_flash(cx, &[Flash::ResetLinkSent]).await?.is_some();
+    let flash = take_flash(cx, FLASHES).await?;
     let failed = try_request_context::<ResetRequestFailed>(cx);
     let email = failed.map(|failed| failed.email.clone());
     let problem = failed.map(|failed| failed.problem);
     let is_submitting = signal(cx, || false);
-    let toast = signal(cx, || if sent { SENT_TOAST } else { NO_TOAST }.to_string());
+    let toast = signal(cx, || toast_name(flash).to_string());
 
     Ok(view! {
         <section class="l-contain l-skinny">
-            if problem == Some(ResetRequestProblem::TooManyAttempts) {
-                (StatusCode::TOO_MANY_REQUESTS)
+            if let Some(problem) = problem {
+                (problem.status())
             }
             page_heading(text: "Reset password")
             <p>
                 "Enter your email and we'll send you a link to choose a new password."
             </p>
-            toaster(
-                toast: &toast,
-                name: SENT_TOAST,
-                kind: NoticeKind::Success,
-                "If an account exists for that email, we've sent a link to reset your password."
-            )
+            flash_toasts(toast: &toast, flashes: FLASHES)
             form(
                 submitting: Some(&is_submitting),
-                attrs: attributes! {
-                    class="form form--skinny"
-                    method="post"
-                    action=(href!(reset_password_submit))
-                },
+                variant: FormVariant::Page,
+                attrs: attributes! { method="post" action=(href!(reset_password_submit)) },
                 form_field(
                     label: "Email",
                     id: "email",
@@ -102,17 +106,17 @@ pub async fn reset_password_page(cx: &Cx) -> Result<impl View> {
                     input_type: InputType::Email,
                     placeholder: Some("Email"),
                     value: email.as_deref(),
-                    required: true
+                    required: true,
+                    invalid: problem.is_some_and(ResetRequestProblem::invalid_email)
                 )
+                if let Some(problem) = problem {
+                    form_error((problem.message()))
+                }
                 button(
                     button_type: ButtonType::Submit,
                     busy: $(is_submitting.get()),
-                    disabled: $(is_submitting.get()),
                     "Send reset link"
                 )
-                if let Some(problem) = problem {
-                    notice(kind: NoticeKind::Error, (problem.message()))
-                }
             )
             <p><a href="/login">"Back to login"</a></p>
         </section>
@@ -129,15 +133,27 @@ pub async fn reset_password_submit(
     cx: &Cx,
     Form(input): Form<ResetRequestInput>,
 ) -> Result<SeeOther> {
-    let email = normalize_email(&input.email);
+    let email = parse_email(&input.email);
 
-    let outcome = if !rate_limits(cx).allow_email_request(client_ip(cx)) {
-        Err(ResetRequestProblem::TooManyAttempts)
-    } else if !email.contains('@') {
-        Err(ResetRequestProblem::InvalidEmail)
-    } else {
-        send_reset_link(cx, &email).await?;
-        Ok(())
+    let outcome = match email {
+        _ if !rate_limits(cx).allow_email_request(client_ip(cx)) => {
+            Err(ResetRequestProblem::TooManyAttempts)
+        }
+        None => Err(ResetRequestProblem::InvalidEmail),
+        Some(email) if !rate_limits(cx).allow_email_to(&email) => {
+            tracing::warn!("password reset email skipped: too many emails to this address");
+            Ok(())
+        }
+        Some(email) => {
+            let db = db(cx).clone();
+            let config = config(cx).clone();
+            tokio::spawn(async move {
+                if let Err(e) = send_reset_link(&db, &config, &email).await {
+                    tracing::error!("Failed to send password reset email: {}", e);
+                }
+            });
+            Ok(())
+        }
     };
 
     match outcome {
@@ -157,33 +173,30 @@ pub async fn reset_password_submit(
     }
 }
 
-async fn send_reset_link(cx: &Cx, email: &str) -> Result<()> {
-    if !rate_limits(cx).allow_email_to(email) {
-        tracing::warn!("password reset email skipped: too many emails to this address");
-        return Ok(());
-    }
-
-    let Some(user) = query_get_user_by_email(email, db(cx)).await? else {
+async fn send_reset_link(db: &PgPool, config: &Config, email: &str) -> Result<(), String> {
+    let Some(user) = query_get_user_by_email(email, db)
+        .await
+        .map_err(|e| e.to_string())?
+    else {
         return Ok(());
     };
 
     let sent = match user.status() {
         AccountStatus::Active { .. } => {
-            let tx = db(cx).begin().await?;
-            email_user_link(cx, tx, user.id, PURPOSE, |token| {
-                let reset_url = app_url(&format!("/reset-password/{token}"))?;
-                Ok(password_reset_email(&user.email, &reset_url))
+            email_user_link(db, &config.mailer, user.id, PURPOSE, |token| {
+                password_reset_email(
+                    &user.email,
+                    &config.url(&format!("/reset-password/{token}")),
+                )
             })
-            .await?
+            .await
         }
-        AccountStatus::AwaitingPassword => issue_verification(cx, user.id, &user.email).await?,
+        AccountStatus::AwaitingPassword => {
+            issue_verification(db, config, user.id, &user.email).await
+        }
     };
 
-    if let Err(e) = sent {
-        tracing::error!("Failed to send password reset email: {}", e);
-    }
-
-    Ok(())
+    sent.map_err(|e| e.to_string())?
 }
 
 struct NewPasswordFailed {
@@ -238,12 +251,23 @@ pub async fn choose_password_submit(
 ) -> Result<SeeOther> {
     let back_to_form = || rewrite(request::uri(cx).path(), Body::empty()).method(Method::GET);
 
+    if !rate_limits(cx).allow_password_submission(client_ip(cx)) {
+        return Err(too_many_requests(RETRY_AFTER_SECS).into());
+    }
+
+    let token_hash = get_token_hash_from_token_string(path_param::<Token>(cx));
+    if query_find_valid_user_token(PURPOSE, &token_hash, db(cx))
+        .await?
+        .is_none()
+    {
+        return Err(back_to_form().into());
+    }
+
     if let Err(problem) = check_new_password(&input.password, &input.confirm_password) {
         return Err(back_to_form().with(NewPasswordFailed { problem }).into());
     }
 
     let password_hash = hash_password(&input.password).map_err(|e| Error::msg(e.to_string()))?;
-    let token_hash = get_token_hash_from_token_string(path_param::<Token>(cx));
     let mut tx = db(cx).begin().await?;
 
     let Some(user_id) = query_consume_user_token(PURPOSE, &token_hash, &mut *tx).await? else {

@@ -26,15 +26,18 @@ pub enum AccountTab {
 }
 
 impl AccountTab {
+    const ALL: [Self; 5] = [
+        Self::Profile,
+        Self::Security,
+        Self::Billing,
+        Self::Settings,
+        Self::Developer,
+    ];
+
     fn from_slug(slug: &str) -> Option<Self> {
-        match slug {
-            "profile" => Some(Self::Profile),
-            "security" => Some(Self::Security),
-            "billing" => Some(Self::Billing),
-            "settings" => Some(Self::Settings),
-            "developer" => Some(Self::Developer),
-            _ => None,
-        }
+        Self::ALL
+            .into_iter()
+            .find(|tab| tab.href().strip_prefix("/account/") == Some(slug))
     }
 
     pub fn heading(self) -> &'static str {

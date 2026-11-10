@@ -5,7 +5,51 @@ use topcoat::{
 
 use super::styleguide_section;
 use crate::components::button::{ButtonType, button};
-use crate::components::form::{InputType, form, form_col, form_field, form_row};
+use crate::components::form::{
+    Choice, InputType, checkbox, checkbox_group, form, form_col, form_error, form_field, form_row,
+    radio_group, select_field, textarea_field,
+};
+
+const PLANS: &[Choice<'static>] = &[
+    Choice {
+        value: "starter",
+        label: "Starter",
+    },
+    Choice {
+        value: "team",
+        label: "Team",
+    },
+    Choice {
+        value: "enterprise",
+        label: "Enterprise",
+    },
+];
+
+const BILLING_PERIODS: &[Choice<'static>] = &[
+    Choice {
+        value: "monthly",
+        label: "Monthly",
+    },
+    Choice {
+        value: "yearly",
+        label: "Yearly (save 20%)",
+    },
+];
+
+const NOTIFICATIONS: &[Choice<'static>] = &[
+    Choice {
+        value: "product",
+        label: "Product updates",
+    },
+    Choice {
+        value: "security",
+        label: "Security alerts",
+    },
+    Choice {
+        value: "billing",
+        label: "Billing reminders",
+    },
+];
 
 #[component]
 pub async fn example_form_fields(id_prefix: &str) -> Result<impl View> {
@@ -62,6 +106,51 @@ pub async fn forms_section() -> Result<impl View> {
             title: "Forms",
             form(
                 example_form_fields(id_prefix: "styleguide-form")
+                select_field(
+                    label: "Plan",
+                    id: "styleguide-plan",
+                    name: "plan",
+                    options: PLANS,
+                    placeholder: Some("Choose a plan")
+                )
+                radio_group(
+                    legend: "Billing period",
+                    id: "styleguide-billing-period",
+                    name: "billing_period",
+                    options: BILLING_PERIODS,
+                    selected: Some("monthly")
+                )
+                checkbox_group(
+                    legend: "Email me about",
+                    id: "styleguide-notifications",
+                    name: "notifications",
+                    options: NOTIFICATIONS,
+                    checked: &["security"]
+                )
+                textarea_field(
+                    label: "Message",
+                    id: "styleguide-message",
+                    name: "message",
+                    placeholder: Some("Tell us what you're building")
+                )
+                checkbox(
+                    label: "I agree to the terms of service",
+                    id: "styleguide-terms",
+                    name: "terms"
+                )
+                button(button_type: ButtonType::Submit, "Submit")
+            )
+            <h3>"Error state"</h3>
+            form(
+                form_field(
+                    label: "Work email",
+                    id: "styleguide-work-email",
+                    name: "work_email",
+                    input_type: InputType::Email,
+                    value: Some("not-an-email"),
+                    invalid: true
+                )
+                form_error("Please enter a valid email address.")
                 button(button_type: ButtonType::Submit, "Submit")
             )
         )

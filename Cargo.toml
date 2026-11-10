@@ -20,7 +20,7 @@ tokio = { version = "1.52.3", features = ["full"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 tower = { version = "0.5.3", features = ["util"] }
-tower-http = { version = "0.6.11", features = ["trace", "normalize-path", "fs"] }
+tower-http = { version = "0.6.11", features = ["trace", "normalize-path", "fs", "set-header"] }
 sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres", "macros", "time"] }
 dotenvy = "0.15.7"
 chrono = "0.4.44"

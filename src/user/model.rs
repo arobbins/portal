@@ -34,12 +34,6 @@ pub enum AccountStatus<'a> {
     Active { password_hash: &'a str },
 }
 
-impl AccountStatus<'_> {
-    pub fn is_active(self) -> bool {
-        matches!(self, Self::Active { .. })
-    }
-}
-
 impl User {
     pub fn status(&self) -> AccountStatus<'_> {
         match (self.password.as_deref(), self.verified_at) {

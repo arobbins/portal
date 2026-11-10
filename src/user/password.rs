@@ -9,6 +9,14 @@ pub enum PasswordProblem {
 }
 
 impl PasswordProblem {
+    pub fn invalid_password(self) -> bool {
+        matches!(self, Self::TooShort | Self::TooLong)
+    }
+
+    pub fn invalid_confirmation(self) -> bool {
+        self == Self::Mismatch
+    }
+
     pub fn message(self) -> &'static str {
         match self {
             Self::TooShort => "Password must be at least 8 characters.",

@@ -1,27 +1,34 @@
 use std::time::Duration;
 
 use sqlx::PgPool;
+use tower_sessions::session_store::ExpiredDeletion;
+use tower_sessions_sqlx_store::PostgresStore;
 
 use crate::user::queries::{query_delete_abandoned_signups, query_delete_expired_user_tokens};
 
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(60 * 60);
 const ABANDONED_SIGNUP_AGE: time::Duration = time::Duration::days(7);
 
-pub fn spawn(db: PgPool) {
+pub fn spawn(db: PgPool, sessions: PostgresStore) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(CLEANUP_INTERVAL);
         loop {
             interval.tick().await;
-            if let Err(e) = run(&db).await {
+            if let Err(e) = run(&db, &sessions).await {
                 tracing::error!("cleanup failed: {}", e);
             }
         }
     });
 }
 
-pub async fn run(db: &PgPool) -> Result<(), sqlx::Error> {
-    let tokens = query_delete_expired_user_tokens(db).await?;
-    let signups = query_delete_abandoned_signups(ABANDONED_SIGNUP_AGE, db).await?;
+pub async fn run(db: &PgPool, sessions: &PostgresStore) -> Result<(), String> {
+    let tokens = query_delete_expired_user_tokens(db)
+        .await
+        .map_err(|e| e.to_string())?;
+    let signups = query_delete_abandoned_signups(ABANDONED_SIGNUP_AGE, db)
+        .await
+        .map_err(|e| e.to_string())?;
+    sessions.delete_expired().await.map_err(|e| e.to_string())?;
 
     if tokens > 0 || signups > 0 {
         tracing::info!("cleanup removed {tokens} expired tokens and {signups} abandoned sign-ups");
@@ -39,6 +46,8 @@ mod tests {
         query_set_password_and_verify_user,
     };
     use crate::user::tokens::TokenPurpose;
+    use tower_sessions::session::{Id, Record};
+    use tower_sessions::session_store::SessionStore;
 
     async fn insert_user(email: &str, days_old: i64, db: &PgPool) -> i32 {
         let new_user = NewUser {
@@ -83,6 +92,39 @@ mod tests {
             .unwrap()
     }
 
+    async fn session_store(db: &PgPool) -> PostgresStore {
+        let store = PostgresStore::new(db.clone());
+        store.migrate().await.unwrap();
+        store
+    }
+
+    async fn save_session(store: &PostgresStore, expires_in: time::Duration) {
+        let record = Record {
+            id: Id::default(),
+            data: Default::default(),
+            expiry_date: time::OffsetDateTime::now_utc() + expires_in,
+        };
+        store.save(&record).await.unwrap();
+    }
+
+    async fn session_count(db: &PgPool) -> i64 {
+        sqlx::query_scalar("SELECT count(*) FROM tower_sessions.session")
+            .fetch_one(db)
+            .await
+            .unwrap()
+    }
+
+    #[sqlx::test]
+    async fn removes_expired_sessions(db: PgPool) {
+        let store = session_store(&db).await;
+        save_session(&store, time::Duration::hours(-1)).await;
+        save_session(&store, time::Duration::hours(1)).await;
+
+        run(&db, &store).await.unwrap();
+
+        assert_eq!(session_count(&db).await, 1);
+    }
+
     #[sqlx::test]
     async fn removes_expired_tokens_and_abandoned_sign_ups(db: PgPool) {
         let abandoned = insert_user("abandoned@example.test", 8, &db).await;
@@ -99,7 +141,7 @@ mod tests {
             .await
             .unwrap();
 
-        run(&db).await.unwrap();
+        run(&db, &session_store(&db).await).await.unwrap();
 
         assert!(!exists(abandoned, &db).await);
         assert!(exists(still_has_a_link, &db).await);
