@@ -1,6 +1,8 @@
-use crate::user::model::{Role, SubscriberStatus, User};
+use crate::user::model::{Passkey, Role, SubscriberStatus, User};
 use crate::user::tokens::TokenPurpose;
+use sqlx::types::Json;
 use sqlx::{PgExecutor, PgPool};
+use webauthn_rs::prelude::Passkey as WebauthnPasskey;
 
 pub struct NewUser<'a> {
     pub name: &'a str,
@@ -43,7 +45,7 @@ pub async fn query_get_user_by_email(
     email: &str,
     db: &PgPool,
 ) -> Result<Option<User>, sqlx::Error> {
-    let user = sqlx::query_as!(User, "SELECT id, name, email, password, role AS \"role: Role\", photo, subscriber_status AS \"subscriber_status: SubscriberStatus\", created_at, updated_at, verified_at, session_version FROM users WHERE email = $1", email)
+    let user = sqlx::query_as!(User, "SELECT id, name, email, password, role AS \"role: Role\", photo, subscriber_status AS \"subscriber_status: SubscriberStatus\", created_at, updated_at, verified_at, session_version, webauthn_id FROM users WHERE email = $1", email)
         .fetch_optional(db)
         .await?;
 
@@ -51,7 +53,7 @@ pub async fn query_get_user_by_email(
 }
 
 pub async fn query_get_user_by_id(user_id: &i32, db: &PgPool) -> Result<Option<User>, sqlx::Error> {
-    let user = sqlx::query_as!(User, "SELECT id, name, email, password, role AS \"role: Role\", photo, subscriber_status AS \"subscriber_status: SubscriberStatus\", created_at, updated_at, verified_at, session_version FROM users WHERE id = $1", user_id)
+    let user = sqlx::query_as!(User, "SELECT id, name, email, password, role AS \"role: Role\", photo, subscriber_status AS \"subscriber_status: SubscriberStatus\", created_at, updated_at, verified_at, session_version, webauthn_id FROM users WHERE id = $1", user_id)
         .fetch_optional(db)
         .await?;
 
@@ -112,7 +114,7 @@ pub async fn query_set_password_and_verify_user(
 ) -> Result<User, sqlx::Error> {
     let user = sqlx::query_as!(
         User,
-        "UPDATE users SET password = $1, verified_at = now(), session_version = session_version + 1, updated_at = now() WHERE id = $2 RETURNING id, name, email, password, role AS \"role: Role\", photo, subscriber_status AS \"subscriber_status: SubscriberStatus\", created_at, updated_at, verified_at, session_version",
+        "UPDATE users SET password = $1, verified_at = now(), session_version = session_version + 1, updated_at = now() WHERE id = $2 RETURNING id, name, email, password, role AS \"role: Role\", photo, subscriber_status AS \"subscriber_status: SubscriberStatus\", created_at, updated_at, verified_at, session_version, webauthn_id",
         password_hash,
         user_id,
     )
@@ -164,14 +166,14 @@ pub async fn query_delete_abandoned_signups(
     Ok(result.rows_affected())
 }
 
-pub async fn query_reset_password(
+pub async fn query_update_password(
     user_id: i32,
     password_hash: &str,
     db: impl PgExecutor<'_>,
 ) -> Result<Option<User>, sqlx::Error> {
     let user = sqlx::query_as!(
         User,
-        "UPDATE users SET password = $1, session_version = session_version + 1, updated_at = now() WHERE id = $2 AND verified_at IS NOT NULL RETURNING id, name, email, password, role AS \"role: Role\", photo, subscriber_status AS \"subscriber_status: SubscriberStatus\", created_at, updated_at, verified_at, session_version",
+        "UPDATE users SET password = $1, session_version = session_version + 1, updated_at = now() WHERE id = $2 AND verified_at IS NOT NULL RETURNING id, name, email, password, role AS \"role: Role\", photo, subscriber_status AS \"subscriber_status: SubscriberStatus\", created_at, updated_at, verified_at, session_version, webauthn_id",
         password_hash,
         user_id,
     )
@@ -190,4 +192,125 @@ pub async fn query_delete_abandoned_signup(user_id: i32, db: &PgPool) -> Result<
     .await?;
 
     Ok(())
+}
+
+pub async fn query_get_user_by_webauthn_id(
+    webauthn_id: uuid::Uuid,
+    db: &PgPool,
+) -> Result<Option<User>, sqlx::Error> {
+    let user = sqlx::query_as!(
+        User,
+        "SELECT id, name, email, password, role AS \"role: Role\", photo, subscriber_status AS \"subscriber_status: SubscriberStatus\", created_at, updated_at, verified_at, session_version, webauthn_id FROM users WHERE webauthn_id = $1",
+        webauthn_id,
+    )
+    .fetch_optional(db)
+    .await?;
+
+    Ok(user)
+}
+
+pub async fn query_list_passkeys(user_id: i32, db: &PgPool) -> Result<Vec<Passkey>, sqlx::Error> {
+    let passkeys = sqlx::query_as!(
+        Passkey,
+        "SELECT id, credential_id, passkey AS \"passkey: Json<WebauthnPasskey>\", name, backup_eligible, backed_up, created_at, last_used_at FROM user_passkeys WHERE user_id = $1 ORDER BY created_at",
+        user_id,
+    )
+    .fetch_all(db)
+    .await?;
+
+    Ok(passkeys)
+}
+
+pub async fn query_find_passkey(
+    user_id: i32,
+    credential_id: &[u8],
+    db: &PgPool,
+) -> Result<Option<Passkey>, sqlx::Error> {
+    let passkey = sqlx::query_as!(
+        Passkey,
+        "SELECT id, credential_id, passkey AS \"passkey: Json<WebauthnPasskey>\", name, backup_eligible, backed_up, created_at, last_used_at FROM user_passkeys WHERE user_id = $1 AND credential_id = $2",
+        user_id,
+        credential_id,
+    )
+    .fetch_optional(db)
+    .await?;
+
+    Ok(passkey)
+}
+
+pub struct NewPasskey<'a> {
+    pub user_id: i32,
+    pub passkey: &'a WebauthnPasskey,
+    pub name: &'a str,
+    pub aaguid: Option<uuid::Uuid>,
+    pub backup_eligible: bool,
+    pub backed_up: bool,
+}
+
+pub async fn query_insert_passkey(
+    new_passkey: &NewPasskey<'_>,
+    db: &PgPool,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "INSERT INTO user_passkeys (user_id, credential_id, passkey, name, aaguid, backup_eligible, backed_up) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        new_passkey.user_id,
+        new_passkey.passkey.cred_id().as_slice(),
+        Json(new_passkey.passkey) as _,
+        new_passkey.name,
+        new_passkey.aaguid,
+        new_passkey.backup_eligible,
+        new_passkey.backed_up,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn query_record_passkey_use(
+    id: i32,
+    passkey: &WebauthnPasskey,
+    backed_up: bool,
+    db: &PgPool,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "UPDATE user_passkeys SET passkey = $1, backed_up = $2, last_used_at = now() WHERE id = $3",
+        Json(passkey) as _,
+        backed_up,
+        id,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn query_rename_passkey(
+    id: i32,
+    user_id: i32,
+    name: &str,
+    db: &PgPool,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        "UPDATE user_passkeys SET name = $1 WHERE id = $2 AND user_id = $3",
+        name,
+        id,
+        user_id,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(result.rows_affected() == 1)
+}
+
+pub async fn query_delete_passkey(id: i32, user_id: i32, db: &PgPool) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        "DELETE FROM user_passkeys WHERE id = $1 AND user_id = $2",
+        id,
+        user_id,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(result.rows_affected() == 1)
 }

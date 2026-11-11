@@ -26,6 +26,19 @@ pub struct User {
     pub updated_at: time::OffsetDateTime,
     pub verified_at: Option<time::OffsetDateTime>,
     pub session_version: i32,
+    pub webauthn_id: uuid::Uuid,
+}
+
+#[derive(Debug)]
+pub struct Passkey {
+    pub id: i32,
+    pub credential_id: Vec<u8>,
+    pub passkey: sqlx::types::Json<webauthn_rs::prelude::Passkey>,
+    pub name: String,
+    pub backup_eligible: bool,
+    pub backed_up: bool,
+    pub created_at: time::OffsetDateTime,
+    pub last_used_at: Option<time::OffsetDateTime>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,6 +74,7 @@ mod tests {
             updated_at: now,
             verified_at: verified.then_some(now),
             session_version: 0,
+            webauthn_id: uuid::Uuid::nil(),
         }
     }
 

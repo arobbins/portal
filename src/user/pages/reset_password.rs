@@ -33,7 +33,7 @@ use crate::user::model::AccountStatus;
 use crate::user::password::{PasswordProblem, check_new_password};
 use crate::user::queries::{
     query_consume_user_token, query_delete_user_tokens, query_find_valid_user_token,
-    query_get_user_by_email, query_reset_password,
+    query_get_user_by_email, query_update_password,
 };
 use crate::user::service::password_reset_email;
 use crate::user::tokens::TokenPurpose;
@@ -284,7 +284,7 @@ pub async fn choose_password_submit(
     };
 
     query_delete_user_tokens(user_id, PURPOSE, &mut *tx).await?;
-    let Some(user) = query_reset_password(user_id, &password_hash, &mut *tx).await? else {
+    let Some(user) = query_update_password(user_id, &password_hash, &mut *tx).await? else {
         return Err(back_to_form().into());
     };
     tx.commit().await?;

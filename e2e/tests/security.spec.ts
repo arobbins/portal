@@ -51,3 +51,9 @@ test("a made-up link can't be used to submit a password", async ({ page }) => {
     expect(await response.text()).toContain("This link has expired");
   }
 });
+
+test("pages opened on another address move to the site's own address", async ({ page }) => {
+  await page.goto("http://127.0.0.1:3100/about?from=ip");
+
+  await expect(page).toHaveURL("http://localhost:3100/about?from=ip");
+});

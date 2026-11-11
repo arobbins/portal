@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("unfinished sections say so instead of showing the profile", async ({ page }) => {
-  for (const heading of ["Security", "Billing", "Settings", "Developer"]) {
+  for (const heading of ["Billing", "Settings", "Developer"]) {
     await page.goto(`/account/${heading.toLowerCase()}`);
 
     await expect(page.getByRole("heading", { name: heading, level: 2 })).toBeVisible();

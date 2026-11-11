@@ -77,7 +77,7 @@ pub async fn account_profile(
     Ok(view! {
         <div class="account__sub-page-content">
             <h2 class="account__sub-page-heading">"Profile"</h2>
-            <section class="account__content-card" id="password">
+            <section class="account__content-card" id="account-info">
                 <header
                     class="account__content-card-header l-flex l-flex-center-col l-flex-space-between"
                 >

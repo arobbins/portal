@@ -142,6 +142,11 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
   DENY`, `frame-ancestors 'none'`, `nosniff` and a strict referrer policy;
   HSTS is added when `APP_BASE_URL` is https. `inject_globals` adds
   `Cache-Control: no-store` to every response for a signed-in user.
+- **One address**: GET/HEAD requests whose `Host` isn't `APP_BASE_URL`'s
+  host get a 308 to the same path there (`redirect_to_canonical_host` in
+  `web.rs`), so `127.0.0.1:3000` lands on `localhost:3000` (passkeys only
+  work on the configured domain). Behind a reverse proxy, the proxy must
+  forward the original `Host` header, or every page redirects.
 - **Logging** defaults to `info` (debug logs every URL, including link
   tokens); set `RUST_LOG` to change it.
 - **Checking a password**: always use `password_matches(hash, password)`; pass
@@ -195,6 +200,52 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
   link if the email fails. Postmark calls time out after 10 s. Add a `TokenPurpose` variant for new flows (e.g. email change).
   Link pages share `expired_link` (400) and new passwords share
   `new_password_form` + `password::check_new_password`.
+- **Account settings pages** (`account_profile.rs`, `account_security.rs`)
+  show each setting as a card (`account__content-card`) with an action
+  button on the right of its header that opens a `modal` with the form.
+  Inside the modal, submit through a `#[procedure]` (errors render in the
+  dialog, success closes it and shows a toast) and keep a plain POST route
+  as the no-JS fallback (errors come back as an error toast). Return
+  `(field, message)` on failure so the right input gets `aria-invalid`.
+- **Change password** (Security → Password, procedure `save_new_password`,
+  fallback `POST /account/password`): needs the current password (a wrong
+  one counts as a failed login, so it's rate-limited and locks out like
+  login), then `query_update_password` bumps `session_version` and this
+  device is signed back in with the new version, so only *other* devices
+  are signed out. The new-password inputs are the shared
+  `new_password_fields`.
+- **Passkeys** (`user/passkeys.rs` server, `assets/js/passkeys.js` browser,
+  Security → Passkeys UI in `account_passkeys.rs`), built on `webauthn-rs`:
+  - Passkeys are an *extra* way to sign in; every account keeps its
+    password. The relying party is built once from `Config`
+    (`passkey_domain` = `APP_BASE_URL`'s host, which must be a domain, so
+    dev and e2e use `localhost`, never `127.0.0.1`).
+  - JSON routes: `POST /passkeys/register/{start,finish}` (signed in; start
+    needs the current password and counts wrong ones as failed logins) and
+    `POST /passkeys/login/{start,finish}`. Ceremony state lives in the
+    session, is single-use and expires after 10 minutes.
+  - Registration overrides the library's options to `residentKey:
+    required` (passkeys must be discoverable). Sign-in is discoverable (no
+    email typed): the login page starts conditional mediation (autofill on
+    the `username webauthn` email field) on load, and the button aborts it
+    and starts a modal request. Starting a sign-in has its own loose rate
+    limit (it runs on every login page view); finishing uses the password
+    limiter.
+  - `users.webauthn_id` (random UUID) is the user handle; never the
+    numeric id. `user_passkeys` stores the serialized passkey plus name
+    (from a curated AAGUID → provider list, else "Passkey"), backup flags
+    and `last_used_at`.
+  - The browser keeps devices in sync with signal APIs
+    (`signalUnknownCredential`, `signalAllAcceptedCredentials`,
+    `signalCurrentUserDetails`) from the data in `[data-passkey-signals]`
+    on account pages; all feature-detected.
+  - Automatic passkey creation after a password sign-in is deliberately
+    not implemented: it creates passkeys without user verification, which
+    `webauthn-rs` (correctly) rejects.
+  - Tests: `passkeys.spec.ts` uses Chromium's virtual authenticator (CDP
+    `WebAuthn.*`); those tests skip on Firefox/WebKit. A virtual
+    authenticator approves autofill instantly, so tests of the button path
+    stub `isConditionalMediationAvailable` to `false`.
 - **Password reset** (`reset_password.rs`): `/reset-password` always answers
   "if an account exists, we've sent a link" (active → 1-hour reset link;
   awaiting password → a fresh sign-up link; unknown → nothing).

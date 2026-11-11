@@ -2,7 +2,7 @@ use topcoat::{
     Result,
     context::Cx,
     runtime::signal,
-    view::{View, attributes, component, view},
+    view::{Attributes, View, attributes, component, view},
 };
 
 use crate::components::button::{ButtonType, button};
@@ -10,6 +10,39 @@ use crate::components::form::{
     Autocomplete, FormVariant, InputType, form, form_actions, form_error, form_field,
 };
 use crate::user::password::PasswordProblem;
+
+#[component]
+pub async fn new_password_fields(
+    cx: &Cx,
+    #[default] problem: Option<PasswordProblem>,
+    #[default] password_attrs: Attributes,
+    #[default] confirmation_attrs: Attributes,
+) -> Result<impl View> {
+    Ok(view! {
+        form_field(
+            label: "New password",
+            id: "new-password",
+            autocomplete: Some(Autocomplete::NewPassword),
+            name: "password",
+            input_type: InputType::Password,
+            placeholder: Some("At least 8 characters"),
+            required: true,
+            invalid: problem.is_some_and(PasswordProblem::invalid_password),
+            attrs: password_attrs
+        )
+        form_field(
+            label: "Confirm new password",
+            id: "confirm-password",
+            autocomplete: Some(Autocomplete::NewPassword),
+            name: "confirm_password",
+            input_type: InputType::Password,
+            placeholder: Some("Confirm password"),
+            required: true,
+            invalid: problem.is_some_and(PasswordProblem::invalid_confirmation),
+            attrs: confirmation_attrs
+        )
+    })
+}
 
 #[component]
 pub async fn new_password_form(
@@ -24,26 +57,7 @@ pub async fn new_password_form(
             submitting: Some(&is_submitting),
             variant: FormVariant::Page,
             attrs: attributes! { method="post" },
-            form_field(
-                label: "New password",
-                id: "new-password",
-                autocomplete: Some(Autocomplete::NewPassword),
-                name: "password",
-                input_type: InputType::Password,
-                placeholder: Some("At least 8 characters"),
-                required: true,
-                invalid: problem.is_some_and(PasswordProblem::invalid_password)
-            )
-            form_field(
-                label: "Confirm new password",
-                id: "confirm-password",
-                autocomplete: Some(Autocomplete::NewPassword),
-                name: "confirm_password",
-                input_type: InputType::Password,
-                placeholder: Some("Confirm password"),
-                required: true,
-                invalid: problem.is_some_and(PasswordProblem::invalid_confirmation)
-            )
+            new_password_fields(problem: problem)
             if let Some(problem) = problem {
                 form_error((problem.message()))
             }

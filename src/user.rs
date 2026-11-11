@@ -3,6 +3,7 @@ pub mod links;
 pub mod model;
 pub mod name;
 pub mod pages;
+pub mod passkeys;
 pub mod password;
 pub mod queries;
 pub mod service;

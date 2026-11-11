@@ -162,3 +162,25 @@
     gap: 0;
   }
 }
+
+.passkey-sign-in {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  max-width: 450px;
+  margin: var(--form-gap) auto 0;
+}
+
+.passkey-sign-in__divider {
+  margin: 0 0 var(--form-gap);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.passkey-sign-in .a-form-error {
+  margin: var(--form-gap) 0 0;
+}
+
+.passkey-sign-in .a-button {
+  justify-content: center;
+}

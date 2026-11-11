@@ -33,6 +33,7 @@ pub enum Autocomplete {
     Email,
     CurrentPassword,
     NewPassword,
+    UsernameWebauthn,
 }
 
 impl Autocomplete {
@@ -42,6 +43,7 @@ impl Autocomplete {
             Self::Email => "email",
             Self::CurrentPassword => "current-password",
             Self::NewPassword => "new-password",
+            Self::UsernameWebauthn => "username webauthn",
         }
     }
 }
@@ -123,6 +125,7 @@ pub async fn form(
 #[component]
 pub async fn form_error(
     cx: &Cx,
+    #[default] id: Option<&str>,
     #[into]
     #[default(false.into())]
     hidden: Expr<bool>,
@@ -133,7 +136,7 @@ pub async fn form_error(
 
     Ok(view! {
         <div
-            id=(FORM_ERROR_ID)
+            id=(id.unwrap_or(FORM_ERROR_ID))
             role="alert"
             :class=$(if hidden { hidden_class } else { class })
         >

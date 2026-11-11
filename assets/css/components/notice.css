@@ -5,6 +5,8 @@
   font-family: var(--font-body);
   display: inline-flex;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
 
   &:before {
     content: "";

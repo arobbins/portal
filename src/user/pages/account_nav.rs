@@ -15,11 +15,13 @@ struct NavSection {
 const SECTIONS: &[NavSection] = &[
     NavSection {
         tab: AccountTab::Profile,
-        links: &[("Reset password", "/account/profile#password")],
+        links: &[],
     },
     NavSection {
         tab: AccountTab::Security,
         links: &[
+            ("Password", "/account/security#password"),
+            ("Passkeys", "/account/security#passkeys"),
             ("Two-factor authentication", "/account/security#2fa"),
             ("Single sign-on", "/account/security#sso"),
         ],

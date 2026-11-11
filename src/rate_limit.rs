@@ -71,6 +71,7 @@ pub enum RateLimitMode {
 pub struct RateLimits {
     password_submissions_by_ip: DefaultKeyedRateLimiter<IpAddr>,
     email_requests_by_ip: DefaultKeyedRateLimiter<IpAddr>,
+    passkey_challenges_by_ip: DefaultKeyedRateLimiter<IpAddr>,
     emails_by_address: DefaultKeyedRateLimiter<String>,
     failed_logins_by_account_and_ip: FailureWindow<(String, IpAddr)>,
     failed_logins_by_account: FailureWindow<String>,
@@ -106,6 +107,7 @@ impl RateLimits {
                 10 * scale,
             )),
             email_requests_by_ip: RateLimiter::keyed(quota(Duration::from_secs(120), 5 * scale)),
+            passkey_challenges_by_ip: RateLimiter::keyed(quota(Duration::from_secs(2), 30 * scale)),
             emails_by_address: RateLimiter::keyed(quota(Duration::from_secs(1200), 3 * scale)),
             failed_logins_by_account_and_ip: FailureWindow::new(Duration::from_secs(15 * 60), 5),
             failed_logins_by_account: FailureWindow::new(Duration::from_secs(60 * 60), 50),
@@ -120,6 +122,12 @@ impl RateLimits {
 
     pub fn allow_email_request(&self, ip: Option<IpAddr>) -> bool {
         self.email_requests_by_ip
+            .check_key(&ip.unwrap_or(UNKNOWN_IP))
+            .is_ok()
+    }
+
+    pub fn allow_passkey_challenge(&self, ip: Option<IpAddr>) -> bool {
+        self.passkey_challenges_by_ip
             .check_key(&ip.unwrap_or(UNKNOWN_IP))
             .is_ok()
     }
@@ -156,6 +164,7 @@ impl RateLimits {
     pub fn forget_idle_keys(&self) {
         self.password_submissions_by_ip.retain_recent();
         self.email_requests_by_ip.retain_recent();
+        self.passkey_challenges_by_ip.retain_recent();
         self.emails_by_address.retain_recent();
         self.failed_logins_by_account_and_ip.forget_idle();
         self.failed_logins_by_account.forget_idle();

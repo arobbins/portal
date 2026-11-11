@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 import { MAIL_DIR } from "./support/mail";
 
 const port = 3100;
-const baseURL = `http://127.0.0.1:${port}`;
+const baseURL = `http://localhost:${port}`;
 
 function testDatabaseUrl(): string {
   if (process.env.TEST_DATABASE_URL) return process.env.TEST_DATABASE_URL;
@@ -35,7 +35,7 @@ export default defineConfig({
   ],
   webServer: {
     command:
-      `rm -rf "${MAIL_DIR}" && topcoat asset bundle && ./target/e2e/debug/webserver seed && exec ./target/e2e/debug/webserver`,
+      `rm -rf "${MAIL_DIR}" && sqlx database create && sqlx migrate run && topcoat asset bundle && ./target/e2e/debug/webserver seed && exec ./target/e2e/debug/webserver`,
     cwd: "..",
     url: baseURL,
     reuseExistingServer: false,

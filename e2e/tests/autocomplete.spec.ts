@@ -5,7 +5,7 @@ import { expect, test } from "../support/test";
 test("the login form tells password managers which fields are which", async ({ page }) => {
   await page.goto("/login");
 
-  await expect(page.getByLabel("Email")).toHaveAttribute("autocomplete", "email");
+  await expect(page.getByLabel("Email")).toHaveAttribute("autocomplete", "username webauthn");
   await expect(page.getByLabel("Password")).toHaveAttribute("autocomplete", "current-password");
 });
 

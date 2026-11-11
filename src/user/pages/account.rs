@@ -10,11 +10,13 @@ use topcoat::{
 use super::account_nav::account_nav;
 use super::account_placeholder::account_placeholder;
 use super::account_profile::account_profile;
+use super::account_security::account_security;
 use super::profile_menu::profile_menu;
 use crate::app::page_title;
 use crate::components::theme_switcher::theme_switcher;
 use crate::user::auth::require_user;
 use crate::user::model::User;
+use crate::user::passkeys::accepted_credentials;
 
 path_param!(tab);
 
@@ -94,6 +96,7 @@ pub async fn account_tab_page(cx: &Cx) -> Result<impl View> {
 #[component]
 async fn account_layout(cx: &Cx, user: &User, tab: AccountTab) -> Result<impl View> {
     let display_name = signal(cx, || user.name.clone());
+    let passkey_signals = accepted_credentials(user, cx).await?.to_string();
 
     Ok(view! {
         <section class="account">
@@ -108,9 +111,11 @@ async fn account_layout(cx: &Cx, user: &User, tab: AccountTab) -> Result<impl Vi
                     </div>
                     account_nav(active: tab)
                     <div class="account__theme">theme_switcher(compact: true)</div>
+                    <div hidden="" data-passkey-signals=(passkey_signals)></div>
                 </nav>
                 <section class="account__content" id="account__content">
                     match tab {
+                        AccountTab::Security => account_security(),
                         AccountTab::Profile => account_profile(
                             user: user,
                             display_name: &display_name

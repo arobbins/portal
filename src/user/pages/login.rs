@@ -17,7 +17,7 @@ use topcoat::{
 
 use super::reset_password::reset_password_page;
 use crate::app::page_title;
-use crate::components::button::{ButtonType, button};
+use crate::components::button::{ButtonType, ButtonVariant, button};
 use crate::components::form::{
     Autocomplete, FormVariant, InputType, form, form_actions, form_error, form_field,
 };
@@ -27,6 +27,8 @@ use crate::user::model::AccountStatus;
 use crate::user::queries::query_get_user_by_email;
 use crate::utils::parse_email;
 use crate::web::{db, rate_limits, session};
+
+const PASSKEY_ERROR_ID: &str = "passkey-error";
 
 #[derive(Deserialize)]
 pub struct LoginInput {
@@ -88,7 +90,7 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
                 form_field(
                     label: "Email",
                     id: "email",
-                    autocomplete: Some(Autocomplete::Email),
+                    autocomplete: Some(Autocomplete::UsernameWebauthn),
                     name: "email",
                     input_type: InputType::Email,
                     placeholder: Some("Enter email"),
@@ -118,6 +120,15 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
                     </a>
                 )
             )
+            <div class="passkey-sign-in">
+                <p class="passkey-sign-in__divider">"or"</p>
+                button(
+                    variant: ButtonVariant::Secondary,
+                    attrs: attributes! { data-passkey-login="" },
+                    "Sign in with a passkey"
+                )
+                form_error(id: Some(PASSKEY_ERROR_ID), hidden: true, "")
+            </div>
         </section>
     })
 }

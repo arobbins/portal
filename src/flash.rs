@@ -20,6 +20,10 @@ pub enum Flash {
     EmailConfirmed,
     ResetLinkSent,
     PasswordReset,
+    PasswordChanged,
+    PasskeyAdded,
+    PasskeyRenamed,
+    PasskeyRemoved,
 }
 
 impl Flash {
@@ -30,6 +34,10 @@ impl Flash {
             Self::EmailConfirmed => "email-confirmed",
             Self::ResetLinkSent => "reset-link-sent",
             Self::PasswordReset => "password-reset",
+            Self::PasswordChanged => "password-changed",
+            Self::PasskeyAdded => "passkey-added",
+            Self::PasskeyRenamed => "passkey-renamed",
+            Self::PasskeyRemoved => "passkey-removed",
         }
     }
 
@@ -42,6 +50,12 @@ impl Flash {
                 "If an account exists for that email, we've sent a link to reset your password."
             }
             Self::PasswordReset => "Your password has been reset.",
+            Self::PasskeyAdded => "Passkey added. You can now use it to sign in.",
+            Self::PasskeyRenamed => "Passkey renamed.",
+            Self::PasskeyRemoved => "Passkey removed.",
+            Self::PasswordChanged => {
+                "Your password has been changed. Your other devices have been signed out."
+            }
         }
     }
 }

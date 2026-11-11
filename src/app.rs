@@ -15,6 +15,7 @@ use topcoat::{
 use crate::config::Config;
 use crate::layout::{footer::footer, header::header};
 use crate::rate_limit::RateLimits;
+use crate::user::passkeys;
 use topcoat::metadata::Metadata;
 
 use crate::pages::not_found::not_found_page;
@@ -29,10 +30,12 @@ pub fn router(
     assets: AssetBundle,
 ) -> Router {
     let trusted_proxy_hops = config.trusted_proxy_hops;
+    let relying_party = passkeys::relying_party(&config);
     let mut builder = Router::builder()
         .discover()
         .with(db)
         .with(config)
+        .with(relying_party)
         .with(rate_limits);
 
     if let Some(hops) = trusted_proxy_hops {
@@ -67,6 +70,7 @@ async fn root_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                 <meta name="color-scheme" content=(theme.color_scheme())>
                 <link href="/assets/dist/app.css" rel="stylesheet">
                 <script src="/assets/js/theme.js"></script>
+                <script src="/assets/js/passkeys.js"></script>
                 topcoat::runtime::script()
             </head>
             <body class=(body_class)>

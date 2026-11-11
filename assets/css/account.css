@@ -146,6 +146,7 @@ body[class*="page-account"] .page-heading {
 }
 
 .account__content-card {
+  margin-bottom: 20px;
   border: 1px solid var(--border-lines);
   background-color: var(--color-surface-card);
   border-radius: var(--border-radius);
@@ -264,5 +265,65 @@ body[class*="page-account"] .page-heading {
 
   .account__content {
     padding: 24px 16px;
+  }
+}
+
+.account__passkeys {
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.account__passkey {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-lines);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.account__passkey-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.account__passkey-name {
+  color: var(--color-text-strong);
+}
+
+.account__passkey-badge {
+  padding: 1px 8px;
+  border: 1px solid var(--border-lines-strong);
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.account__passkey-badge--local {
+  border-style: dashed;
+}
+
+.account__passkey-meta {
+  flex-basis: 100%;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+.account__passkey-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 760px) {
+  .account__passkey {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

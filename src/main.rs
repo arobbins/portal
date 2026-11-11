@@ -15,7 +15,7 @@ mod web;
 
 use crate::config::Config;
 use crate::rate_limit::RateLimits;
-use crate::web::{attach_remote_addr, inject_globals};
+use crate::web::{CanonicalHost, attach_remote_addr, inject_globals, redirect_to_canonical_host};
 
 use axum::http::header::{
     CONTENT_SECURITY_POLICY, HeaderName, HeaderValue, REFERRER_POLICY, STRICT_TRANSPORT_SECURITY,
@@ -122,6 +122,8 @@ async fn main() {
 
 fn app(db: PgPool, config: Config, rate_limits: Arc<RateLimits>, assets: AssetBundle) -> Router {
     let https = config.secure_cookies();
+    let canonical_host =
+        CanonicalHost::from_base_url(config.origin()).expect("Config validated APP_BASE_URL");
     let pages = app::router(db.clone(), config, rate_limits, assets);
 
     let router = Router::new()
@@ -129,6 +131,10 @@ fn app(db: PgPool, config: Config, rate_limits: Arc<RateLimits>, assets: AssetBu
         .layer(middleware::from_fn_with_state(db, inject_globals))
         .nest_service("/assets", ServeDir::new("assets"))
         .layer(middleware::from_fn(attach_remote_addr))
+        .layer(middleware::from_fn_with_state(
+            canonical_host,
+            redirect_to_canonical_host,
+        ))
         .layer(security_header(X_FRAME_OPTIONS, "DENY"))
         .layer(security_header(
             CONTENT_SECURITY_POLICY,
@@ -274,5 +280,35 @@ mod tests {
             sign_up_from(&app, spammer).await,
             StatusCode::TOO_MANY_REQUESTS
         );
+    }
+
+    async fn response_for(
+        app: &Router,
+        method: &str,
+        path: &str,
+        host: &str,
+    ) -> axum::response::Response {
+        let request = Request::builder()
+            .method(method)
+            .uri(path)
+            .header("host", host)
+            .body(Body::empty())
+            .unwrap();
+        app.clone().oneshot(request).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn other_hosts_are_sent_to_the_canonical_address() {
+        let app = test_app();
+
+        let response = response_for(&app, "GET", "/about?x=1", "127.0.0.1").await;
+        assert_eq!(response.status(), StatusCode::PERMANENT_REDIRECT);
+        assert_eq!(response.headers()["location"], "http://localhost/about?x=1");
+
+        let canonical = response_for(&app, "GET", "/about", "localhost").await;
+        assert_eq!(canonical.status(), StatusCode::OK);
+
+        let form_post = response_for(&app, "POST", "/theme", "127.0.0.1").await;
+        assert_ne!(form_post.status(), StatusCode::PERMANENT_REDIRECT);
     }
 }
