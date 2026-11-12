@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, credential_id, passkey AS \"passkey: Json<WebauthnPasskey>\", name, backup_eligible, backed_up, created_at, last_used_at FROM user_passkeys WHERE user_id = $1 AND credential_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "credential_id",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 2,
+        "name": "passkey: Json<WebauthnPasskey>",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "backup_eligible",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "backed_up",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "last_used_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "db2c7948a0dd12c13ec752f2f1d6269e018f31a4f54b636fa4fcbe17c99b8525"
+}

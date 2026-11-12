@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM users WHERE id = $1 AND password IS NULL AND NOT EXISTS (SELECT 1 FROM user_tokens WHERE user_tokens.user_id = users.id)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e3bfa078e765fa809823850f178cf6214eab7e6b49119ef33de22dfc93284a09"
+}

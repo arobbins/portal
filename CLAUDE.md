@@ -8,6 +8,12 @@ WASM). Postgres via sqlx (with migrations), tower-sessions, argon2 auth. CSS is
 bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
 `assets/dist/app.css`, served from `/assets`).
 
+Detailed rules for each area live in `.claude/rules/` and load automatically
+when you work on matching files: `accounts.md` (registration, sessions,
+links, rate limits, password reset), `passkeys.md`, `forms.md`,
+`styling.md` (layout, CSS, theming), `server.md` (config, headers, email,
+logging), `e2e.md` (Playwright conventions).
+
 ## Architecture principles
 
 - **Compile-time safety first**: components, props, routes (`href!`), and sqlx
@@ -29,15 +35,13 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
   show the same toast with `Flash::X.name()`. Other toast names are per-page
   `const`s, never literals. Errors inside a `<dialog>` go in the dialog, not
   a toast (an open modal covers toasts).
-- **Submit busy state**: pass `submitting: Some(&is_submitting)` to `form(…)`
-  instead of writing your own `@submit`; it sets the busy state and reloads
-  the page if the browser restores it from the back/forward cache (otherwise
-  the button would stay disabled after pressing Back). Give the button
-  `busy: $(is_submitting.get())` only: a busy button is always disabled.
 - **Forms are plain HTML POSTs**: a `#[route(POST ...)]` handler either
   `see_other(...)` redirects on success or `rewrite(...)`s back to the GET page
   with a request-context value carrying the error (see `user/pages/login.rs`).
-  They work without JS; `@submit` only adds the busy state.
+  They work without JS; `@submit` only adds the busy state. Busy state:
+  pass `submitting: Some(&is_submitting)` to `form(…)` and give the button
+  `busy: $(is_submitting.get())` only. Controls, layout and errors: see
+  `.claude/rules/forms.md`.
 - **Success messages after a redirect are session flashes** (`src/flash.rs`):
   `set_flash(&session, Flash::ProfileSaved)` before `see_other(...)`, and the
   target page calls `take_flash(cx, FLASHES)` (a page `const` listing what it
@@ -49,33 +53,34 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
   `NameProblem`, `PasswordProblem`); render `(problem.status())` and
   `(problem.message())`, never compare message text. Shared rules live in
   `user/name.rs` and `user/password.rs`.
-- **Configuration is parsed once** (`src/config.rs`): `Config::from_env()`
-  turns env vars into typed values (`Mailer`, `RateLimitMode`, …) at startup
-  and lists every problem at once; nothing else reads env vars (except
-  `DATABASE_URL`, read in `main.rs` so `webserver seed` needs nothing else).
-  Read it with `config(cx)` / `app_url(cx, path)`. Cookies are `Secure`
-  automatically when `APP_BASE_URL` is `https://`. Settings are listed in
-  `.env.example`.
-- **Responsive layout**: one breakpoint, `max-width: 760px` (600px for form
-  rows). Below it the header's links and theme switcher move into a native
-  `popover` (`#site-menu`) opened by the Menu button, and the account sidebar
-  becomes a row of tabs above the content. `.l-contain` uses
-  `box-sizing: border-box`; check new pages at 390px (`mobile.spec.ts`).
-- **BEM classes are the styling contract**: components emit stable class names
-  (e.g. `a-notice--success`); CSS targets only those, never element structure.
-- **Colors are role-named variables** in `assets/css/variables.css`
-  (`--color-text`, `--color-surface-card`, `--border-control`, …), each
-  defined once as `light-dark(<light>, <dark>)`. Never hard-code a color in a
-  component file; never name a variable by lightness.
-- **Theming**: `color-scheme` on `<html>` picks the `light-dark()` side.
-  `data-theme` is `light`, `dark` (default) or `system` (follows the OS). The
-  server reads the `theme` cookie in `inject_globals` (`src/theme.rs`) and
-  renders `data-theme` + `<meta name="color-scheme">`, so there's no flash of
-  the wrong theme. All theme JS lives in `assets/js/theme.js` (loaded in
-  `<head>`): `theme_switcher` calls `window.setTheme`, and every page load or
-  back/forward restore re-applies the cookie's theme, because browsers can
-  show a cached copy rendered before the switch. Without JS the switcher
-  falls back to `POST /theme`.
+- **Every sqlx query is its own `async fn query_<verb>_<thing>`** returning
+  `Result<T, sqlx::Error>`, with `db` as the last parameter and a param struct
+  for multi-column inserts (`NewUser<'a>`); never inline sqlx in a handler,
+  page or procedure. Recipe: the `new-query` skill.
+- **Configuration is parsed once** (`src/config.rs`) and read with
+  `config(cx)` / `app_url(cx, path)`; nothing else reads env vars (except
+  `DATABASE_URL` in `main.rs`).
+- **Styling**: BEM classes are the contract (CSS targets only them, never
+  element structure or ids); colors are role-named `light-dark()` variables
+  in `variables.css`, never hard-coded; no inline styles; one breakpoint
+  (`max-width: 760px`), check pages at 390px. Details in
+  `.claude/rules/styling.md`.
+
+## Security invariants (never break these)
+
+- Any query that changes a password, or should sign out every device, sets
+  `session_version = session_version + 1`.
+- Account state comes only from `user.status()` → `AccountStatus`; never
+  branch on `password` / `verified_at`. New users are inserted without a
+  password.
+- Check passwords only with `password_matches(hash, password)` (`None` when
+  there's no usable account, so timing doesn't reveal it).
+- Parse emails with `utils::parse_email` before they reach rate limiters,
+  queries or the DB. Responses never reveal whether an account exists.
+- Emailed-link GETs never consume tokens; tokens are hashed and single use.
+- Every value from the browser (signals, procedure/shard args) is user
+  input; procedures and shards bypass layout/page guards, so re-check auth.
+- Never hold a DB connection across a network call.
 
 ## Layout
 
@@ -103,161 +108,11 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
 - `src/user/` — `pages/` (pages, POST routes, account components; email
   verification in `verify_email.rs`), `auth.rs` (`current_user`,
   `require_user`, `sign_in`, `hash_password`), `queries`, `service` (email
-  content), `tokens.rs` (`TokenPurpose`, `generate_token`).
-- **Registration is email-first**: `/register` takes name + email (+ a hidden
-  `website` honeypot) and always redirects to `/register` with the
-  `RegistrationSent` flash, whatever the email's state (new → user with
-  `password = NULL` + link, deleted again if the email fails; awaiting
-  password → fresh link; active →
-  "you already have an account" email), so it never
-  reveals whether an account exists. The link (`GET /user/verify/{token}`)
-  only *shows* the set-password form; `POST` to the same URL consumes the
-  token, sets the password, verifies and signs in. GETs never consume tokens
-  (email scanners prefetch links). Users without a password can't log in.
-- **Signed-in state**: the session stores one `SessionAuth { user_id,
-  session_version }` value (never separate keys); a session whose version no longer matches the user's is
-  flushed, so **any query that changes a password (or should log out every
-  device) must do `session_version = session_version + 1`**. `inject_globals`
-  loads the user once per request (skipped for `/assets`) into
-  `GlobalState.current_user: Option<Arc<User>>`; a session pointing at a
-  missing user is flushed. Read it with `current_user(cx)` /
-  `require_user(cx)` (sync, no extra query). Never cache user data in the
-  session.
-- **Account status** comes only from `user.status()` → `AccountStatus`
-  (`AwaitingPassword` / `Active { password_hash }`).
-  Never branch on `password` / `verified_at` directly. The only transition to
-  Active is `query_set_password_and_verify_user`; the DB enforces
-  `CHECK ((password IS NULL) = (verified_at IS NULL))`, so new users are
-  always inserted without a password. `role` / `subscriber_status` are the
-  `Role` / `SubscriberStatus` enums (select them with
-  `role AS "role: Role"`; the DB has matching `CHECK`s).
-- **Cleanup** (`src/cleanup.rs`, hourly): deletes expired `user_tokens`,
-  expired sessions, and sign-ups that never set a password after 7 days and
-  have no live link.
-- **Untrusted input limits**: parse emails with `utils::parse_email` (trims,
-  lowercases, rejects >254 chars or no `@`) before they reach rate limiters,
-  queries or the DB; names are capped by `check_name`, passwords by
-  `check_new_password`.
-- **Security headers** (`main.rs`): every response gets `X-Frame-Options:
-  DENY`, `frame-ancestors 'none'`, `nosniff` and a strict referrer policy;
-  HSTS is added when `APP_BASE_URL` is https. `inject_globals` adds
-  `Cache-Control: no-store` to every response for a signed-in user.
-- **One address**: GET/HEAD requests whose `Host` isn't `APP_BASE_URL`'s
-  host get a 308 to the same path there (`redirect_to_canonical_host` in
-  `web.rs`), so `127.0.0.1:3000` lands on `localhost:3000` (passkeys only
-  work on the configured domain). Behind a reverse proxy, the proxy must
-  forward the original `Host` header, or every page redirects.
-- **Logging** defaults to `info` (debug logs every URL, including link
-  tokens); set `RUST_LOG` to change it.
-- **Checking a password**: always use `password_matches(hash, password)`; pass
-  `None` when there's no usable account so it still does a full argon2 check
-  (against an unmatchable hash) and logins take the same time whether or not
-  the email exists.
-- **Rate limits** (`src/rate_limit.rs`, `governor`, in memory, read with
-  `rate_limits(cx)`): password submissions (login + both set-password forms) 10/min per IP, email requests (sign-ups + password resets) 5 per 10 min per
-  IP, and at most 3 emails per hour to any one address. Failed logins are
-  counted per account (`FailureWindow`, only wrong email/password counts, a
-  successful login clears it): 5 per 15 min per account+IP, 50 per hour per
-  account from any IP — then even the right password gets "Too many attempts". Per-IP blocks show a
-  friendly message with status 429; the per-email limit silently skips the
-  email (same response, so it reveals nothing). `RATE_LIMITS=relaxed` (used by
-  the e2e server) multiplies limits by 1000. Client IPs come from Topcoat's
-  `client_ip(cx)` (the connection address via `attach_remote_addr`); **behind a
-  proxy/load balancer set `TRUSTED_PROXY_HOPS`** to the number of proxies, or
-  every visitor shares the proxy's IP. Counters reset on restart and aren't
-  shared across servers.
-- Failure reasons are enums with a `message()` (`LoginProblem`,
-  `RegisterProblem`); pick status codes by matching the variant, never by
-  comparing message text.
-- **Form controls** (`components/form.rs`): `form_field` (text/email/password),
-  `textarea_field`, `select_field` (optional placeholder option), `radio_group`
-  and `checkbox_group` (a `<fieldset>` + `<legend>`; options are
-  `&[Choice { value, label }]`; option ids are `{id}-{value}`), and a single
-  `checkbox`. Every control takes `id`, `name`, `invalid` and `attrs` (extra
-  attributes for the control itself). Single fields are wrapped in a `<div
-  class="a-form-group">`; only groups use `<fieldset>`.
-- **Form layout**: `form(variant: FormVariant::Page, …)` for a stand-alone
-  page form (narrow, centred), the default `Inline` everywhere else; never
-  pass layout classes as strings. Classes all use the `a-form` prefix.
-  Wrap the submit button (and any links beside it) in `form_actions(…)`.
-  Form spacing comes from `--form-gap`, `--form-label-gap`,
-  `--form-choice-gap` and `--form-column-gap` in `variables.css`; don't
-  hard-code spacing in `form.css`.
-- **Form errors**: render the problem with `form_error((problem.message()))`
-  just above the submit button, and pass `invalid: true` to the fields it's
-  about (each failure enum has `invalid_*()` helpers). `form_error` has
-  `role="alert"` and the id `FORM_ERROR_ID`, which invalid fields reference
-  through `aria-describedby`; for JS-driven errors pass
-  `hidden: $(message.is_empty())`.
-- Form fields take typed `autocomplete: Some(Autocomplete::…)` hints (name,
-  email, current/new password) for password managers.
-- Emailed links use the `user_tokens` table: one row per token with a
-  `purpose`, only the SHA-256 hash stored, single use (consumed with
-  `DELETE … RETURNING`), expiry per purpose. Send one with
-  `links::email_user_link(db, mailer, user_id, purpose, |token| email)`: it
-  replaces the user's older links for that purpose, commits *before* sending
-  (never hold a DB connection across a network call), and deletes the new
-  link if the email fails. Postmark calls time out after 10 s. Add a `TokenPurpose` variant for new flows (e.g. email change).
-  Link pages share `expired_link` (400) and new passwords share
-  `new_password_form` + `password::check_new_password`.
-- **Account settings pages** (`account_profile.rs`, `account_security.rs`)
-  show each setting as a card (`account__content-card`) with an action
-  button on the right of its header that opens a `modal` with the form.
-  Inside the modal, submit through a `#[procedure]` (errors render in the
-  dialog, success closes it and shows a toast) and keep a plain POST route
-  as the no-JS fallback (errors come back as an error toast). Return
-  `(field, message)` on failure so the right input gets `aria-invalid`.
-- **Change password** (Security → Password, procedure `save_new_password`,
-  fallback `POST /account/password`): needs the current password (a wrong
-  one counts as a failed login, so it's rate-limited and locks out like
-  login), then `query_update_password` bumps `session_version` and this
-  device is signed back in with the new version, so only *other* devices
-  are signed out. The new-password inputs are the shared
-  `new_password_fields`.
-- **Passkeys** (`user/passkeys.rs` server, `assets/js/passkeys.js` browser,
-  Security → Passkeys UI in `account_passkeys.rs`), built on `webauthn-rs`:
-  - Passkeys are an *extra* way to sign in; every account keeps its
-    password. The relying party is built once from `Config`
-    (`passkey_domain` = `APP_BASE_URL`'s host, which must be a domain, so
-    dev and e2e use `localhost`, never `127.0.0.1`).
-  - JSON routes: `POST /passkeys/register/{start,finish}` (signed in; start
-    needs the current password and counts wrong ones as failed logins) and
-    `POST /passkeys/login/{start,finish}`. Ceremony state lives in the
-    session, is single-use and expires after 10 minutes.
-  - Registration overrides the library's options to `residentKey:
-    required` (passkeys must be discoverable). Sign-in is discoverable (no
-    email typed): the login page starts conditional mediation (autofill on
-    the `username webauthn` email field) on load, and the button aborts it
-    and starts a modal request. Starting a sign-in has its own loose rate
-    limit (it runs on every login page view); finishing uses the password
-    limiter.
-  - `users.webauthn_id` (random UUID) is the user handle; never the
-    numeric id. `user_passkeys` stores the serialized passkey plus name
-    (from a curated AAGUID → provider list, else "Passkey"), backup flags
-    and `last_used_at`.
-  - The browser keeps devices in sync with signal APIs
-    (`signalUnknownCredential`, `signalAllAcceptedCredentials`,
-    `signalCurrentUserDetails`) from the data in `[data-passkey-signals]`
-    on account pages; all feature-detected.
-  - Automatic passkey creation after a password sign-in is deliberately
-    not implemented: it creates passkeys without user verification, which
-    `webauthn-rs` (correctly) rejects.
-  - Tests: `passkeys.spec.ts` uses Chromium's virtual authenticator (CDP
-    `WebAuthn.*`); those tests skip on Firefox/WebKit. A virtual
-    authenticator approves autofill instantly, so tests of the button path
-    stub `isConditionalMediationAvailable` to `false`.
-- **Password reset** (`reset_password.rs`): `/reset-password` always answers
-  "if an account exists, we've sent a link" (active → 1-hour reset link;
-  awaiting password → a fresh sign-up link; unknown → nothing).
-  The email is sent from a background task so the response takes the same
-  time whether or not the account exists.
-  `GET /reset-password/{token}` only shows the form; `POST` (rate-limited,
-  and it checks the link exists *before* running argon2) consumes the
-  token, sets the password with `query_reset_password` (bumps
-  `session_version`, so other devices are signed out), signs in and shows a
-  toast on `/account`.
+  content), `tokens.rs` (`TokenPurpose`, `generate_token`), `passkeys.rs`.
 - `src/web.rs` — `GlobalState`, `globals(cx)`, `session(cx)`, `db(cx)`,
   `inject_globals` axum middleware.
+- `src/rate_limit.rs`, `src/cleanup.rs` (hourly), `src/flash.rs`,
+  `src/utils.rs`.
 
 ## State machines
 
@@ -306,6 +161,8 @@ When adding state, extend one of these or add a row here.
   tab page).
 - Router setup: `.assets(bundle).layer(RuntimeLayer::new())`; origin policy,
   body limits and compression are per-route `with(...)` values if ever needed.
+- Pages, routes and the layout use explicit paths and are collected by
+  `.discover()`; nothing needs registering by hand.
 - `topcoat fmt` formats every Topcoat macro (`#[page]`, `href!`, `view!`…);
   run it rather than hand-wrapping macro arguments.
 
@@ -322,15 +179,10 @@ When adding state, extend one of these or add a row here.
   binding rewrites the field whenever the signal changes. Keep a separate
   signal for `:value` that only changes when you deliberately reset the field
   (`field_value` vs `draft_name` in `account_profile.rs`).
-
-- Pages, routes and the layout use explicit paths and are collected by
-  `.discover()`; nothing needs registering by hand.
 - Closures in `attributes! { @click=$(...) }` need a typed param:
   `|_e: Event|`. Inside `view!` directly, `|_e|` is fine.
 - `$(...)` supports only a subset of Rust (no string concatenation, no
   `format!`): precompute class strings on the server and capture them.
-- Every value coming back from the browser (signals, procedure/shard args) is
-  user input — validate it. Shards/procedures bypass layout/page guards.
 - `raw!("js", fallback)` quirks: always pass a fallback (`()`), or code after it
   won't compile; put it last in its block (Topcoat omits the trailing `;`, so a
   following statement starting with `(` breaks the JS); wrap `${binding}`
@@ -362,33 +214,47 @@ changes (including `assets/css`). CLI:
 `topcoat fmt --check`, `cargo clippy --all-targets -- -D warnings`,
 `cargo test`, and the Playwright suite. Format with
 `topcoat fmt --rustfmt $(find src -name "*.rs")` (formats Rust and `view!`
-bodies; never use `leptosfmt`).
+bodies; never use `leptosfmt`). While iterating, use the `verify` skill
+(one spec, Chromium only, plus screenshots).
 
-**Migrations**: add a file in `migrations/`, then `sqlx migrate run` against
-the dev database (sqlx macros check queries against it at compile time). The
-test database is migrated automatically by `webserver seed`.
+**Migrations**: add a *new* file in `migrations/` (never edit an applied one;
+a hook blocks it), then `sqlx migrate run` against the dev database (sqlx
+macros check queries against it at compile time). The test database is
+migrated automatically by `webserver seed`. Query metadata for offline
+builds lives in `.sqlx/` (committed): after changing a query run
+`cargo sqlx prepare -- --all-targets` (the stop hook does it for you;
+`./check.sh` fails if it's stale). Build without Postgres with
+`SQLX_OFFLINE=true`.
 
-**Email**: `MAIL_TRANSPORT` = `postmark` (default; needs
-`POSTMARK_SERVER_TOKEN`, `POSTMARK_BASE_URL`, `POSTMARK_FROM_EMAIL`), `log`
-(prints emails, including links), or `file` (writes JSON to `MAIL_DIR`).
-Unknown values stop the server at startup.
+**Behavior tests**: Playwright in `e2e/` (Chromium + Firefox + WebKit) on its
+own server at :3100 with its own database and mail dir;
+`cd e2e && npm test`. Conventions in `.claude/rules/e2e.md`.
 
-**Behavior tests** (Playwright, `e2e/`, Chromium + Firefox + WebKit):
-`cd e2e && npm test` (headless), `npm run ui` (dashboard), `npm run report`.
-Playwright runs its own server on **:3100**: it builds into `target/e2e`
-(so a running `topcoat dev` can never rebuild or re-bundle under a test run), runs
-`webserver seed` against `<dev DATABASE_URL>_test` (or `TEST_DATABASE_URL`),
-and uses the file mailer (`e2e/.mail`, cleared each run), so it never touches
-the dev server or dev data. Conventions:
-- Import `test`/`expect` from `e2e/support/test.ts`: any console error or
-  uncaught exception fails the test; allow expected ones with
-  `test.use({ allowedConsoleErrors: [/…/] })`.
-- Shared helpers: `support/flows.ts` (`register`, `logIn`, `uniqueEmail`),
-  `support/mail.ts` (`waitForEmails`, `verificationLink`), `support/users.ts`
-  (seeded users — keep in sync with `src/seed.rs`). Tests that change data use
-  their own `uniqueEmail` user, never the seeded ones.
-- Inside a modal `<dialog>`, submit with `press("Enter")` on a field, not a
-  click on the submit button: Firefox under Playwright sometimes drops the
-  first click after typing in a modal (the click never reaches the page).
-- Find elements by role/label/text (`getByRole("button", { name: "Show toast" })`),
-  not CSS classes; assert visible behavior. One spec file per feature.
+**Claude Code setup** (`.claude/`):
+- Hooks: every edited `.rs` file is formatted with `topcoat fmt --rustfmt`;
+  before a turn ends, `cargo clippy --all-targets -D warnings` runs (in
+  `target/claude-check`, skipped when nothing changed); edits to applied
+  migrations and generated files (`assets/dist/`, `target/`, `e2e/.mail`)
+  and reads of `.env` are blocked; session start reports branch, database,
+  pending migrations and whether `topcoat dev` is running.
+- Skills: `new-component`, `new-query`, `new-flash`, `new-form-flow`,
+  `new-e2e-test`, `verify`.
+- After a non-trivial change, run the `convention-reviewer` agent on the diff
+  and fix its must-fix findings before reporting done.
+
+**Improving the AI workflow**: this setup should keep getting better from real
+friction. While working, notice when something about the workflow itself
+cost time or caused a mistake. For example:
+- you did the same multi-file steps by hand for the second time (→ a skill);
+- you broke a rule that a script could have caught (→ a hook or a check in
+  `./check.sh`);
+- a rule here was missing, wrong, stale, or loaded when irrelevant (→ edit
+  CLAUDE.md or move it into `.claude/rules/`);
+- a tool, hook or permission prompt kept getting in the way (→ settings);
+- the reviewer missed something, or flagged something that's fine (→ edit
+  `convention-reviewer`).
+
+Don't change the setup silently mid-task. At the end of the task, add one
+short "Workflow suggestion" line: what happened, the proposed fix, and the
+file it would change. Only suggest it when it would clearly pay off again,
+and do it once the user agrees.

@@ -14,6 +14,9 @@ topcoat fmt --check $(find src -name "*.rs")
 step "Clippy (warnings are errors)"
 cargo clippy --all-targets -- -D warnings
 
+step "sqlx offline query data is up to date"
+cargo sqlx prepare --check -- --all-targets
+
 step "Rust tests"
 topcoat asset bundle
 cargo test

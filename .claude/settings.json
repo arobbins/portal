@@ -1,0 +1,98 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo check*)",
+      "Bash(cargo clippy*)",
+      "Bash(cargo test*)",
+      "Bash(cargo fmt*)",
+      "Bash(cargo build*)",
+      "Bash(topcoat fmt*)",
+      "Bash(topcoat asset bundle*)",
+      "Bash(sqlx migrate info*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(./check.sh)",
+      "Bash(npx playwright test*)",
+      "Bash(npm test*)",
+      "Bash(rtk cargo check*)",
+      "Bash(rtk cargo clippy*)",
+      "Bash(rtk cargo test*)",
+      "Bash(rtk cargo fmt*)",
+      "Bash(rtk cargo build*)",
+      "Bash(rtk git status*)",
+      "Bash(rtk git diff*)",
+      "Bash(rtk git log*)",
+      "Bash(rtk git show*)",
+      "Bash(rtk git branch*)",
+      "Bash(rtk npx playwright test*)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push * --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(sqlx database drop*)",
+      "Bash(rtk git push --force*)",
+      "Bash(rtk git push * --force*)",
+      "Bash(rtk git push -f*)",
+      "Bash(rtk git push * -f*)",
+      "Bash(rtk git reset --hard*)",
+      "Read(**/.env)",
+      "Edit(**/.env)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-context.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Read|Write|Edit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-files.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-rust.sh",
+            "timeout": 30,
+            "statusMessage": "topcoat fmt"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-rust.sh",
+            "timeout": 600,
+            "statusMessage": "cargo clippy"
+          }
+        ]
+      }
+    ]
+  }
+}
