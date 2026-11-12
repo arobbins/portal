@@ -7,4 +7,20 @@
   flex: 1;
   min-width: 0;
   font-variant-numeric: tabular-nums;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.a-copy-field__input--copied {
+  border-color: var(--color-copy-border);
+  box-shadow: 0 0 0 3px var(--color-copy-ring);
+
+  &:focus-visible {
+    outline-color: var(--color-copy-border);
+  }
+
+  &::selection {
+    background-color: var(--color-copy-selection);
+  }
 }

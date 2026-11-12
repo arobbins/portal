@@ -196,6 +196,10 @@ When adding state, extend one of these or add a row here.
   values in `String(...)` before comparing — bindings are runtime wrapper
   objects, and handler events are wrapped too (use `e.current_target.value`,
   not `${e}.target`).
+- An `await` inside `raw!` only compiles at the top level of an `async`
+  handler, not inside an `if`/`match` block (the browser throws "Failed to
+  compile event @click"). Await first, then branch on the result (see
+  `copy_field.rs`).
 - Don't use cross-document view transitions (`@view-transition`): Chromium
   flashes white between pages.
 - After upgrading `topcoat-cli`, restart `topcoat dev`: an older CLI still

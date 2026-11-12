@@ -32,6 +32,16 @@ test("the copy field says when it has copied", async ({ page, browserName, conte
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     "wsk_live_4f9a2c7e1b8d3f60",
   );
+
+  const field = page.getByLabel("API token");
+  await expect(field).toBeFocused();
+  expect(
+    await field.evaluate((input: HTMLInputElement) =>
+      input.value.slice(input.selectionStart ?? 0, input.selectionEnd ?? 0),
+    ),
+  ).toBe("wsk_live_4f9a2c7e1b8d3f60");
+
+  await expect(page.getByRole("button", { name: "Copy", exact: true })).toBeVisible();
 });
 
 test("a menu opens below its button", async ({ page }) => {

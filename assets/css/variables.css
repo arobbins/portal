@@ -60,6 +60,9 @@
   --color-success-text: light-dark(#1e5e2a, #b1ffb6);
   --color-success-bg: light-dark(#e8f5e9, #417339);
   --color-success-border: light-dark(#7cc48a, #74d464);
+  --color-copy-border: light-dark(#9cc8a5, #4f7a4a);
+  --color-copy-ring: light-dark(rgb(124 196 138 / 18%), rgb(116 212 100 / 12%));
+  --color-copy-selection: light-dark(rgb(124 196 138 / 28%), rgb(116 212 100 / 22%));
 
   --color-warning-text: light-dark(#6b5310, #fff0b1);
   --color-warning-bg: light-dark(#fdf5dc, #736639);
