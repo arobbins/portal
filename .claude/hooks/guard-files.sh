@@ -27,7 +27,9 @@ case "$rel" in
     block "Blocked: .env holds secrets and is off-limits. Edit .env.example instead and tell the user what to add to .env."
     ;;
   assets/dist/* | target/* | e2e/.mail/* | e2e/test-results/* | e2e/playwright-report/*)
-    block "Blocked: $rel is generated output. Change the source instead (assets/css/, src/, e2e/tests/)."
+    if [[ "$tool" != "Read" ]]; then
+      block "Blocked: $rel is generated output. Change the source instead (assets/css/, src/, e2e/tests/)."
+    fi
     ;;
   migrations/*)
     if [[ "$tool" != "Read" ]] && git -C "$root" ls-files --error-unmatch -- "$rel" >/dev/null 2>&1; then

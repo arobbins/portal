@@ -1,3 +1,4 @@
+import { uniqueEmail } from "../support/flows";
 import { expect, test } from "../support/test";
 
 test.beforeEach(async ({ page }) => {
@@ -45,11 +46,13 @@ test("a textarea accepts multiple lines", async ({ page }) => {
   await expect(message).toHaveValue("First line\nSecond line");
 });
 
-test("a form error is announced and points back at the fields it's about", async ({ page }) => {
+test("a form error is announced and points back at the fields it's about", async ({
+  page,
+}, testInfo) => {
   await page.goto("/login");
-  await page.getByLabel("Email").fill("someone@example.test");
+  await page.getByLabel("Email").fill(uniqueEmail(testInfo, "form-error"));
   await page.getByLabel("Password").fill("not-the-password");
-  await page.getByRole("button", { name: "Login" }).click();
+  await page.getByLabel("Password").press("Enter");
 
   await expect(page.getByRole("alert")).toHaveText("Invalid email or password.");
   for (const field of [page.getByLabel("Email"), page.getByLabel("Password")]) {

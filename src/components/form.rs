@@ -34,6 +34,7 @@ pub enum Autocomplete {
     CurrentPassword,
     NewPassword,
     UsernameWebauthn,
+    OneTimeCode,
 }
 
 impl Autocomplete {
@@ -44,6 +45,7 @@ impl Autocomplete {
             Self::CurrentPassword => "current-password",
             Self::NewPassword => "new-password",
             Self::UsernameWebauthn => "username webauthn",
+            Self::OneTimeCode => "one-time-code",
         }
     }
 }
@@ -68,6 +70,12 @@ impl FormVariant {
 pub struct Choice<'a> {
     pub value: &'a str,
     pub label: &'a str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LabelLink<'a> {
+    pub href: &'a str,
+    pub text: &'a str,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -222,11 +230,19 @@ pub async fn form_field(
     #[default] required: bool,
     #[default] autocomplete: Option<Autocomplete>,
     #[default] invalid: bool,
+    #[default] label_link: Option<LabelLink<'_>>,
     #[default] attrs: Attributes,
 ) -> Result<impl View> {
     Ok(view! {
         form_group(
-            form_label(for_id: id, (label))
+            if let Some(link) = label_link {
+                <div class="a-form-label-row">
+                    form_label(for_id: id, (label))
+                    <a class="a-form-label-row__link" href=(link.href)>(link.text)</a>
+                </div>
+            } else {
+                form_label(for_id: id, (label))
+            }
             form_input(
                 id: id,
                 name: name,
@@ -333,6 +349,7 @@ async fn choice_group(
     options: &[Choice<'_>],
     checked: &[&str],
     required: bool,
+    invalid: bool,
 ) -> Result<impl View> {
     let options: Vec<(Choice<'_>, String, bool)> = options
         .iter()
@@ -359,6 +376,8 @@ async fn choice_group(
                         value=(option.value)
                         checked=(*is_checked)
                         required=(required)
+                        aria-invalid=(invalid_attr(invalid))
+                        aria-describedby=(error_link(invalid))
                     >
                     (option.label)
                 </label>
@@ -376,6 +395,7 @@ pub async fn radio_group(
     options: &[Choice<'_>],
     #[default] selected: Option<&str>,
     #[default] required: bool,
+    #[default] invalid: bool,
 ) -> Result<impl View> {
     let checked: Vec<&str> = selected.into_iter().collect();
 
@@ -387,7 +407,8 @@ pub async fn radio_group(
             name: name,
             options: options,
             checked: &checked,
-            required: required
+            required: required,
+            invalid: invalid
         )
     })
 }
@@ -400,6 +421,7 @@ pub async fn checkbox_group(
     name: &str,
     options: &[Choice<'_>],
     #[default] checked: &[&str],
+    #[default] invalid: bool,
 ) -> Result<impl View> {
     Ok(view! {
         choice_group(
@@ -409,7 +431,43 @@ pub async fn checkbox_group(
             name: name,
             options: options,
             checked: checked,
-            required: false
+            required: false,
+            invalid: invalid
+        )
+    })
+}
+
+#[component]
+pub async fn code_field(
+    cx: &Cx,
+    label: &str,
+    id: &str,
+    name: &str,
+    #[default(6)] length: u32,
+    #[default] required: bool,
+    #[default] invalid: bool,
+    #[default] attrs: Attributes,
+) -> Result<impl View> {
+    let pattern = format!("[0-9]{{{length}}}");
+
+    Ok(view! {
+        form_group(
+            form_label(for_id: id, (label))
+            <input
+                class="a-form-input a-form-input--code"
+                id=(id)
+                name=(name)
+                type="text"
+                inputmode="numeric"
+                autocomplete=(Autocomplete::OneTimeCode.as_str())
+                pattern=(pattern.as_str())
+                minlength=(length)
+                maxlength=(length)
+                required=(required)
+                aria-invalid=(invalid_attr(invalid))
+                aria-describedby=(error_link(invalid))
+                (attrs)
+            >
         )
     })
 }

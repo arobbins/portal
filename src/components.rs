@@ -1,7 +1,17 @@
+pub mod avatar;
+pub mod badge;
 pub mod button;
+pub mod card;
+pub mod confirm_dialog;
+pub mod copy_field;
+pub mod empty_state;
 pub mod form;
 pub mod icon;
+pub mod menu;
 pub mod modal;
 pub mod notice;
+pub mod table;
+pub mod tabs;
 pub mod theme_switcher;
 pub mod toaster;
+pub mod toggle;

@@ -91,18 +91,14 @@ body[class*="page-account"] .page-heading {
 .account__sub-page-heading {
   font-size: 30px;
 }
-.account__content h3 {
-  font-size: 20px;
-}
-
 .account__profile-dropdown {
   width: 100%;
   background: none;
   border: none;
   margin: 0;
-  anchor-name: --menu-button;
   align-items: center;
   font-size: 16px;
+  gap: 10px;
   padding: 5px 10px;
   border-radius: var(--border-radius);
   text-shadow: none;
@@ -111,26 +107,6 @@ body[class*="page-account"] .page-heading {
   &:hover {
     background-color: var(--color-surface-active);
   }
-}
-
-.account__profile-dropdown-photo {
-  border-radius: 50%;
-  width: 25px;
-  height: 25px;
-  margin-right: 10px;
-  outline: 1px solid var(--color-text-strong);
-}
-
-.account__profile-dropdown-photo-fallback {
-  background: var(--color-avatar-bg);
-  padding: 5px;
-  border-radius: 50%;
-  width: 25px;
-  height: 25px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 10px;
 }
 
 .account__profile-dropdown-name {
@@ -143,91 +119,6 @@ body[class*="page-account"] .page-heading {
   margin-bottom: 10px;
   border-bottom: 1px solid var(--border-lines);
   padding-bottom: 10px;
-}
-
-.account__content-card {
-  margin-bottom: 20px;
-  border: 1px solid var(--border-lines);
-  background-color: var(--color-surface-card);
-  border-radius: var(--border-radius);
-}
-
-.account__content-card-header {
-  border-bottom: 1px solid var(--border-lines);
-  padding: 10px 15px;
-  color: var(--color-text-strong);
-  font-size: 20px;
-  text-transform: capitalize;
-}
-
-.account__content-card-details {
-  padding: 10px 15px;
-}
-
-.account__menu {
-  position-anchor: --menu-button;
-  padding: 0;
-  border: none;
-  border-radius: var(--border-radius);
-  background-color: var(--color-surface-raised);
-  box-shadow: var(--shadow-menu);
-  color: var(--color-text-muted);
-  inset: auto;
-  margin: 0;
-  top: anchor(bottom);
-  left: anchor(left);
-  margin-top: 6px;
-  max-width: 240px;
-  width: 100%;
-
-  transition:
-    opacity 0.25s,
-    translate 0.25s,
-    overlay 0.25s allow-discrete,
-    display 0.25s allow-discrete;
-  opacity: 0;
-  translate: 0 -1em;
-
-  &:popover-open {
-    opacity: 1;
-    translate: 0 0;
-  }
-}
-
-@starting-style {
-  .account__menu {
-    &:popover-open {
-      opacity: 0;
-      translate: 0 -1em;
-    }
-  }
-}
-
-.account__menu .nav__list {
-  margin: 0;
-}
-
-.account__menu .nav__list .nav__link {
-  border-radius: 0;
-  border-bottom: 1px solid var(--border-lines-strong);
-  padding: 10px 15px;
-  color: var(--color-text-strong);
-  font-size: 15px;
-  font-family: var(--font-body);
-  text-transform: capitalize;
-
-  &:hover {
-    background: none;
-    opacity: 0.8;
-  }
-}
-
-.account__menu .nav__list li:last-of-type .nav__link {
-  border-bottom: 0;
-}
-
-.account__menu .nav__list .nav__link svg {
-  margin-right: 10px;
 }
 
 .account__layout {
@@ -296,18 +187,6 @@ body[class*="page-account"] .page-heading {
 
 .account__passkey-name {
   color: var(--color-text-strong);
-}
-
-.account__passkey-badge {
-  padding: 1px 8px;
-  border: 1px solid var(--border-lines-strong);
-  border-radius: 999px;
-  font-size: 13px;
-  color: var(--color-text-muted);
-}
-
-.account__passkey-badge--local {
-  border-style: dashed;
 }
 
 .account__passkey-meta {

@@ -7,5 +7,11 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["playwright.config.ts", "tests/**/*.ts", "support/**/*.ts"]
+  "include": [
+    "playwright.config.ts",
+    "screenshot.config.ts",
+    "tests/**/*.ts",
+    "screenshots/**/*.ts",
+    "support/**/*.ts"
+  ]
 }

@@ -1,14 +1,15 @@
 use topcoat::{
     Result,
     context::Cx,
-    view::{View, component, view},
+    view::{View, attributes, component, view},
 };
 
 use super::styleguide_section;
 use crate::components::button::{ButtonType, button};
+use crate::components::copy_field::copy_field;
 use crate::components::form::{
-    Choice, InputType, checkbox, checkbox_group, form, form_actions, form_col, form_error,
-    form_field, form_row, radio_group, select_field, textarea_field,
+    Choice, InputType, LabelLink, checkbox, checkbox_group, code_field, form, form_actions,
+    form_col, form_error, form_field, form_row, radio_group, select_field, textarea_field,
 };
 
 const PLANS: &[Choice<'static>] = &[
@@ -141,7 +142,7 @@ pub async fn forms_section(cx: &Cx) -> Result<impl View> {
                 )
                 form_actions(button(button_type: ButtonType::Submit, "Submit"))
             )
-            <h3>"Error state"</h3>
+            <h3 class="styleguide__subheading">"Error state"</h3>
             form(
                 form_field(
                     label: "Work email",
@@ -151,8 +152,72 @@ pub async fn forms_section(cx: &Cx) -> Result<impl View> {
                     value: Some("not-an-email"),
                     invalid: true
                 )
-                form_error("Please enter a valid email address.")
+                select_field(
+                    label: "Tier",
+                    id: "styleguide-invalid-plan",
+                    name: "plan",
+                    options: PLANS,
+                    placeholder: Some("Choose a plan"),
+                    invalid: true
+                )
+                checkbox_group(
+                    legend: "Notify me about",
+                    id: "styleguide-invalid-notifications",
+                    name: "notifications",
+                    options: NOTIFICATIONS,
+                    invalid: true
+                )
+                textarea_field(
+                    label: "Project description",
+                    id: "styleguide-invalid-message",
+                    name: "message",
+                    value: Some("Too short"),
+                    invalid: true
+                )
+                form_error("Please fix the highlighted fields.")
                 form_actions(button(button_type: ButtonType::Submit, "Submit"))
+            )
+            <h3 class="styleguide__subheading">"Disabled"</h3>
+            form(
+                form_field(
+                    label: "Email",
+                    id: "styleguide-disabled-email",
+                    name: "email",
+                    value: Some("hello@andrewrobbins.dev"),
+                    attrs: attributes! { disabled=(true) }
+                )
+            )
+            <h3 class="styleguide__subheading">"Label link"</h3>
+            form(
+                form_field(
+                    label: "Password",
+                    id: "styleguide-label-link-password",
+                    name: "password",
+                    input_type: InputType::Password,
+                    placeholder: Some("Enter password"),
+                    label_link: Some(
+                        LabelLink {
+                            href: "#styleguide-label-link-password",
+                            text: "Forgot password?",
+                        },
+                    )
+                )
+            )
+            <h3 class="styleguide__subheading">"One-time code"</h3>
+            form(
+                code_field(
+                    label: "Authentication code",
+                    id: "styleguide-code",
+                    name: "code"
+                )
+            )
+            <h3 class="styleguide__subheading">"Copy field"</h3>
+            form(
+                copy_field(
+                    label: "API token",
+                    id: "styleguide-token",
+                    value: "wsk_live_4f9a2c7e1b8d3f60"
+                )
             )
         )
     })

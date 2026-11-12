@@ -16,7 +16,8 @@ use topcoat::{
 
 use super::account_passkeys::{account_passkeys, rename_problem};
 use super::new_password_form::new_password_fields;
-use crate::components::button::{ButtonSize, ButtonType, button};
+use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
+use crate::components::card::{card, card_body, card_header};
 use crate::components::form::{
     Autocomplete, FORM_ERROR_ID, InputType, form, form_actions, form_error, form_field,
 };
@@ -116,12 +117,12 @@ pub async fn account_security(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         <div class="account__sub-page-content">
             <h2 class="account__sub-page-heading">"Security"</h2>
-            <section class="account__content-card" id="password">
-                <header
-                    class="account__content-card-header l-flex l-flex-center-col l-flex-space-between"
-                >
-                    "Password"
+            card(
+                id: Some("password"),
+                card_header(
+                    title: "Password",
                     button(
+                        variant: ButtonVariant::Secondary,
                         size: ButtonSize::Sm,
                         attrs: attributes! {
                             command="show-modal"
@@ -138,38 +139,46 @@ pub async fn account_security(cx: &Cx) -> Result<impl View> {
                         icon(name: IconName::Edit)
                         "Change password"
                     )
-                </header>
-                <div class="account__content-card-details">
+                )
+                card_body(
                     <p>
                         "Use a long password you don't use anywhere else. Changing it signs you out on your other devices."
                     </p>
-                </div>
-            </section>
+                )
+            )
             account_passkeys()
-            <section class="account__content-card" id="2fa">
-                <header
-                    class="account__content-card-header l-flex l-flex-center-col l-flex-space-between"
-                >
-                    "Two-factor authentication"
-                    button(size: ButtonSize::Sm, disabled: true, "Set up")
-                </header>
-                <div class="account__content-card-details">
+            card(
+                id: Some("2fa"),
+                card_header(
+                    title: "Two-factor authentication",
+                    button(
+                        variant: ButtonVariant::Secondary,
+                        size: ButtonSize::Sm,
+                        disabled: true,
+                        "Set up"
+                    )
+                )
+                card_body(
                     <p>
                         "Confirm it's you with an authenticator app when you sign in. Coming soon."
                     </p>
-                </div>
-            </section>
-            <section class="account__content-card" id="sso">
-                <header
-                    class="account__content-card-header l-flex l-flex-center-col l-flex-space-between"
-                >
-                    "Single sign-on"
-                    button(size: ButtonSize::Sm, disabled: true, "Connect")
-                </header>
-                <div class="account__content-card-details">
+                )
+            )
+            card(
+                id: Some("sso"),
+                card_header(
+                    title: "Single sign-on",
+                    button(
+                        variant: ButtonVariant::Secondary,
+                        size: ButtonSize::Sm,
+                        disabled: true,
+                        "Connect"
+                    )
+                )
+                card_body(
                     <p>"Sign in with your company's identity provider. Coming soon."</p>
-                </div>
-            </section>
+                )
+            )
             modal(
                 id: MODAL_ID,
                 heading: "Change password",

@@ -115,6 +115,12 @@ pub async fn redirect_to_canonical_host(
     next.run(req).await
 }
 
+pub async fn run_to_completion(req: Request, next: Next) -> Response {
+    tokio::spawn(next.run(req))
+        .await
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
 pub async fn attach_remote_addr(mut req: Request, next: Next) -> Response {
     if let Some(ConnectInfo(addr)) = req.extensions().get::<ConnectInfo<SocketAddr>>().copied() {
         req.extensions_mut().insert(RemoteAddr(addr));

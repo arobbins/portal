@@ -15,7 +15,10 @@ mod web;
 
 use crate::config::Config;
 use crate::rate_limit::RateLimits;
-use crate::web::{CanonicalHost, attach_remote_addr, inject_globals, redirect_to_canonical_host};
+use crate::web::{
+    CanonicalHost, attach_remote_addr, inject_globals, redirect_to_canonical_host,
+    run_to_completion,
+};
 
 use axum::http::header::{
     CONTENT_SECURITY_POLICY, HeaderName, HeaderValue, REFERRER_POLICY, STRICT_TRANSPORT_SECURITY,
@@ -97,7 +100,9 @@ async fn main() {
     cleanup::spawn(db.clone(), session_store.clone());
 
     let bind_address = config.bind_address.clone();
-    let app = app(db, config, rate_limits, assets).layer(session_layer);
+    let app = app(db, config, rate_limits, assets)
+        .layer(session_layer)
+        .layer(middleware::from_fn(run_to_completion));
     let app = NormalizePathLayer::trim_trailing_slash().layer(app);
 
     let mut listenfd = ListenFd::from_env();

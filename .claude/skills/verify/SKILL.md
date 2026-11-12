@@ -28,19 +28,40 @@ cd e2e && npx playwright test <spec-name> --project=chromium --reporter=list
 
 ## 2. Look at the page (visual changes only)
 
-Only when the change is visible (layout, CSS, a new component or page):
+Only when the change is visible (layout, CSS, a new component or page). Use the screenshot
+tool; it runs against the e2e server (current code, fresh database), so it needs no dev server
+or browser extension and can sign in:
 
-1. The session-start context says whether `topcoat dev` is on :3000. If not, ask the user to
-   start it (don't start a second server).
-2. Load the `claude-in-chrome` skill, open a **new tab** at `http://localhost:3000/<path>`
-   (always `localhost`, never `127.0.0.1`). Pages behind login need the user's own signed-in
-   browser session; ask if you hit `/login`.
-3. Screenshot at 390px wide and at 1280px wide. At 390px check there is no horizontal scroll
-   (`document.documentElement.scrollWidth <= window.innerWidth`), the header menu opens from
-   the Menu button, and the account sidebar shows as tabs.
-4. Switch themes with `window.setTheme("light")` / `window.setTheme("dark")` and screenshot
-   again if colors changed. Put it back to what it was.
-5. Report what you saw; don't claim it looks right without a screenshot.
+```sh
+cd e2e && SHOT_PATHS=/login,/register SHOT_OUT=<scratchpad>/shots npm run screenshot
+```
+
+Settings (environment variables):
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `SHOT_PATHS` | `/` | comma-separated paths |
+| `SHOT_THEMES` | `dark,light` | themes to capture |
+| `SHOT_WIDTHS` | `390,1280` | viewport widths (phone, desktop) |
+| `SHOT_SIGNED_IN` | off | `1` signs up a fresh user first (for `/account/...`) |
+| `SHOT_SELECTOR` | whole page | CSS selector to crop to one element |
+| `SHOT_VARIANTS` | `{"current": ""}` | path to a JSON file `{ "name": "css", ... }` to compare design options; each is injected on top of the real CSS |
+| `SHOT_SCALE` | `1` | device pixel ratio (`2`–`3` to judge alignment) |
+| `SHOT_OUT` | `e2e/.screenshots` | output folder; files are `<path>-<variant>-<theme>-<width>.png` |
+
+Transitions are disabled before capture, so colors are never caught mid-animation.
+
+1. Capture the affected pages at both widths and both themes, then read the images.
+2. At 390px check there's no sideways scroll, the header menu sits behind the Menu button, and
+   the account sidebar shows as tabs.
+3. When the user is choosing between designs, render each option as a variant and show them
+   the file paths with a short comparison and a recommendation.
+4. Report what you saw; don't claim it looks right without a screenshot.
+
+For interactive checks the tool can't do (hover, an open modal, a toast), write a temporary
+spec in `e2e/screenshots/` next to `screenshot.spec.ts`, run it with `npm run screenshot`, and
+delete it afterwards. Claude in Chrome on `http://localhost:3000` is the fallback when the user
+wants their own signed-in session.
 
 ## 3. Finish
 

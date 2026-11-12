@@ -19,8 +19,35 @@
   --color-surface-hover: light-dark(#efebe4, #1e1e1c);
   --color-surface-active: light-dark(#e6e1d8, #2a2a24);
   --color-control-bg: light-dark(#ffffff, #1e1e1c);
-  --color-control-hover: light-dark(#f3f0ea, color-mix(in oklab, #1e1e1c, black 15%));
+  --color-control-hover: light-dark(
+    #f3f0ea,
+    color-mix(in oklab, #1e1e1c, black 15%)
+  );
   --color-avatar-bg: light-dark(#e6e1d8, #3b3630);
+  --color-button-primary-bg: light-dark(#ac501e, #ac501e);
+  --color-button-primary-hover: light-dark(#934419, #bc5d27);
+  --color-button-primary-text: light-dark(#ffffff, #f5ede0);
+  --color-button-primary-muted-bg: light-dark(
+    color-mix(in oklab, #ac501e 45%, #faf8f4),
+    color-mix(in oklab, #ac501e 40%, #12100e)
+  );
+  --color-button-primary-muted-text: light-dark(
+    color-mix(in oklab, #ffffff 80%, #ac501e),
+    color-mix(in oklab, #f5ede0 55%, #12100e)
+  );
+  --color-button-danger-bg: light-dark(#b3261e, #b3261e);
+  --color-button-danger-hover: light-dark(#961f19, #c63a2f);
+  --color-button-danger-text: light-dark(#ffffff, #fbeaea);
+  --color-button-danger-muted-bg: light-dark(
+    color-mix(in oklab, #b3261e 40%, #faf8f4),
+    color-mix(in oklab, #b3261e 40%, #12100e)
+  );
+  --color-button-danger-muted-text: light-dark(
+    color-mix(in oklab, #ffffff 80%, #b3261e),
+    color-mix(in oklab, #fbeaea 55%, #12100e)
+  );
+  --color-toggle-off: light-dark(#d6d0c5, #48453f);
+  --color-toggle-knob: light-dark(#ffffff, #f5ede0);
 
   --color-text: light-dark(#3b352d, #cfb57f);
   --color-text-strong: light-dark(#1c1915, #ebdec3);
@@ -53,7 +80,7 @@
   --color-disabled-bg: light-dark(#f1eee8, #1a1a1a);
   --color-disabled-border: light-dark(#e4dfd6, #2d2d2d);
   --color-autofill-bg: light-dark(#f3f0ea, #444444);
-  --color-backdrop: light-dark(rgb(30 25 20 / 35%), rgb(0 0 0 / 50%));
+  --color-backdrop: light-dark(rgb(30 25 20 / 35%), rgb(0 0 0 / 61%));
   --color-focus: var(--color-text-muted);
 
   --border-lines: light-dark(#e4dfd6, #2a2a24);
@@ -76,6 +103,12 @@
   --form-choice-gap: 0.55em;
   --form-column-gap: 1em;
 
+  --notice-padding-block: 0.5em;
+  --notice-padding-inline-start: 0.8em;
+  --notice-padding-inline-end: 1.1em;
+  --notice-icon-gap: 0.45em;
+
   --spacing-fixed-m: 20px;
-  --border-radius: 5px;
+  --z-toast: 100;
+  --border-radius: 7px;
 }

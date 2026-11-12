@@ -12,7 +12,9 @@ use topcoat::{
     view::{View, attributes, component, view},
 };
 
+use crate::components::badge::{BadgeKind, badge};
 use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
+use crate::components::card::{card, card_body, card_header};
 use crate::components::form::{
     Autocomplete, InputType, form, form_actions, form_error, form_field,
 };
@@ -77,19 +79,19 @@ pub async fn account_passkeys(cx: &Cx) -> Result<impl View> {
     let selected_name = signal(cx, String::new);
 
     Ok(view! {
-        <section class="account__content-card" id="passkeys">
-            <header
-                class="account__content-card-header l-flex l-flex-center-col l-flex-space-between"
-            >
-                "Passkeys"
+        card(
+            id: Some("passkeys"),
+            card_header(
+                title: "Passkeys",
                 button(
+                    variant: ButtonVariant::Secondary,
                     size: ButtonSize::Sm,
                     attrs: attributes! { command="show-modal" commandfor=(ADD_MODAL) },
                     icon(name: IconName::Plus)
                     "Add passkey"
                 )
-            </header>
-            <div class="account__content-card-details">
+            )
+            card_body(
                 if rows.is_empty() {
                     <p>
                         "Sign in with your fingerprint, face or screen lock instead of typing your password. Passkeys can't be phished or reused on other sites."
@@ -112,8 +114,8 @@ pub async fn account_passkeys(cx: &Cx) -> Result<impl View> {
                         "This passkey only exists on one device. Add a second passkey so you can still sign in if you lose it."
                     )
                 }
-            </div>
-        </section>
+            )
+        )
         modal(
             id: ADD_MODAL,
             heading: "Add a passkey",
@@ -189,11 +191,9 @@ async fn passkey_item(
             <div class="account__passkey-info">
                 <span class="account__passkey-name">(row.name.as_str())</span>
                 if row.synced {
-                    <span class="account__passkey-badge">"Synced"</span>
+                    badge("Synced")
                 } else {
-                    <span class="account__passkey-badge account__passkey-badge--local">
-                        "This device only"
-                    </span>
+                    badge(kind: BadgeKind::Warning, "This device only")
                 }
                 <span class="account__passkey-meta">(row.summary.as_str())</span>
             </div>

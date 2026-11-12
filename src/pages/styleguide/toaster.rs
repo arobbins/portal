@@ -19,10 +19,12 @@ pub async fn toaster_section(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         styleguide_section(
             title: "Toaster",
-            button(
-                attrs: attributes! { @click=$(|_e: Event| toast.set(DEMO_TOAST.to_owned())) },
-                "Show toast"
-            )
+            <div class="styleguide__row">
+                button(
+                    attrs: attributes! { @click=$(|_e: Event| toast.set(DEMO_TOAST.to_owned())) },
+                    "Show toast"
+                )
+            </div>
             toaster(
                 toast: &toast,
                 name: DEMO_TOAST,

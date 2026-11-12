@@ -21,6 +21,10 @@ pub async fn notices_section(cx: &Cx) -> Result<impl View> {
                 dismissible: true,
                 "Info: This is a dismissible notice."
             )
+            notice(
+                kind: NoticeKind::Warning,
+                "This passkey only exists on one device. Add a second passkey so you can still sign in if you lose it. Longer messages wrap onto several lines, and the icon stays next to the first line."
+            )
         )
     })
 }

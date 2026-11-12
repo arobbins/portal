@@ -22,11 +22,27 @@ data.
   `support/users.ts` (seeded users — keep in sync with `src/seed.rs`).
   Tests that change data use their own `uniqueEmail` user, never the seeded
   ones.
-- Inside a modal `<dialog>`, submit with `press("Enter")` on a field, not a
+- Submit forms with `press("Enter")` on the last field you typed in, never a
   click on the submit button: Firefox under Playwright sometimes drops the
-  first click after typing in a modal (the click never reaches the page).
+  first click after typing (on any page, not just modals), so the form is
+  never posted. Shared helpers in `flows.ts` already do this.
+- Toasts are held open in tests (`holdToasts`, on by default in
+  `support/test.ts`; held toasts ignore clicks), so a slow machine can't miss
+  a toast before it auto-hides. Only `toaster.spec.ts` turns it off.
+- Failed logins are rate-limited per account even in relaxed mode, so tests
+  that log in with a wrong password use their own `uniqueEmail` account, never
+  a seeded one.
+- Popovers and menus must not move while opening (fade, don't slide): a
+  moving target makes Playwright press outside it, which light-dismisses it.
+- To find a flake, stress the suite: `npx playwright test --repeat-each=2
+  --workers=16`, then read the failing test's `trace.zip` network and action
+  logs.
 - Find elements by role/label/text
   (`getByRole("button", { name: "Show toast" })`), not CSS classes; assert
   visible behavior. One spec file per feature.
 - The full recipe is the `new-e2e-test` skill; run a single spec quickly
   with the `verify` skill.
+- Screenshots: `npm run screenshot` (`screenshot.config.ts`, spec in
+  `screenshots/`, settings via `SHOT_*` env vars, documented in the `verify`
+  skill). It's a separate config, so `npm test` and `./check.sh` never run
+  it; output goes to the gitignored `e2e/.screenshots`.

@@ -1,0 +1,10 @@
+.a-copy-field {
+  display: flex;
+  gap: 8px;
+}
+
+.a-copy-field__input {
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}

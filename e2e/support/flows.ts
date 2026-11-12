@@ -10,20 +10,20 @@ export async function register(page: Page, name: string, email: string) {
   await page.goto("/register");
   await page.getByLabel("Name").fill(name);
   await page.getByLabel("Email").fill(email);
-  await page.getByRole("button", { name: "Register account" }).click();
+  await page.getByLabel("Email").press("Enter");
 }
 
 export async function setPassword(page: Page, password: string, confirmation = password) {
   await page.getByLabel("New password", { exact: true }).fill(password);
   await page.getByLabel("Confirm new password").fill(confirmation);
-  await page.getByRole("button", { name: "Set password" }).click();
+  await page.getByLabel("Confirm new password").press("Enter");
 }
 
 export async function logIn(page: Page, email: string, password: string) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Login" }).click();
+  await page.getByLabel("Password").press("Enter");
 }
 
 export const ACCOUNT_PASSWORD = "a-strong-test-password";

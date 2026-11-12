@@ -7,8 +7,12 @@ use topcoat::{
 };
 
 use super::logout::logout;
+use crate::components::avatar::avatar;
 use crate::components::icon::{IconName, icon};
+use crate::components::menu::{menu, menu_form_button, menu_link};
 use crate::user::model::User;
+
+const MENU_ID: &str = "account-menu";
 
 #[component]
 pub async fn profile_menu(
@@ -16,40 +20,26 @@ pub async fn profile_menu(
     user: &User,
     display_name: &Signal<String>,
 ) -> Result<impl View> {
+    let logout_href = href!(logout).resolve(cx);
+
     Ok(view! {
-        <button popovertarget="account-menu" class="account__profile-dropdown l-flex">
-            match &user.photo {
-                Some(photo) => <img
-                    src=(photo)
-                    alt=""
-                    class="account__profile-dropdown-photo"
-                >,
-                None => {
-                    <div class="account__profile-dropdown-photo-fallback">
-                        icon(name: IconName::User)
-                    </div>
-                }
-            }
+        <button popovertarget=(MENU_ID) class="account__profile-dropdown l-flex">
+            avatar(photo: user.photo.as_deref())
             <span class="account__profile-dropdown-name">$(display_name.get())</span>
             icon(name: IconName::ChevronDown)
         </button>
-        <div id="account-menu" class="account__menu" popover="">
-            <ul class="nav__list nav__list--flush-left l-flex-col">
-                <li class="nav__list-item">
-                    <a class="nav__link" href="/account/billing#subscriptions">
-                        icon(name: IconName::CreditCard)
-                        " Manage Subscription"
-                    </a>
-                </li>
-                <li class="nav__list-item">
-                    <form method="post" action=(href!(logout))>
-                        <button type="submit" class="nav__link nav__link--button">
-                            icon(name: IconName::Logout)
-                            " Logout"
-                        </button>
-                    </form>
-                </li>
-            </ul>
-        </div>
+        menu(
+            id: MENU_ID,
+            menu_link(
+                href: "/account/billing#subscriptions",
+                icon(name: IconName::CreditCard)
+                "Manage Subscription"
+            )
+            menu_form_button(
+                action: &logout_href,
+                icon(name: IconName::Logout)
+                "Logout"
+            )
+        )
     })
 }

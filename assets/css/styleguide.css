@@ -5,7 +5,51 @@
 .styleguide__examples {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: 1em;
   padding-top: 1em;
+}
+
+.styleguide__subheading {
+  margin: 1.5em 0 0;
+  font-size: 20px;
+}
+
+.styleguide__label {
+  margin: 0.5em 0 -0.4em;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.styleguide__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.styleguide__icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.styleguide__icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 6px;
+  border: 1px solid var(--border-lines);
+  border-radius: var(--border-radius);
+  font-size: 12px;
+  color: var(--color-text-muted);
+
+  .a-icon {
+    font-size: 22px;
+    color: var(--color-text-strong);
+  }
+}
+
+.styleguide__prose {
+  display: block;
 }

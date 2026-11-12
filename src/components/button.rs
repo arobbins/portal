@@ -10,6 +10,7 @@ pub enum ButtonVariant {
     #[default]
     Primary,
     Secondary,
+    Danger,
 }
 
 impl ButtonVariant {
@@ -17,6 +18,7 @@ impl ButtonVariant {
         match self {
             Self::Primary => "a-button--primary",
             Self::Secondary => "a-button--secondary",
+            Self::Danger => "a-button--danger",
         }
     }
 }

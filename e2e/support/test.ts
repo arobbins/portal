@@ -2,11 +2,31 @@ import { test as base, expect } from "@playwright/test";
 
 type Fixtures = {
   allowedConsoleErrors: RegExp[];
+  holdToasts: boolean;
   failOnJavaScriptErrors: void;
+  holdToastsOpen: void;
 };
+
+const HELD_TOAST_CSS =
+  ".a-toaster--is-open { animation-play-state: paused !important; pointer-events: none !important; }";
 
 export const test = base.extend<Fixtures>({
   allowedConsoleErrors: [[], { option: true }],
+  holdToasts: [true, { option: true }],
+
+  holdToastsOpen: [
+    async ({ page, holdToasts }, use) => {
+      if (holdToasts) {
+        await page.addInitScript((css) => {
+          const sheet = new CSSStyleSheet();
+          sheet.replaceSync(css);
+          document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+        }, HELD_TOAST_CSS);
+      }
+      await use();
+    },
+    { auto: true },
+  ],
 
   failOnJavaScriptErrors: [
     async ({ page, allowedConsoleErrors }, use) => {

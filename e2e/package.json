@@ -5,7 +5,8 @@
   "scripts": {
     "test": "playwright test",
     "ui": "playwright test --ui",
-    "report": "playwright show-report"
+    "report": "playwright show-report",
+    "screenshot": "playwright test -c screenshot.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

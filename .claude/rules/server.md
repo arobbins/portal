@@ -28,6 +28,12 @@ paths:
   `web.rs`), so `127.0.0.1:3000` lands on `localhost:3000` (passkeys only
   work on the configured domain). Behind a reverse proxy, the proxy must
   forward the original `Host` header, or every page redirects.
+- **Requests run to completion** (`run_to_completion` in `web.rs`, the
+  outermost layer): each request runs in its own task, so a client
+  disconnecting mid-request can't cancel it halfway. Without this, a dropped
+  request could leave a pooled DB connection inside an open transaction
+  (sqlx isn't cancellation-safe during `BEGIN`), breaking the next request
+  that used it.
 - **Logging** defaults to `info` (debug logs every URL, including link
   tokens); set `RUST_LOG` to change it.
 - **Email**: `MAIL_TRANSPORT` = `postmark` (default; needs

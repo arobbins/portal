@@ -12,8 +12,10 @@ pub async fn theme_switcher_section(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         styleguide_section(
             title: "Theme switcher",
-            theme_switcher()
-            theme_switcher(compact: true)
+            <div class="styleguide__row">
+                theme_switcher()
+                theme_switcher(compact: true)
+            </div>
         )
     })
 }

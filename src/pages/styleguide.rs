@@ -1,10 +1,15 @@
+mod badges;
 mod buttons;
+mod cards;
 mod forms;
+mod icons;
 mod modal;
+mod navigation;
 mod notices;
 mod text;
 mod theme_switcher;
 mod toaster;
+mod toggles;
 
 use topcoat::{
     Result,
@@ -20,13 +25,18 @@ use crate::app::page_title;
 pub async fn styleguide_page(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         <section class="l-contain l-skinny styleguide">
-            <h1>"Styleguide (h1)"</h1>
+            <h1>"Styleguide"</h1>
             text::text_section()
             buttons::buttons_section()
+            badges::badges_section()
             notices::notices_section()
             toaster::toaster_section()
             forms::forms_section()
+            toggles::toggles_section()
+            cards::cards_section()
+            navigation::navigation_section()
             modal::modal_section()
+            icons::icons_section()
             theme_switcher::theme_switcher_section()
         </section>
     })

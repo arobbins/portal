@@ -15,11 +15,12 @@ use topcoat::{
     view::{View, attributes, view},
 };
 
+use super::register::register_page;
 use super::reset_password::reset_password_page;
 use crate::app::page_title;
 use crate::components::button::{ButtonType, ButtonVariant, button};
 use crate::components::form::{
-    Autocomplete, FormVariant, InputType, form, form_actions, form_error, form_field,
+    Autocomplete, FormVariant, InputType, LabelLink, form, form_actions, form_error, form_field,
 };
 use crate::layout::page_heading::page_heading;
 use crate::user::auth::{password_matches, redirect_signed_in_users, sign_in};
@@ -76,6 +77,7 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
     let problem = failed.map(|failed| failed.problem);
     let is_submitting = signal(cx, || false);
     let invalid_credentials = problem.is_some_and(LoginProblem::invalid_credentials);
+    let reset_href = href!(reset_password_page).resolve(cx);
 
     Ok(view! {
         <section class="l-contain l-skinny">
@@ -104,7 +106,10 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
                     name: "password",
                     input_type: InputType::Password,
                     placeholder: Some("Enter password"),
-                    invalid: invalid_credentials
+                    invalid: invalid_credentials,
+                    label_link: Some(
+                        LabelLink { href: &reset_href, text: "Forgot password?" },
+                    )
                 )
                 if let Some(problem) = problem {
                     form_error((problem.message()))
@@ -115,9 +120,6 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
                         busy: $(is_submitting.get()),
                         "Login"
                     )
-                    <a href=(href!(reset_password_page).resolve(cx))>
-                        "Forgot password?"
-                    </a>
                 )
             )
             <div class="passkey-sign-in">
@@ -129,6 +131,12 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
                 )
                 form_error(id: Some(PASSKEY_ERROR_ID), hidden: true, "")
             </div>
+            <p class="auth-switch">
+                "Don't have an account yet? "
+                <a class="auth-switch__link" href=(href!(register_page).resolve(cx))>
+                    "Sign up"
+                </a>
+            </p>
         </section>
     })
 }

@@ -5,7 +5,6 @@ use topcoat::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
 pub enum IconName {
     Checkmark,
     ChevronDown,
@@ -29,6 +28,52 @@ pub enum IconName {
 }
 
 impl IconName {
+    pub const ALL: [Self; 19] = [
+        Self::Checkmark,
+        Self::ChevronDown,
+        Self::CreditCard,
+        Self::Edit,
+        Self::ErrorCircle,
+        Self::ExternalLink,
+        Self::Info,
+        Self::Loading,
+        Self::Logout,
+        Self::Menu,
+        Self::Monitor,
+        Self::Moon,
+        Self::Pinwheel,
+        Self::Plus,
+        Self::Settings,
+        Self::Sun,
+        Self::User,
+        Self::UserSquare,
+        Self::Warning,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Checkmark => "Checkmark",
+            Self::ChevronDown => "Chevron Down",
+            Self::CreditCard => "Credit Card",
+            Self::Edit => "Edit",
+            Self::ErrorCircle => "Error Circle",
+            Self::ExternalLink => "External Link",
+            Self::Info => "Info",
+            Self::Loading => "Loading",
+            Self::Logout => "Logout",
+            Self::Menu => "Menu",
+            Self::Monitor => "Monitor",
+            Self::Moon => "Moon",
+            Self::Pinwheel => "Pinwheel",
+            Self::Plus => "Plus",
+            Self::Settings => "Settings",
+            Self::Sun => "Sun",
+            Self::User => "User",
+            Self::UserSquare => "User Square",
+            Self::Warning => "Warning",
+        }
+    }
+
     fn svg(self) -> &'static str {
         match self {
             Self::Checkmark => include_str!("../../assets/icons/checkmark.svg"),

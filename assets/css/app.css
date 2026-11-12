@@ -14,5 +14,16 @@
 @import "./components/toaster.css";
 @import "./components/modal.css";
 @import "./components/theme-switcher.css";
+@import "./components/avatar.css";
+@import "./components/badge.css";
+@import "./components/card.css";
+@import "./components/confirm-dialog.css";
+@import "./components/copy-field.css";
+@import "./components/empty-state.css";
+@import "./components/menu.css";
+@import "./components/table.css";
+@import "./components/tabs.css";
+@import "./components/toggle.css";
+@import "./pages/auth.css";
 @import "./account.css";
 @import "./styleguide.css";

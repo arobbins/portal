@@ -1,5 +1,6 @@
 .a-toaster {
   position: fixed;
+  z-index: var(--z-toast);
   top: 15px;
   inset-inline: 0;
   margin-inline: auto;

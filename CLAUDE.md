@@ -101,7 +101,14 @@ logging), `e2e.md` (Playwright conventions).
   CSS file in `assets/css/components/` and a demo in `src/pages/styleguide/`.
   Import components by module path: `components::button::{button, ButtonSize}`
   (`#[component]` generates a module named after the function, so they can't
-  be re-exported from `components.rs`).
+  be re-exported from `components.rs`). Available: `button` (Primary /
+  Secondary / Danger), `form` controls (incl. `code_field`), `card` +
+  `card_header` + `card_body` (every settings block), `badge`, `avatar`,
+  `menu` (popover, opened by any button with `popovertarget`), `tabs` + `tab`
+  (link tabs), `table` + `table_row`/`table_heading`/`table_cell`,
+  `empty_state`, `toggle` (a `role="switch"` checkbox), `copy_field`,
+  `modal`, `confirm_dialog` (destructive confirmations), `notice`, `toaster`,
+  `icon`, `theme_switcher`. Use these before writing page-specific markup.
 - `src/layout/` — header, nav, footer, logo, page heading.
 - `src/pages/` — general pages (`#[page("/path")]`); `src/pages/styleguide/` —
   one section per component.
@@ -230,12 +237,18 @@ builds lives in `.sqlx/` (committed): after changing a query run
 own server at :3100 with its own database and mail dir;
 `cd e2e && npm test`. Conventions in `.claude/rules/e2e.md`.
 
+**Screenshots**: `cd e2e && SHOT_PATHS=/login npm run screenshot` captures
+pages in both themes at phone and desktop width on the e2e server
+(`SHOT_SIGNED_IN=1` for account pages, `SHOT_VARIANTS` to compare CSS
+options). Settings are in the `verify` skill.
+
 **Claude Code setup** (`.claude/`):
 - Hooks: every edited `.rs` file is formatted with `topcoat fmt --rustfmt`;
   before a turn ends, `cargo clippy --all-targets -D warnings` runs (in
   `target/claude-check`, skipped when nothing changed); edits to applied
-  migrations and generated files (`assets/dist/`, `target/`, `e2e/.mail`)
-  and reads of `.env` are blocked; session start reports branch, database,
+  migrations and generated files (`assets/dist/`, `target/`, `e2e/.mail`,
+  `e2e/test-results/`) are blocked (reading them is fine, e.g. failure
+  screenshots), and so is reading `.env`; session start reports branch, database,
   pending migrations and whether `topcoat dev` is running.
 - Skills: `new-component`, `new-query`, `new-flash`, `new-form-flow`,
   `new-e2e-test`, `verify`.

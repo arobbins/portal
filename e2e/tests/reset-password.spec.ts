@@ -20,7 +20,7 @@ async function requestReset(page: Page, email: string) {
   await page.goto("/login");
   await page.getByRole("link", { name: "Forgot password?" }).click();
   await page.getByLabel("Email").fill(email);
-  await page.getByRole("button", { name: "Send reset link" }).click();
+  await page.getByLabel("Email").press("Enter");
   await expect(page).toHaveURL("/reset-password");
   await expect(page.getByText(LINK_SENT)).toHaveCSS("opacity", "1");
 }

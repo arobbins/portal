@@ -1,16 +1,20 @@
 .a-notice {
-  padding: 5px 17px 5px 12px;
+  padding: var(--notice-padding-block) var(--notice-padding-inline-end)
+    var(--notice-padding-block) var(--notice-padding-inline-start);
   border-radius: var(--border-radius);
   font-size: var(--control-font-size);
   font-family: var(--font-body);
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
+  line-height: 1.3;
   width: 100%;
   box-sizing: border-box;
 
   &:before {
     content: "";
-    margin-right: 7px;
+    flex-shrink: 0;
+    margin-top: 0.1em;
+    margin-right: var(--notice-icon-gap);
     width: 1.1em;
     height: 1.1em;
     display: inline-block;
@@ -26,7 +30,8 @@
     &:after {
       content: "Close";
       position: absolute;
-      top: 7px;
+      top: 50%;
+      translate: 0 -50%;
       right: -43px;
       color: var(--color-muted);
       font-size: 13px;

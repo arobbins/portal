@@ -29,13 +29,13 @@ test("an absurdly long email is rejected before it's used", async ({ page }) => 
   await page.goto("/register");
   await page.getByLabel("Name").fill("Long Email");
   await page.getByLabel("Email").fill(longEmail);
-  await page.getByRole("button", { name: "Register account" }).click();
+  await page.getByLabel("Email").press("Enter");
   await expect(page.getByText("Please enter a valid email address.")).toBeVisible();
 
   await page.goto("/login");
   await page.getByLabel("Email").fill(longEmail);
   await page.getByLabel("Password").fill("whatever-password");
-  await page.getByRole("button", { name: "Login" }).click();
+  await page.getByLabel("Password").press("Enter");
   await expect(page.getByText("Invalid email or password.")).toBeVisible();
 });
 
