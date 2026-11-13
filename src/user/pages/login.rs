@@ -15,6 +15,7 @@ use topcoat::{
     view::{View, attributes, view},
 };
 
+use super::passkey_setup::after_password_sign_in;
 use super::register::register_page;
 use super::reset_password::reset_password_page;
 use crate::app::page_title;
@@ -157,14 +158,14 @@ pub async fn login_submit(cx: &Cx, Form(input): Form<LoginInput>) -> Result<SeeO
 
     if let Some(email) = &email {
         match outcome {
-            Ok(()) => limits.clear_failed_logins(email, ip),
+            Ok(_) => limits.clear_failed_logins(email, ip),
             Err(LoginProblem::InvalidCredentials) => limits.record_failed_login(email, ip),
             Err(LoginProblem::TooManyAttempts) => {}
         }
     }
 
     match outcome {
-        Ok(()) => Ok(see_other("/account")),
+        Ok(destination) => Ok(see_other(destination)),
         Err(problem) => Err(rewrite(href!(login_page).resolve(cx), Body::empty())
             .method(Method::GET)
             .with(LoginFailed {
@@ -175,7 +176,11 @@ pub async fn login_submit(cx: &Cx, Form(input): Form<LoginInput>) -> Result<SeeO
     }
 }
 
-async fn attempt_login(cx: &Cx, email: &str, password: &str) -> Result<Result<(), LoginProblem>> {
+async fn attempt_login(
+    cx: &Cx,
+    email: &str,
+    password: &str,
+) -> Result<Result<String, LoginProblem>> {
     let user = query_get_user_by_email(email, db(cx)).await?;
     let active = user.as_ref().and_then(|user| match user.status() {
         AccountStatus::Active { password_hash } => Some((user, password_hash)),
@@ -187,7 +192,8 @@ async fn attempt_login(cx: &Cx, email: &str, password: &str) -> Result<Result<()
         return Ok(Err(LoginProblem::InvalidCredentials));
     };
 
-    sign_in(&session(cx)?, user).await?;
+    let session = session(cx)?;
+    sign_in(&session, user).await?;
 
-    Ok(Ok(()))
+    Ok(Ok(after_password_sign_in(cx, &session, user).await?))
 }

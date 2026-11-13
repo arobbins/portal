@@ -21,8 +21,8 @@ use crate::web::{
 };
 
 use axum::http::header::{
-    CONTENT_SECURITY_POLICY, HeaderName, HeaderValue, REFERRER_POLICY, STRICT_TRANSPORT_SECURITY,
-    X_CONTENT_TYPE_OPTIONS, X_FRAME_OPTIONS,
+    CACHE_CONTROL, CONTENT_SECURITY_POLICY, HeaderName, HeaderValue, REFERRER_POLICY,
+    STRICT_TRANSPORT_SECURITY, X_CONTENT_TYPE_OPTIONS, X_FRAME_OPTIONS,
 };
 use axum::{Router, ServiceExt, extract::Request, middleware};
 use listenfd::ListenFd;
@@ -134,7 +134,14 @@ fn app(db: PgPool, config: Config, rate_limits: Arc<RateLimits>, assets: AssetBu
     let router = Router::new()
         .fallback_service(TowerService::new(pages))
         .layer(middleware::from_fn_with_state(db, inject_globals))
-        .nest_service("/assets", ServeDir::new("assets"))
+        .nest_service(
+            "/assets",
+            SetResponseHeaderLayer::if_not_present(
+                CACHE_CONTROL,
+                HeaderValue::from_static("no-cache"),
+            )
+            .layer(ServeDir::new("assets")),
+        )
         .layer(middleware::from_fn(attach_remote_addr))
         .layer(middleware::from_fn_with_state(
             canonical_host,

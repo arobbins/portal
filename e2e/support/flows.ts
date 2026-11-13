@@ -28,13 +28,25 @@ export async function logIn(page: Page, email: string, password: string) {
 
 export const ACCOUNT_PASSWORD = "a-strong-test-password";
 
-export async function createAccount(page: Page, testInfo: TestInfo, name: string) {
+export async function createAccountAtPasskeyPrompt(page: Page, testInfo: TestInfo, name: string) {
   const email = uniqueEmail(testInfo, name.replaceAll(" ", "-"));
   await register(page, name, email);
   await page.goto(verificationLink((await waitForEmails(email))[0]));
   await setPassword(page, ACCOUNT_PASSWORD);
-  await expect(page).toHaveURL("/account");
+  await expect(page).toHaveURL("/passkey-setup");
   return email;
+}
+
+export async function createAccount(page: Page, testInfo: TestInfo, name: string) {
+  const email = await createAccountAtPasskeyPrompt(page, testInfo, name);
+  await skipPasskeyPrompt(page);
+  return email;
+}
+
+export async function skipPasskeyPrompt(page: Page) {
+  await expect(page).toHaveURL("/passkey-setup");
+  await page.getByRole("button", { name: "Not now" }).click();
+  await expect(page).toHaveURL("/account");
 }
 
 export async function logOut(page: Page, name: string) {

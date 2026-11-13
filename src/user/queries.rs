@@ -314,3 +314,41 @@ pub async fn query_delete_passkey(id: i32, user_id: i32, db: &PgPool) -> Result<
 
     Ok(result.rows_affected() == 1)
 }
+
+pub async fn query_passkey_prompt_due(user_id: i32, db: &PgPool) -> Result<bool, sqlx::Error> {
+    let due = sqlx::query_scalar!(
+        "SELECT (passkey_prompt_after IS NULL OR passkey_prompt_after <= now()) AND NOT EXISTS (SELECT 1 FROM user_passkeys WHERE user_passkeys.user_id = users.id) AS \"due!\" FROM users WHERE id = $1",
+        user_id,
+    )
+    .fetch_optional(db)
+    .await?;
+
+    Ok(due.unwrap_or(false))
+}
+
+pub async fn query_snooze_passkey_prompt(
+    user_id: i32,
+    days: i32,
+    db: &PgPool,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "UPDATE users SET passkey_prompt_after = now() + make_interval(days => $2) WHERE id = $1",
+        user_id,
+        days,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn query_decline_passkey_prompt(user_id: i32, db: &PgPool) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "UPDATE users SET passkey_prompt_after = 'infinity' WHERE id = $1",
+        user_id,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(())
+}

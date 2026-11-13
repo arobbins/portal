@@ -23,6 +23,14 @@ test("signed-in pages are never cached, public pages can be", async ({ page }, t
   expect(accountPage!.headers()["cache-control"]).toBe("no-store");
 });
 
+test("scripts and styles are rechecked on every load, so a change is never stale", async ({
+  request,
+}) => {
+  const script = await request.get("/assets/js/passkeys.js");
+
+  expect(script.headers()["cache-control"]).toBe("no-cache");
+});
+
 test("an absurdly long email is rejected before it's used", async ({ page }) => {
   const longEmail = `${"a".repeat(300)}@example.test`;
 

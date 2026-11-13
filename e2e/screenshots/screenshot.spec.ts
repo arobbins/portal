@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { createAccount } from "../support/flows";
+import { createAccount, createAccountAtPasskeyPrompt } from "../support/flows";
 import { test } from "../support/test";
 
 const list = (value: string | undefined, fallback: string[]) =>
@@ -9,7 +9,7 @@ const list = (value: string | undefined, fallback: string[]) =>
 const paths = list(process.env.SHOT_PATHS, ["/"]);
 const themes = list(process.env.SHOT_THEMES, ["dark", "light"]);
 const widths = list(process.env.SHOT_WIDTHS, ["390", "1280"]).map(Number);
-const signedIn = process.env.SHOT_SIGNED_IN === "1";
+const signedIn = process.env.SHOT_SIGNED_IN;
 const selector = process.env.SHOT_SELECTOR;
 const scale = Number(process.env.SHOT_SCALE ?? "1");
 const outDir = resolve(process.env.SHOT_OUT ?? ".screenshots");
@@ -29,7 +29,9 @@ test("screenshots", async ({ page, baseURL }, testInfo) => {
   test.setTimeout(120_000);
   mkdirSync(outDir, { recursive: true });
 
-  if (signedIn) {
+  if (signedIn === "new") {
+    await createAccountAtPasskeyPrompt(page, testInfo, "Screenshot User");
+  } else if (signedIn === "1") {
     await createAccount(page, testInfo, "Screenshot User");
   }
 

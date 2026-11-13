@@ -138,6 +138,8 @@ holding one name), and its transitions live in one place:
 | Form failure | `*Problem` enums | rendered after `rewrite(…)` |
 | Theme | `Theme` + cookie | `POST /theme` or `window.setTheme` (`assets/js/theme.js`) |
 | Account tab | `AccountTab` (`ALL`, `href()`) | URL → `from_slug`, unknown → 404 |
+| Passkey prompt | `users.passkey_prompt_after` (NULL / date / `infinity`) | `query_snooze_passkey_prompt` / `query_decline_passkey_prompt`; due = no passkeys and not in the future |
+| Passkey prompt grant | session `PasskeyPromptGrant { user_id, granted_at }` | `grant_passkey_prompt` (prompt shown) → `passkey_prompt_granted` (5 min) → `revoke_passkey_prompt` / `sign_in` |
 | Config | `Config`, `Mailer`, `RateLimitMode` | parsed once at startup |
 
 When adding state, extend one of these or add a row here.
@@ -202,7 +204,7 @@ When adding state, extend one of these or add a row here.
   `copy_field.rs`).
 - Don't use cross-document view transitions (`@view-transition`): Chromium
   flashes white between pages.
-- After upgrading `topcoat-cli`, restart `topcoat dev`: an older CLI still
+- After upgrading `topcoat-cli` or the Rust toolchain, restart `topcoat dev`: an older CLI still
   running rebuilds with an incompatible bundler and writes an empty asset
   bundle, so every page panics with "failed to resolve asset".
 - A missing asset bundle panics at startup; `topcoat dev` (or
@@ -219,7 +221,17 @@ topcoat dev
 Builds the app, bundles Topcoat's browser runtime, starts the server
 (respects `HOST`/`PORT`, default `127.0.0.1:3000`) and live-updates the page on
 changes (including `assets/css`). CLI:
-`cargo install topcoat-cli --version 0.12.1 --locked`.
+`cargo install topcoat-cli --version 0.12.1` (it uses the crate's own
+lockfile).
+
+**Toolchain**: Rust is pinned in `rust-toolchain.toml` (rustup installs it
+automatically); to upgrade, change it there, restart `topcoat dev`, run
+`cargo clean` once (old build files aren't reused) and `./check.sh`.
+`.cargo/config.toml` sets `global-min-publish-age = "3 days"`: Cargo won't
+pick a crate version newer than that (a hijacked release is usually caught
+within days). `Cargo.lock` versions are unaffected; to take a fresh fix
+sooner, run that one update with
+`CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE=allow`.
 
 **Before calling work done, run `./check.sh`**: `cargo fmt --check`,
 `topcoat fmt --check`, `cargo clippy --all-targets -- -D warnings`,

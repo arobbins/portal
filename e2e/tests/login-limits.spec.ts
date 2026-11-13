@@ -1,4 +1,4 @@
-import { logIn, register, setPassword, uniqueEmail } from "../support/flows";
+import { logIn, register, setPassword, skipPasskeyPrompt, uniqueEmail } from "../support/flows";
 import { verificationLink, waitForEmails } from "../support/mail";
 import { expect, test } from "../support/test";
 
@@ -14,6 +14,7 @@ test("after 5 wrong passwords, even the right password is refused for a while", 
   await register(page, "Locked tester", email);
   await page.goto(verificationLink((await waitForEmails(email))[0]));
   await setPassword(page, PASSWORD);
+  await skipPasskeyPrompt(page);
   await page.getByRole("button", { name: "Locked tester" }).click();
   await page.getByRole("button", { name: "Logout" }).click();
 

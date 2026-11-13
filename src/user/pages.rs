@@ -8,6 +8,7 @@ pub mod expired_link;
 pub mod login;
 pub mod logout;
 pub mod new_password_form;
+pub mod passkey_setup;
 pub mod profile_menu;
 pub mod register;
 pub mod reset_password;

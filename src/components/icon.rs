@@ -18,6 +18,7 @@ pub enum IconName {
     Menu,
     Monitor,
     Moon,
+    Passkey,
     Pinwheel,
     Plus,
     Settings,
@@ -28,7 +29,7 @@ pub enum IconName {
 }
 
 impl IconName {
-    pub const ALL: [Self; 19] = [
+    pub const ALL: [Self; 20] = [
         Self::Checkmark,
         Self::ChevronDown,
         Self::CreditCard,
@@ -41,6 +42,7 @@ impl IconName {
         Self::Menu,
         Self::Monitor,
         Self::Moon,
+        Self::Passkey,
         Self::Pinwheel,
         Self::Plus,
         Self::Settings,
@@ -64,6 +66,7 @@ impl IconName {
             Self::Menu => "Menu",
             Self::Monitor => "Monitor",
             Self::Moon => "Moon",
+            Self::Passkey => "Passkey",
             Self::Pinwheel => "Pinwheel",
             Self::Plus => "Plus",
             Self::Settings => "Settings",
@@ -88,6 +91,7 @@ impl IconName {
             Self::Logout => include_str!("../../assets/icons/logout.svg"),
             Self::Monitor => include_str!("../../assets/icons/monitor.svg"),
             Self::Moon => include_str!("../../assets/icons/moon.svg"),
+            Self::Passkey => include_str!("../../assets/icons/passkey.svg"),
             Self::Plus => include_str!("../../assets/icons/plus.svg"),
             Self::Pinwheel => include_str!("../../assets/icons/pinwheel.svg"),
             Self::Settings => include_str!("../../assets/icons/settings.svg"),

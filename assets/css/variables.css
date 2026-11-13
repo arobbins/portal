@@ -56,6 +56,9 @@
   --color-tertiary: #693629;
   --color-accent: #ac501e;
   --color-accent-light: #bc813c;
+  --color-passkey-badge-icon: light-dark(#ac501e, #d9804f);
+  --color-passkey-badge-bg: light-dark(#f6e6dc, #2e1c13);
+  --color-passkey-badge-ring: light-dark(rgb(172 80 30 / 8%), rgb(217 128 79 / 8%));
 
   --color-success-text: light-dark(#1e5e2a, #b1ffb6);
   --color-success-bg: light-dark(#e8f5e9, #417339);

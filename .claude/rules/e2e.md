@@ -17,11 +17,13 @@ data.
   uncaught exception fails the test; allow expected ones with
   `test.use({ allowedConsoleErrors: [/…/] })`.
 - Shared helpers: `support/flows.ts` (`register`, `logIn`, `uniqueEmail`,
-  `createAccount`, `logOut`, `setPassword`), `support/mail.ts`
+  `createAccount`, `createAccountAtPasskeyPrompt`, `skipPasskeyPrompt`,
+  `logOut`, `setPassword`), `support/passkeys.ts` (virtual authenticator), `support/mail.ts`
   (`waitForEmails`, `expectNoEmails`, `verificationLink`, `resetLink`),
   `support/users.ts` (seeded users — keep in sync with `src/seed.rs`).
   Tests that change data use their own `uniqueEmail` user, never the seeded
-  ones.
+  ones. New accounts land on the passkey prompt; `createAccount` answers
+  "Not now", so later password logins go straight to `/account`.
 - Submit forms with `press("Enter")` on the last field you typed in, never a
   click on the submit button: Firefox under Playwright sometimes drops the
   first click after typing (on any page, not just modals), so the form is

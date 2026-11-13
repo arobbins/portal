@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users SET passkey_prompt_after = 'infinity' WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c0cb4c77b20486dbe60afc58472bddf9410b718811bc6dd45ff47ed1d24f1075"
+}

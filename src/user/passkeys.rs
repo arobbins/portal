@@ -18,7 +18,9 @@ use webauthn_rs_core::proto::ResidentKeyRequirement;
 use crate::app::SITE_NAME;
 use crate::config::Config;
 use crate::flash::{Flash, set_flash};
-use crate::user::auth::{current_user, password_matches, sign_in};
+use crate::user::auth::{
+    current_user, passkey_prompt_granted, password_matches, revoke_passkey_prompt, sign_in,
+};
 use crate::user::model::{AccountStatus, User};
 use crate::user::queries::{
     NewPasskey, query_find_passkey, query_get_user_by_webauthn_id, query_insert_passkey,
@@ -36,6 +38,7 @@ const AAGUID_END: usize = 53;
 const SESSION_EXPIRED: &str = "Your session has expired. Please log in again.";
 const WRONG_PASSWORD: &str = "Your current password is incorrect.";
 const TOO_MANY_ATTEMPTS: &str = "Too many attempts. Please wait a few minutes and try again.";
+const SETUP_EXPIRED: &str = "This page expired. Add a passkey from your Security settings.";
 const CEREMONY_EXPIRED: &str = "That passkey request expired. Please try again.";
 const NOT_VERIFIED: &str = "We couldn't verify that passkey. Please try again.";
 const UNKNOWN_PASSKEY: &str =
@@ -158,7 +161,8 @@ pub async fn accepted_credentials(user: &User, cx: &Cx) -> Result<Value> {
 
 #[derive(Deserialize)]
 pub struct RegistrationStart {
-    current_password: String,
+    #[serde(default)]
+    current_password: Option<String>,
 }
 
 #[route(POST "/passkeys/register/start")]
@@ -176,11 +180,19 @@ pub async fn start_registration(
         return failure(StatusCode::TOO_MANY_REQUESTS, TOO_MANY_ATTEMPTS);
     }
 
+    let session = session(cx)?;
+    let Some(current_password) = input.current_password else {
+        if !passkey_prompt_granted(&session, &user).await? {
+            return failure(StatusCode::BAD_REQUEST, SETUP_EXPIRED);
+        }
+        return begin_registration(cx, &user, &session).await;
+    };
+
     let password_hash = match user.status() {
         AccountStatus::Active { password_hash } => Some(password_hash),
         AccountStatus::AwaitingPassword => None,
     };
-    if !password_matches(password_hash, &input.current_password) {
+    if !password_matches(password_hash, &current_password) {
         limits.record_failed_login(&user.email, ip);
         return reply(
             StatusCode::BAD_REQUEST,
@@ -188,6 +200,14 @@ pub async fn start_registration(
         );
     }
 
+    begin_registration(cx, &user, &session).await
+}
+
+async fn begin_registration(
+    cx: &Cx,
+    user: &User,
+    session: &Session,
+) -> Result<(StatusCode, Json<Value>)> {
     let existing: Vec<CredentialID> = query_list_passkeys(user.id, db(cx))
         .await?
         .iter()
@@ -201,7 +221,7 @@ pub async fn start_registration(
         selection.require_resident_key = true;
     }
 
-    store_ceremony::<PasskeyRegistration>(&session(cx)?, REGISTRATION_STATE, state).await?;
+    store_ceremony::<PasskeyRegistration>(session, REGISTRATION_STATE, state).await?;
 
     reply(
         StatusCode::OK,
@@ -250,6 +270,7 @@ pub async fn finish_registration(
     {
         tracing::error!("Failed to send passkey-added email: {}", e);
     }
+    revoke_passkey_prompt(&session).await?;
     set_flash(&session, Flash::PasskeyAdded).await?;
 
     reply(StatusCode::OK, json!({ "ok": true }))

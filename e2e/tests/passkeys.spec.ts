@@ -1,31 +1,10 @@
 import type { Page } from "@playwright/test";
 import { ACCOUNT_PASSWORD, createAccount, logOut } from "../support/flows";
 import { waitForEmails } from "../support/mail";
+import { addVirtualAuthenticator, withoutPasskeyAutofill } from "../support/passkeys";
 import { expect, test } from "../support/test";
 
 test.use({ allowedConsoleErrors: [/status of 40[01]/] });
-
-async function addVirtualAuthenticator(page: Page) {
-  const client = await page.context().newCDPSession(page);
-  await client.send("WebAuthn.enable");
-  const { authenticatorId } = await client.send("WebAuthn.addVirtualAuthenticator", {
-    options: {
-      protocol: "ctap2",
-      transport: "internal",
-      hasResidentKey: true,
-      hasUserVerification: true,
-      isUserVerified: true,
-      automaticPresenceSimulation: true,
-    },
-  });
-  return authenticatorId;
-}
-
-async function withoutPasskeyAutofill(page: Page) {
-  await page.addInitScript(() => {
-    PublicKeyCredential.isConditionalMediationAvailable = async () => false;
-  });
-}
 
 function addDialog(page: Page) {
   return page.getByRole("dialog", { name: "Add a passkey" });

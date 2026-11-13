@@ -1,4 +1,5 @@
 use std::sync::{Arc, LazyLock};
+use std::time::Duration;
 
 use crate::user::model::User;
 use crate::user::queries::query_get_user_by_id;
@@ -12,11 +13,19 @@ use topcoat::{Result, context::Cx, router::error::redirect};
 use tower_sessions::Session;
 
 const SESSION_AUTH: &str = "auth";
+const PASSKEY_PROMPT_GRANT: &str = "passkey_prompt_grant";
+const PASSKEY_PROMPT_WINDOW: Duration = Duration::from_secs(5 * 60);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 struct SessionAuth {
     user_id: i32,
     session_version: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+struct PasskeyPromptGrant {
+    user_id: i32,
+    granted_at: i64,
 }
 
 static UNMATCHABLE_HASH: LazyLock<String> = LazyLock::new(|| {
@@ -83,6 +92,7 @@ pub fn redirect_signed_in_users(cx: &Cx) -> Result<()> {
 
 pub async fn sign_in(session: &Session, user: &User) -> Result<()> {
     session.cycle_id().await?;
+    revoke_passkey_prompt(session).await?;
     session
         .insert(
             SESSION_AUTH,
@@ -94,6 +104,43 @@ pub async fn sign_in(session: &Session, user: &User) -> Result<()> {
         .await?;
 
     Ok(())
+}
+
+pub async fn grant_passkey_prompt(session: &Session, user: &User) -> Result<()> {
+    session
+        .insert(
+            PASSKEY_PROMPT_GRANT,
+            PasskeyPromptGrant {
+                user_id: user.id,
+                granted_at: time::OffsetDateTime::now_utc().unix_timestamp(),
+            },
+        )
+        .await?;
+
+    Ok(())
+}
+
+pub async fn passkey_prompt_granted(session: &Session, user: &User) -> Result<bool> {
+    let grant = session
+        .get::<PasskeyPromptGrant>(PASSKEY_PROMPT_GRANT)
+        .await?;
+    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+
+    Ok(grant.is_some_and(|grant| {
+        grant.user_id == user.id && within_prompt_window(grant.granted_at, now)
+    }))
+}
+
+pub async fn revoke_passkey_prompt(session: &Session) -> Result<()> {
+    session
+        .remove::<PasskeyPromptGrant>(PASSKEY_PROMPT_GRANT)
+        .await?;
+
+    Ok(())
+}
+
+fn within_prompt_window(granted_at: i64, now: i64) -> bool {
+    (0..=PASSKEY_PROMPT_WINDOW.as_secs() as i64).contains(&(now - granted_at))
 }
 
 #[cfg(test)]
@@ -122,6 +169,39 @@ mod tests {
         assert!(!password_matches(Some(&hash), "wrong-password"));
         assert!(!password_matches(Some("not-a-hash"), "correct-password"));
         assert!(!password_matches(None, "correct-password"));
+    }
+
+    #[test]
+    fn a_passkey_prompt_grant_lasts_five_minutes() {
+        assert!(within_prompt_window(1_000, 1_000));
+        assert!(within_prompt_window(1_000, 1_300));
+        assert!(!within_prompt_window(1_000, 1_301));
+        assert!(!within_prompt_window(1_000, 999));
+    }
+
+    #[sqlx::test]
+    async fn a_passkey_prompt_grant_belongs_to_one_user_and_one_sign_in(db: PgPool) {
+        let user = active_user(&db).await;
+        let other_id = query_insert_user(
+            &NewUser {
+                name: "Other",
+                email: "other@example.test",
+            },
+            &db,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let other = query_get_user_by_id(&other_id, &db).await.unwrap().unwrap();
+        let session = Session::new(None, Arc::new(MemoryStore::default()), None);
+        assert!(!passkey_prompt_granted(&session, &user).await.unwrap());
+
+        grant_passkey_prompt(&session, &user).await.unwrap();
+        assert!(passkey_prompt_granted(&session, &user).await.unwrap());
+        assert!(!passkey_prompt_granted(&session, &other).await.unwrap());
+
+        sign_in(&session, &other).await.unwrap();
+        assert!(!passkey_prompt_granted(&session, &user).await.unwrap());
     }
 
     #[sqlx::test]

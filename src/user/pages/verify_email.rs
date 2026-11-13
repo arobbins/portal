@@ -17,6 +17,7 @@ use topcoat::{
 
 use super::expired_link::expired_link;
 use super::new_password_form::new_password_form;
+use super::passkey_setup::after_password_sign_in;
 use crate::app::page_title;
 use crate::config::Config;
 use crate::flash::{Flash, set_flash};
@@ -135,5 +136,7 @@ pub async fn set_password_submit(cx: &Cx, Form(input): Form<SetPasswordInput>) -
     sign_in(&session, &user).await?;
     set_flash(&session, Flash::EmailConfirmed).await?;
 
-    Ok(see_other("/account"))
+    Ok(see_other(
+        after_password_sign_in(cx, &session, &user).await?,
+    ))
 }

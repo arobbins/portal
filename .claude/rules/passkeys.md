@@ -3,6 +3,7 @@ paths:
   - "src/user/passkeys.rs"
   - "src/user/pages/account_passkeys.rs"
   - "src/user/pages/login.rs"
+  - "src/user/pages/passkey_setup.rs"
   - "assets/js/passkeys.js"
   - "e2e/tests/passkeys.spec.ts"
 ---
@@ -19,7 +20,12 @@ Passkeys UI in `account_passkeys.rs`, built on `webauthn-rs`:
 - JSON routes: `POST /passkeys/register/{start,finish}` (signed in; start
   needs the current password and counts wrong ones as failed logins) and
   `POST /passkeys/login/{start,finish}`. Ceremony state lives in the
-  session, is single-use and expires after 10 minutes.
+  session, is single-use and expires after 10 minutes. Register/start may
+  omit the password only with a passkey prompt grant (`auth.rs`:
+  `grant_passkey_prompt` / `passkey_prompt_granted` /
+  `revoke_passkey_prompt`): issued for one user, for 5 minutes, only when a
+  password sign-in shows the prompt; cleared by `sign_in`, by answering the
+  prompt and by adding a passkey.
 - Registration overrides the library's options to `residentKey: required`
   (passkeys must be discoverable). Sign-in is discoverable (no email typed):
   the login page starts conditional mediation (autofill on the
@@ -34,10 +40,18 @@ Passkeys UI in `account_passkeys.rs`, built on `webauthn-rs`:
   (`signalUnknownCredential`, `signalAllAcceptedCredentials`,
   `signalCurrentUserDetails`) from the data in `[data-passkey-signals]` on
   account pages; all feature-detected.
-- Automatic passkey creation after a password sign-in is deliberately not
-  implemented: it creates passkeys without user verification, which
-  `webauthn-rs` (correctly) rejects.
-- Tests: `passkeys.spec.ts` uses Chromium's virtual authenticator (CDP
-  `WebAuthn.*`); those tests skip on Firefox/WebKit. A virtual authenticator
-  approves autofill instantly, so tests of the button path stub
+- **Passkey prompt** (`passkey_setup.rs`): after a password login or the
+  first password setup, `after_password_sign_in` sends users with no passkey to `/passkey-setup` unless
+  `users.passkey_prompt_after` is in the future ("Not now" = +30 days,
+  "Don't ask again" = `'infinity'`; the due check lives in SQL so
+  `infinity` is never decoded). The page only shows while the grant is
+  valid, then redirects to `/account`. Adding a passkey there
+  needs no password and lands on Security → Passkeys. Passkey sign-ins and
+  password resets never prompt; seeded e2e users have declined it.
+- Automatic (conditional) passkey creation after a password sign-in is
+  deliberately not implemented: it creates passkeys without user
+  verification, which `webauthn-rs` (correctly) rejects.
+- Tests: `passkeys.spec.ts` and `passkey-setup.spec.ts` use Chromium's
+  virtual authenticator (CDP `WebAuthn.*`, `support/passkeys.ts`); those
+  tests skip on Firefox/WebKit. A virtual authenticator approves autofill instantly, so tests of the button path stub
   `isConditionalMediationAvailable` to `false`.

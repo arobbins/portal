@@ -22,7 +22,9 @@ paths:
 - **Security headers** (`main.rs`): every response gets `X-Frame-Options:
   DENY`, `frame-ancestors 'none'`, `nosniff` and a strict referrer policy;
   HSTS is added when `APP_BASE_URL` is https. `inject_globals` adds
-  `Cache-Control: no-store` to every response for a signed-in user.
+  `Cache-Control: no-store` to every response for a signed-in user. `/assets`
+  (`ServeDir`) sends `Cache-Control: no-cache`, so browsers revalidate (cheap
+  304s) and never run a stale script or stylesheet after a change.
 - **One address**: GET/HEAD requests whose `Host` isn't `APP_BASE_URL`'s
   host get a 308 to the same path there (`redirect_to_canonical_host` in
   `web.rs`), so `127.0.0.1:3000` lands on `localhost:3000` (passkeys only

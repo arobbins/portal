@@ -43,7 +43,7 @@ Settings (environment variables):
 | `SHOT_PATHS` | `/` | comma-separated paths |
 | `SHOT_THEMES` | `dark,light` | themes to capture |
 | `SHOT_WIDTHS` | `390,1280` | viewport widths (phone, desktop) |
-| `SHOT_SIGNED_IN` | off | `1` signs up a fresh user first (for `/account/...`) |
+| `SHOT_SIGNED_IN` | off | `1` signs up a fresh user first (for `/account/...`); `new` stops at the passkey prompt (for `/passkey-setup`, which is only shown for 5 minutes after a password sign-in that prompts) |
 | `SHOT_SELECTOR` | whole page | CSS selector to crop to one element |
 | `SHOT_VARIANTS` | `{"current": ""}` | path to a JSON file `{ "name": "css", ... }` to compare design options; each is injected on top of the real CSS |
 | `SHOT_SCALE` | `1` | device pixel ratio (`2`–`3` to judge alignment) |

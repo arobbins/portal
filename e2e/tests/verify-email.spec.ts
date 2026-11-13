@@ -1,5 +1,5 @@
 import type { Page, TestInfo } from "@playwright/test";
-import { logIn, register, setPassword, uniqueEmail } from "../support/flows";
+import { logIn, register, setPassword, skipPasskeyPrompt, uniqueEmail } from "../support/flows";
 import { verificationLink, waitForEmails } from "../support/mail";
 import { expect, test } from "../support/test";
 
@@ -23,8 +23,9 @@ test("a new user can register, set a password from the email link, and log in", 
   await expect(page.getByRole("heading", { name: "Set your password" })).toBeVisible();
   await setPassword(page, PASSWORD);
 
-  await expect(page).toHaveURL("/account");
+  await expect(page).toHaveURL("/passkey-setup");
   await expect(page.getByText("Your email is confirmed. Welcome!")).toHaveCSS("opacity", "1");
+  await skipPasskeyPrompt(page);
   await expect(page.getByText("Name: Journey tester")).toBeVisible();
 
   await page.getByRole("button", { name: "Journey tester" }).click();
@@ -49,7 +50,7 @@ test("the link stops working once the password is set", async ({ page }, testInf
   const { link } = await registerAndGetLink(page, testInfo, "Once");
   await page.goto(link);
   await setPassword(page, PASSWORD);
-  await expect(page).toHaveURL("/account");
+  await expect(page).toHaveURL("/passkey-setup");
 
   const response = await page.goto(link);
 
@@ -76,7 +77,7 @@ test("a too-short password is rejected and the link keeps working", async ({ pag
 
   await expect(page.getByText("Password must be at least 8 characters.")).toBeVisible();
   await setPassword(page, PASSWORD);
-  await expect(page).toHaveURL("/account");
+  await expect(page).toHaveURL("/passkey-setup");
 });
 
 test("mismatched passwords are rejected", async ({ page }, testInfo) => {

@@ -122,13 +122,18 @@ async function register(form) {
   const button = form.querySelector('button[type="submit"]');
   const password = form.querySelector('input[name="current_password"]');
   hideError(REGISTER_ERROR_ID);
-  password.removeAttribute("aria-invalid");
+  password?.removeAttribute("aria-invalid");
   button.disabled = true;
 
   try {
-    const start = await post("/passkeys/register/start", { current_password: password.value });
+    const start = await post(
+      "/passkeys/register/start",
+      password ? { current_password: password.value } : {},
+    );
     if (!start.ok) {
-      if (start.data.field === "current_password") password.setAttribute("aria-invalid", "true");
+      if (password && start.data.field === "current_password") {
+        password.setAttribute("aria-invalid", "true");
+      }
       showError(REGISTER_ERROR_ID, start.data.error ?? GENERIC_ERROR);
       return;
     }
@@ -148,7 +153,11 @@ async function register(form) {
       showError(REGISTER_ERROR_ID, finish.data.error ?? GENERIC_ERROR);
       return;
     }
-    location.reload();
+    if (form.dataset.passkeyDone) {
+      location.assign(form.dataset.passkeyDone);
+    } else {
+      location.reload();
+    }
   } finally {
     button.disabled = false;
   }
@@ -227,6 +236,9 @@ function setUp() {
   if (!window.PublicKeyCredential) {
     for (const element of document.querySelectorAll("[data-passkey-login], [data-passkey-register]")) {
       element.closest(".passkey-sign-in")?.setAttribute("hidden", "");
+    }
+    for (const element of document.querySelectorAll("[data-passkey-only]")) {
+      element.setAttribute("hidden", "");
     }
     return;
   }
