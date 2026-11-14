@@ -12,6 +12,7 @@ pub const REALM: &str = "api";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ApiFailure {
+    Forbidden,
     InsufficientScope,
     BrowserOnly,
     NotFound,
@@ -21,6 +22,7 @@ pub enum ApiFailure {
 impl ActionProblem for ApiFailure {
     fn code(self) -> &'static str {
         match self {
+            Self::Forbidden => "forbidden",
             Self::InsufficientScope => "insufficient_scope",
             Self::BrowserOnly => "browser_only",
             Self::NotFound => "not_found",
@@ -34,6 +36,7 @@ impl ActionProblem for ApiFailure {
                 "This API token doesn't have the scope this endpoint needs. Create a token with that access."
             }
             Self::BrowserOnly => "This can only be done in the app, not with an API token.",
+            Self::Forbidden => "Your role in this workspace doesn't allow this.",
             Self::NotFound => {
                 "There's no API endpoint for this method and path. The API lives under /api/v1."
             }
@@ -43,7 +46,7 @@ impl ActionProblem for ApiFailure {
 
     fn status(self) -> StatusCode {
         match self {
-            Self::InsufficientScope | Self::BrowserOnly => StatusCode::FORBIDDEN,
+            Self::Forbidden | Self::InsufficientScope | Self::BrowserOnly => StatusCode::FORBIDDEN,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -148,6 +151,7 @@ pub fn denied(denied: Denied) -> ApiResponse {
             )
             .response(),
         Denied::BrowserOnly => ApiProblem::of(ApiFailure::BrowserOnly).response(),
+        Denied::NotPermitted(_) => ApiProblem::of(ApiFailure::Forbidden).response(),
     }
 }
 

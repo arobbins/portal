@@ -43,7 +43,8 @@ Actions and API
   `CurrentPasswordProblem`, `TooManyAttempts`) instead of copying their text.
 - Every write calls `record_event` (JSON object detail) in the write's transaction.
 - Procedures return `Result<Result<T, FieldError>>`; browser JSON routes and the API answer
-  errors as problem+json (`ApiProblem`); API routes use `api_call` / `api_call_with_body`.
+  errors as problem+json (`ApiProblem`); every `/api/v1` endpoint is an `ApiAction` in
+  `api/registry.rs::endpoints()` and its route body is only `serve` / `serve_with_body`.
 - Rows a browser or API can name are addressed by public id (`PublicIdKind`), never the
   integer id, and are always filtered by `caller.owner_id()`.
 

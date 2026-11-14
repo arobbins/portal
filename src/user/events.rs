@@ -125,6 +125,18 @@ pub async fn query_insert_account_event(
     Ok(())
 }
 
+pub async fn query_delete_old_account_events(
+    older_than: time::Duration,
+    db: impl PgExecutor<'_>,
+) -> Result<u64, sqlx::Error> {
+    let cutoff = time::OffsetDateTime::now_utc() - older_than;
+    let result = sqlx::query!("DELETE FROM account_events WHERE created_at < $1", cutoff)
+        .execute(db)
+        .await?;
+
+    Ok(result.rows_affected())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

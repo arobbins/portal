@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "TRUNCATE users, user_tokens, jobs, rate_limit_hits RESTART IDENTITY CASCADE",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "1c772861b8f1345177d327a2dc73fbe0838cadc4bea98b61b6763b6c69835cc5"
+}

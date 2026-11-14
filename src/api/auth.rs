@@ -14,9 +14,7 @@ use topcoat::{
 use crate::action::{ActionProblem, Caller};
 use crate::api::problem::{ApiProblem, ApiResponse, REALM};
 use crate::api::scope::{ApiScope, TokenAudience, parse_scopes};
-use crate::api_tokens::queries::{query_get_api_token_by_hash, query_record_api_token_use};
-use crate::api_tokens::token::is_well_formed;
-use crate::secret::hash_secret;
+use crate::api_tokens::verify::{find_grant, record_use};
 use crate::user::model::AccountStatus;
 use crate::user::queries::query_get_user_by_id;
 use crate::web::{db, rate_limits};
@@ -98,7 +96,7 @@ pub async fn authenticate(
 ) -> Result<std::result::Result<Caller, ApiAuthProblem>> {
     let limits = rate_limits(cx);
     let ip = request::client_ip(cx);
-    if limits.api_auth_blocked(ip) {
+    if limits.api_auth_blocked(ip).await? {
         return Ok(Err(ApiAuthProblem::TooManyInvalidTokens));
     }
 
@@ -107,16 +105,16 @@ pub async fn authenticate(
         Ok(caller) => caller,
         Err(problem) => {
             if problem == ApiAuthProblem::InvalidToken {
-                limits.record_failed_api_auth(ip);
+                limits.record_failed_api_auth(ip).await?;
             }
             return Ok(Err(problem));
         }
     };
     let token_id = caller.api_token_id().unwrap_or_default();
-    if !limits.allow_api_call(token_id) {
+    if !limits.allow_api_call(token_id).await? {
         return Ok(Err(ApiAuthProblem::RateLimited));
     }
-    query_record_api_token_use(token_id, db(cx)).await?;
+    record_use(token_id, db(cx)).await?;
 
     Ok(Ok(caller))
 }
@@ -131,17 +129,9 @@ async fn check_bearer(
         Bearer::Malformed => return Ok(Err(ApiAuthProblem::InvalidToken)),
         Bearer::Token(raw) => raw,
     };
-    if !is_well_formed(raw) {
-        return Ok(Err(ApiAuthProblem::InvalidToken));
-    }
-
-    let hash = hash_secret(raw);
-    let Some(grant) = query_get_api_token_by_hash(&hash, db).await? else {
+    let Some(grant) = find_grant(raw, audience, db).await? else {
         return Ok(Err(ApiAuthProblem::InvalidToken));
     };
-    if grant.audience != audience.as_str() {
-        return Ok(Err(ApiAuthProblem::InvalidToken));
-    }
     let Some(user) = query_get_user_by_id(grant.user_id, db).await? else {
         return Ok(Err(ApiAuthProblem::InvalidToken));
     };
@@ -291,7 +281,7 @@ mod tests {
             }
         );
         assert_eq!(
-            caller.require(ApiScope::ProfileWrite),
+            caller.require(crate::permission::Permission::EditProfile),
             Err(Denied::MissingScope(ApiScope::ProfileWrite))
         );
     }

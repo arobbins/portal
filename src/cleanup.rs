@@ -1,46 +1,33 @@
-use std::time::Duration;
-
 use sqlx::PgPool;
 use tower_sessions::session_store::ExpiredDeletion;
 use tower_sessions_sqlx_store::PostgresStore;
 
-use crate::api_tokens::queries::query_delete_expired_api_tokens;
+use crate::api_tokens::verify::delete_long_expired;
 use crate::auth::queries::query_delete_expired_user_tokens;
+use crate::jobs::query_delete_old_failed_jobs;
+use crate::rate_limit::query_delete_old_rate_limit_hits;
+use crate::user::events::query_delete_old_account_events;
 use crate::user::queries::query_delete_abandoned_signups;
 
-const CLEANUP_INTERVAL: Duration = Duration::from_secs(60 * 60);
 const ABANDONED_SIGNUP_AGE: time::Duration = time::Duration::days(7);
-const EXPIRED_API_TOKEN_GRACE: time::Duration = time::Duration::days(7);
+pub const EVENT_RETENTION: time::Duration = time::Duration::days(395);
+const FAILED_JOB_RETENTION: time::Duration = time::Duration::days(30);
 
-pub fn spawn(db: PgPool, sessions: PostgresStore) {
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(CLEANUP_INTERVAL);
-        loop {
-            interval.tick().await;
-            if let Err(e) = run(&db, &sessions).await {
-                tracing::error!("cleanup failed: {}", e);
-            }
-        }
-    });
-}
+pub async fn run(db: &PgPool, sessions: &PostgresStore) -> topcoat::Result<()> {
+    let tokens = query_delete_expired_user_tokens(db).await?;
+    let signups = query_delete_abandoned_signups(ABANDONED_SIGNUP_AGE, db).await?;
+    let api_tokens = delete_long_expired(db).await?;
+    let hits = query_delete_old_rate_limit_hits(db).await?;
+    let events = query_delete_old_account_events(EVENT_RETENTION, db).await?;
+    let jobs = query_delete_old_failed_jobs(FAILED_JOB_RETENTION, db).await?;
+    sessions
+        .delete_expired()
+        .await
+        .map_err(|e| topcoat::Error::msg(e.to_string()))?;
 
-pub async fn run(db: &PgPool, sessions: &PostgresStore) -> Result<(), String> {
-    let tokens = query_delete_expired_user_tokens(db)
-        .await
-        .map_err(|e| e.to_string())?;
-    let signups = query_delete_abandoned_signups(ABANDONED_SIGNUP_AGE, db)
-        .await
-        .map_err(|e| e.to_string())?;
-    let api_tokens = query_delete_expired_api_tokens(EXPIRED_API_TOKEN_GRACE, db)
-        .await
-        .map_err(|e| e.to_string())?;
-    sessions.delete_expired().await.map_err(|e| e.to_string())?;
-
-    if tokens > 0 || signups > 0 || api_tokens > 0 {
-        tracing::info!(
-            "cleanup removed {tokens} expired links, {api_tokens} expired API tokens and {signups} abandoned sign-ups"
-        );
-    }
+    tracing::info!(
+        "cleanup removed {tokens} expired links, {api_tokens} expired API tokens, {signups} abandoned sign-ups, {hits} rate-limit hits, {events} old account events and {jobs} failed jobs"
+    );
 
     Ok(())
 }

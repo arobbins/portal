@@ -1,6 +1,5 @@
 use crate::auth::session::load_signed_in_user;
 use crate::config::Config;
-use crate::mail::Mailer;
 use crate::rate_limit::RateLimits;
 use crate::theme::Theme;
 use crate::user::model::User;
@@ -57,10 +56,6 @@ pub fn config(cx: &Cx) -> &Config {
 
 pub fn webauthn(cx: &Cx) -> &Webauthn {
     context::<Webauthn>(cx)
-}
-
-pub fn mailer(cx: &Cx) -> &Mailer {
-    &config(cx).mailer
 }
 
 pub fn app_url(cx: &Cx, path: &str) -> String {

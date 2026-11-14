@@ -5,18 +5,17 @@ use sqlx::PgPool;
 use topcoat::{
     Result,
     context::Cx,
-    router::{StatusCode, href, request::client_ip},
+    router::{StatusCode, request::client_ip},
 };
 
 use crate::action::{
     ActionProblem, ActionResult, Caller, Outcome, TooManyAttempts, authorize, fail,
 };
-use crate::api_tokens::queries::query_delete_user_api_tokens;
+use crate::api_tokens::verify::revoke_all_for_user;
 use crate::auth::emails::{
     account_exists_email, password_reset_email, register_verification_email,
 };
 use crate::auth::links::{TokenPurpose, email_user_link};
-use crate::auth::pages::login::login_page;
 use crate::auth::password::{
     CurrentPasswordProblem, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, PasswordProblem,
     check_current_password, check_new_password, hash_password, password_matches,
@@ -25,14 +24,16 @@ use crate::auth::queries::{
     query_consume_user_token, query_delete_user_tokens, query_get_valid_user_token,
 };
 use crate::config::Config;
-use crate::mail::MailError;
+use crate::jobs::{Job, enqueue};
+use crate::permission::Permission;
+use crate::routes::login_url;
 use crate::secret::hash_secret;
 use crate::user::events::{AccountEventKind, EventSource, record_event};
 use crate::user::model::{AccountStatus, User};
 use crate::user::name::{MAX_NAME_LENGTH, NameProblem, check_name};
 use crate::user::queries::{
-    NewUser, query_delete_abandoned_signup, query_get_user_by_email, query_insert_user,
-    query_set_password_and_verify_user, query_update_password,
+    NewUser, query_get_user_by_email, query_insert_user, query_set_password_and_verify_user,
+    query_update_password,
 };
 use crate::utils::parse_email;
 use crate::web::{app_url, config, db, rate_limits};
@@ -81,13 +82,13 @@ impl ActionProblem for SignInProblem {
 pub async fn sign_in_with_password(cx: &Cx, input: &SignIn) -> Outcome<User, SignInProblem> {
     let limits = rate_limits(cx);
     let ip = client_ip(cx);
-    if !limits.allow_password_submission(ip) {
+    if !limits.allow_password_submission(ip).await? {
         return fail(SignInProblem::TooManyAttempts);
     }
     let Some(email) = parse_email(&input.email) else {
         return fail(SignInProblem::InvalidCredentials);
     };
-    if limits.login_blocked(&email, ip) {
+    if limits.login_blocked(&email, ip).await? {
         return fail(SignInProblem::TooManyAttempts);
     }
 
@@ -99,11 +100,11 @@ pub async fn sign_in_with_password(cx: &Cx, input: &SignIn) -> Outcome<User, Sig
     let matches = password_matches(hash, &input.password);
     match user.filter(|_| matches) {
         Some(user) => {
-            limits.clear_failed_logins(&email, ip);
+            limits.clear_failed_logins(&email, ip).await?;
             Ok(Ok(user))
         }
         None => {
-            limits.record_failed_login(&email, ip);
+            limits.record_failed_login(&email, ip).await?;
             fail(SignInProblem::InvalidCredentials)
         }
     }
@@ -124,7 +125,6 @@ pub enum RegisterProblem {
     MissingDetails,
     Name(NameProblem),
     InvalidEmail,
-    SendFailed,
     TooManyAttempts,
 }
 
@@ -144,7 +144,6 @@ impl ActionProblem for RegisterProblem {
             Self::MissingDetails => "details_missing",
             Self::Name(problem) => problem.code(),
             Self::InvalidEmail => "invalid_email",
-            Self::SendFailed => "email_send_failed",
             Self::TooManyAttempts => TooManyAttempts.code(),
         }
     }
@@ -154,7 +153,6 @@ impl ActionProblem for RegisterProblem {
             Self::MissingDetails => "Please enter your name and email.",
             Self::Name(problem) => problem.message(),
             Self::InvalidEmail => INVALID_EMAIL,
-            Self::SendFailed => "We couldn't send the email. Please try again.",
             Self::TooManyAttempts => TooManyAttempts.message(),
         }
     }
@@ -163,13 +161,12 @@ impl ActionProblem for RegisterProblem {
         match self {
             Self::Name(problem) => problem.field(),
             Self::InvalidEmail => Some(EMAIL_FIELD),
-            Self::MissingDetails | Self::SendFailed | Self::TooManyAttempts => None,
+            Self::MissingDetails | Self::TooManyAttempts => None,
         }
     }
 
     fn status(self) -> StatusCode {
         match self {
-            Self::SendFailed => StatusCode::SERVICE_UNAVAILABLE,
             Self::TooManyAttempts => TooManyAttempts.status(),
             _ => StatusCode::UNPROCESSABLE_ENTITY,
         }
@@ -179,7 +176,7 @@ impl ActionProblem for RegisterProblem {
 const INVALID_EMAIL: &str = "Please enter a valid email address.";
 
 pub async fn register(cx: &Cx, input: &Register) -> Outcome<(), RegisterProblem> {
-    if !rate_limits(cx).allow_email_request(client_ip(cx)) {
+    if !rate_limits(cx).allow_email_request(client_ip(cx)).await? {
         return fail(RegisterProblem::TooManyAttempts);
     }
     if input.name.trim().is_empty() || input.email.trim().is_empty() {
@@ -192,38 +189,26 @@ pub async fn register(cx: &Cx, input: &Register) -> Outcome<(), RegisterProblem>
     let Some(email) = parse_email(&input.email) else {
         return fail(RegisterProblem::InvalidEmail);
     };
-    if !rate_limits(cx).allow_email_to(&email) {
+    if !rate_limits(cx).allow_email_to(&email).await? {
         tracing::warn!("registration email skipped: too many emails to this address");
         return Ok(Ok(()));
     }
 
     let existing = query_get_user_by_email(&email, db(cx)).await?;
-    let sent = match existing.as_ref().map(|user| (user, user.status())) {
+    match existing.as_ref().map(|user| (user, user.status())) {
         Some((user, AccountStatus::Active { .. })) => {
-            let login_url = app_url(cx, &href!(login_page).resolve(cx));
-            config(cx)
-                .mailer
-                .send(&account_exists_email(&user.email, &login_url))
-                .await
+            let login_url = app_url(cx, &login_url(cx));
+            let email = account_exists_email(&user.email, &login_url);
+            enqueue(&Job::SendEmail(email), db(cx)).await?;
         }
         Some((user, AccountStatus::AwaitingPassword)) => {
-            send_verification_link(db(cx), config(cx), user.id, &user.email).await?
+            send_verification_link(db(cx), config(cx), user.id, &user.email).await?;
         }
-        None => match create_user(cx, name, &email).await? {
-            Some(user_id) => {
-                let sent = send_verification_link(db(cx), config(cx), user_id, &email).await?;
-                if sent.is_err() {
-                    query_delete_abandoned_signup(user_id, db(cx)).await?;
-                }
-                sent
+        None => {
+            if let Some(user_id) = create_user(cx, name, &email).await? {
+                send_verification_link(db(cx), config(cx), user_id, &email).await?;
             }
-            None => Ok(()),
-        },
-    };
-
-    if let Err(e) = sent {
-        tracing::error!("Failed to send registration email: {e}");
-        return fail(RegisterProblem::SendFailed);
+        }
     }
 
     Ok(Ok(()))
@@ -295,46 +280,38 @@ pub async fn request_password_reset(
     cx: &Cx,
     input: &RequestPasswordReset,
 ) -> Outcome<(), ResetRequestProblem> {
-    if !rate_limits(cx).allow_email_request(client_ip(cx)) {
+    if !rate_limits(cx).allow_email_request(client_ip(cx)).await? {
         return fail(ResetRequestProblem::TooManyAttempts);
     }
     let Some(email) = parse_email(&input.email) else {
         return fail(ResetRequestProblem::InvalidEmail);
     };
-    if !rate_limits(cx).allow_email_to(&email) {
+    if !rate_limits(cx).allow_email_to(&email).await? {
         tracing::warn!("password reset email skipped: too many emails to this address");
         return Ok(Ok(()));
     }
 
-    let db = db(cx).clone();
-    let config = config(cx).clone();
-    tokio::spawn(async move {
-        if let Err(e) = send_reset_link(&db, &config, &email).await {
-            tracing::error!("Failed to send password reset email: {e}");
-        }
-    });
+    enqueue(&Job::SendPasswordReset { email }, db(cx)).await?;
 
     Ok(Ok(()))
 }
 
-async fn send_reset_link(db: &PgPool, config: &Config, email: &str) -> Result<()> {
+pub async fn send_reset_link(db: &PgPool, config: &Config, email: &str) -> Result<(), sqlx::Error> {
     let Some(user) = query_get_user_by_email(email, db).await? else {
         return Ok(());
     };
 
-    let sent = match user.status() {
+    match user.status() {
         AccountStatus::Active { .. } => {
             email_user_link(db, config, user.id, TokenPurpose::PasswordReset, |url| {
                 password_reset_email(&user.email, url)
             })
-            .await?
+            .await
         }
         AccountStatus::AwaitingPassword => {
-            send_verification_link(db, config, user.id, &user.email).await?
+            send_verification_link(db, config, user.id, &user.email).await
         }
-    };
-
-    Ok(sent?)
+    }
 }
 
 async fn send_verification_link(
@@ -342,7 +319,7 @@ async fn send_verification_link(
     config: &Config,
     user_id: i32,
     email: &str,
-) -> Result<std::result::Result<(), MailError>, sqlx::Error> {
+) -> Result<(), sqlx::Error> {
     email_user_link(
         db,
         config,
@@ -417,7 +394,10 @@ pub async fn set_password_from_link(
     token: &str,
     input: &NewPassword,
 ) -> Outcome<User, LinkPasswordProblem> {
-    if !rate_limits(cx).allow_password_submission(client_ip(cx)) {
+    if !rate_limits(cx)
+        .allow_password_submission(client_ip(cx))
+        .await?
+    {
         return fail(LinkPasswordProblem::TooManyAttempts);
     }
     if !link_is_valid(cx, purpose, token).await? {
@@ -454,7 +434,7 @@ pub async fn set_password_from_link(
             let Some(user) = query_update_password(user_id, &password_hash, &mut *tx).await? else {
                 return fail(LinkPasswordProblem::ExpiredLink);
             };
-            let revoked = query_delete_user_api_tokens(user_id, &mut *tx).await?;
+            let revoked = revoke_all_for_user(user_id, &mut *tx).await?;
             record_event(
                 cx,
                 &source,
@@ -524,8 +504,8 @@ pub async fn change_password(
     caller: &Caller,
     input: &ChangePassword,
 ) -> ActionResult<User, ChangePasswordProblem> {
-    authorize!(caller.require_browser());
-    if let Err(problem) = check_current_password(cx, &caller.user, &input.current_password) {
+    authorize!(caller.require(Permission::ManagePassword));
+    if let Err(problem) = check_current_password(cx, &caller.user, &input.current_password).await? {
         return fail(ChangePasswordProblem::CurrentPassword(problem));
     }
     if let Err(problem) = check_new_password(&input.password, &input.confirm_password) {

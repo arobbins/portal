@@ -8,12 +8,17 @@ mod cleanup;
 mod components;
 mod config;
 mod flash;
+mod health;
+mod jobs;
 mod layout;
 mod mail;
+mod mcp;
 mod pages;
 mod passkeys;
+mod permission;
 mod profile;
 mod rate_limit;
+mod routes;
 mod secret;
 mod seed;
 mod syntax;
@@ -23,6 +28,7 @@ mod utils;
 mod web;
 
 use crate::config::Config;
+use crate::jobs::Worker;
 use crate::rate_limit::RateLimits;
 use crate::web::{
     CanonicalHost, attach_remote_addr, inject_globals, redirect_to_canonical_host,
@@ -44,6 +50,7 @@ use topcoat::asset::AssetBundle;
 use topcoat::router::tower::TowerService;
 use tower::Layer;
 use tower_http::normalize_path::NormalizePathLayer;
+use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
 use tower_http::services::ServeDir;
 use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
@@ -94,19 +101,18 @@ async fn main() {
     let assets = AssetBundle::load()
         .expect("missing Topcoat asset bundle: run `topcoat dev` or `topcoat asset bundle`");
 
-    let rate_limits = Arc::new(RateLimits::new(config.rate_limit_mode));
-    tokio::spawn({
-        let rate_limits = rate_limits.clone();
-        async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(600));
-            loop {
-                interval.tick().await;
-                rate_limits.forget_idle_keys();
-            }
-        }
-    });
+    let rate_limits = Arc::new(RateLimits::new(db.clone(), config.rate_limit_mode));
 
-    cleanup::spawn(db.clone(), session_store.clone());
+    let worker = Worker::new(db.clone(), config.clone(), session_store.clone());
+    if env::args().nth(1).as_deref() == Some("work") {
+        tracing::info!(
+            "running {} job worker(s) without the web server",
+            config.job_workers.max(1)
+        );
+        worker.clone().spawn(config.job_workers.max(1));
+        std::future::pending::<()>().await;
+    }
+    worker.spawn(config.job_workers);
 
     let bind_address = config.bind_address.clone();
     let app = app(db, config, rate_limits, assets)
@@ -139,6 +145,7 @@ fn app(db: PgPool, config: Config, rate_limits: Arc<RateLimits>, assets: AssetBu
     let canonical_host =
         CanonicalHost::from_base_url(config.origin()).expect("Config validated APP_BASE_URL");
     let pages = app::router(db.clone(), config, rate_limits, assets);
+    let health_db = db.clone();
 
     let router = Router::new()
         .fallback_service(TowerService::new(pages))
@@ -176,8 +183,28 @@ fn app(db: PgPool, config: Config, rate_limits: Arc<RateLimits>, assets: AssetBu
         router
     };
 
-    router.layer(TraceLayer::new_for_http())
+    router
+        .merge(health::router(health_db))
+        .layer(
+            TraceLayer::new_for_http().make_span_with(|request: &Request| {
+                let request_id = request
+                    .headers()
+                    .get(REQUEST_ID)
+                    .and_then(|value| value.to_str().ok())
+                    .unwrap_or("-");
+                tracing::info_span!(
+                    "request",
+                    id = %request_id,
+                    method = %request.method(),
+                    path = %request.uri().path(),
+                )
+            }),
+        )
+        .layer(PropagateRequestIdLayer::new(REQUEST_ID))
+        .layer(SetRequestIdLayer::new(REQUEST_ID, MakeRequestUuid))
 }
+
+const REQUEST_ID: HeaderName = HeaderName::from_static("x-request-id");
 
 fn security_header(name: HeaderName, value: &'static str) -> SetResponseHeaderLayer<HeaderValue> {
     SetResponseHeaderLayer::if_not_present(name, HeaderValue::from_static(value))
@@ -208,7 +235,7 @@ mod tests {
             AssetBundle::load_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target/debug/assets"))
                 .expect("missing asset bundle: run `topcoat asset bundle` before `cargo test`");
 
-        let rate_limits = Arc::new(RateLimits::new(RateLimitMode::Strict));
+        let rate_limits = Arc::new(RateLimits::new(db.clone(), RateLimitMode::Strict));
 
         let config = Config::from_lookup(|key| match key {
             "APP_BASE_URL" => Some("http://localhost".to_string()),
@@ -226,6 +253,21 @@ mod tests {
             .await
             .unwrap()
             .status()
+    }
+
+    #[sqlx::test]
+    async fn health_checks_answer_without_a_session_or_redirect(db: PgPool) {
+        let app = test_app_with(db);
+        for path in ["/healthz", "/readyz"] {
+            let request = Request::get(path)
+                .header("host", "load-balancer.internal")
+                .body(Body::empty())
+                .unwrap();
+            let response = app.clone().oneshot(request).await.unwrap();
+
+            assert_eq!(response.status(), StatusCode::OK, "{path}");
+            assert!(response.headers().contains_key("x-request-id"));
+        }
     }
 
     #[tokio::test]
@@ -249,34 +291,36 @@ mod tests {
         assert!(status.is_redirection(), "expected redirect, got {status}");
     }
 
-    async fn login_attempt_from(app: &Router, ip: [u8; 4]) -> StatusCode {
+    async fn login_attempt_from(app: &Router, ip: [u8; 4], attempt: usize) -> StatusCode {
         let request = Request::post("/login")
             .header("content-type", "application/x-www-form-urlencoded")
             .extension(axum::extract::ConnectInfo(SocketAddr::from((ip, 50_000))))
-            .body(Body::from("email=someone%40example.test&password=guess"))
+            .body(Body::from(format!(
+                "email=someone{attempt}%40example.test&password=guess"
+            )))
             .unwrap();
         app.clone().oneshot(request).await.unwrap().status()
     }
 
-    #[tokio::test]
-    async fn too_many_login_attempts_from_one_ip_get_a_429() {
-        let app = test_app();
+    #[sqlx::test]
+    async fn too_many_login_attempts_from_one_ip_get_a_429(db: PgPool) {
+        let app = test_app_with(db);
         let attacker = [203, 0, 113, 1];
         let someone_else = [203, 0, 113, 2];
 
-        for _ in 0..10 {
+        for attempt in 0..10 {
             assert_ne!(
-                login_attempt_from(&app, attacker).await,
+                login_attempt_from(&app, attacker, attempt).await,
                 StatusCode::TOO_MANY_REQUESTS
             );
         }
 
         assert_eq!(
-            login_attempt_from(&app, attacker).await,
+            login_attempt_from(&app, attacker, 10).await,
             StatusCode::TOO_MANY_REQUESTS
         );
         assert_ne!(
-            login_attempt_from(&app, someone_else).await,
+            login_attempt_from(&app, someone_else, 11).await,
             StatusCode::TOO_MANY_REQUESTS
         );
     }
@@ -290,9 +334,9 @@ mod tests {
         app.clone().oneshot(request).await.unwrap().status()
     }
 
-    #[tokio::test]
-    async fn too_many_sign_ups_from_one_ip_get_a_429() {
-        let app = test_app();
+    #[sqlx::test]
+    async fn too_many_sign_ups_from_one_ip_get_a_429(db: PgPool) {
+        let app = test_app_with(db);
         let spammer = [203, 0, 113, 3];
 
         for _ in 0..5 {
@@ -338,9 +382,9 @@ mod tests {
         assert_ne!(form_post.status(), StatusCode::PERMANENT_REDIRECT);
     }
 
-    #[tokio::test]
-    async fn every_documented_endpoint_exists_and_needs_a_token() {
-        let app = test_app();
+    #[sqlx::test]
+    async fn every_documented_endpoint_exists_and_needs_a_token(db: PgPool) {
+        let app = test_app_with(db);
 
         for endpoint in crate::api::catalog::endpoints() {
             let request = Request::builder()
@@ -376,7 +420,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn the_openapi_document_and_docs_page_are_public() {
+    async fn the_openapi_document_docs_page_and_llms_txt_are_public() {
+        assert_eq!(get_status("/llms.txt").await, StatusCode::OK);
         assert_eq!(get_status("/api/v1/openapi.json").await, StatusCode::OK);
         assert_eq!(get_status("/docs/api").await, StatusCode::OK);
     }

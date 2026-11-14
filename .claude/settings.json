@@ -27,7 +27,15 @@
       "Bash(rtk git log*)",
       "Bash(rtk git show*)",
       "Bash(rtk git branch*)",
-      "Bash(rtk npx playwright test*)"
+      "Bash(rtk npx playwright test*)",
+      "Bash(sqlx migrate run*)",
+      "Bash(cargo sqlx prepare*)",
+      "Bash(python3 scripts/check_conventions.py*)",
+      "Bash(scripts/check-summary.sh*)",
+      "Bash(npm run screenshot*)",
+      "Bash(rtk proxy npx playwright test*)",
+      "Bash(rtk proxy npm run screenshot*)",
+      "Bash(rtk proxy npm test*)"
     ],
     "deny": [
       "Bash(git push --force*)",

@@ -3,11 +3,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use reqwest::header::ACCEPT;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 static NEXT_MAIL_FILE: AtomicU64 = AtomicU64::new(0);
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Email {
     pub to: String,
     pub subject: String,

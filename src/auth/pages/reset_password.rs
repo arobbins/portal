@@ -1,3 +1,4 @@
+use crate::routes::account_url;
 use topcoat::{
     Result,
     context::{Cx, try_context},
@@ -12,7 +13,6 @@ use topcoat::{
     view::{View, ViewExt, attributes, view},
 };
 
-use crate::account::pages::account::account_page;
 use crate::action::{ActionProblem, page_status};
 use crate::app::page_title;
 use crate::auth::actions::{
@@ -171,7 +171,7 @@ pub async fn choose_password_submit(cx: &Cx, Form(input): Form<NewPassword>) -> 
             let session = session(cx)?;
             sign_in(&session, &user).await?;
             set_flash(&session, Flash::PasswordReset).await?;
-            Ok(see_other(href!(account_page).resolve(cx)))
+            Ok(see_other(account_url(cx)))
         }
         Err(problem) => Err(link_password_failed(cx, problem)),
     }

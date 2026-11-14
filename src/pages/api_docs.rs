@@ -24,7 +24,7 @@ use crate::components::tone::Tone;
 use crate::layout::docs_sidebar::{DocsNavGroup, DocsNavLink, docs_sidebar};
 use crate::layout::page_heading::{PageHeadingVariant, page_heading};
 use crate::rate_limit::{
-    API_CALL_BURST, API_CALLS_PER_MINUTE, BAD_API_TOKEN_WINDOW_MINUTES, BAD_API_TOKENS_PER_WINDOW,
+    API_CALLS_PER_MINUTE, BAD_API_TOKEN_WINDOW_MINUTES, BAD_API_TOKENS_PER_WINDOW,
 };
 use crate::syntax::CodeLanguage;
 use crate::web::config;
@@ -96,9 +96,7 @@ pub async fn api_docs_page(cx: &Cx) -> Result<impl View> {
                 .collect(),
         }
     }));
-    let call_limit = format!(
-        "{API_CALLS_PER_MINUTE} requests a minute per token, in bursts of up to {API_CALL_BURST}."
-    );
+    let call_limit = format!("{API_CALLS_PER_MINUTE} requests in any rolling minute, per token.");
     let bad_token_limit = format!(
         "{BAD_API_TOKENS_PER_WINDOW} invalid tokens from one address in {BAD_API_TOKEN_WINDOW_MINUTES} minutes blocks that address for {BAD_API_TOKEN_WINDOW_MINUTES} minutes."
     );

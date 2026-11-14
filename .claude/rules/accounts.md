@@ -44,9 +44,15 @@ paths:
   `CHECK ((password IS NULL) = (verified_at IS NULL))`, so new users are
   always inserted without a password. `role` is the `Role` enum (select it
   with `role AS "role: Role"`; the DB has a matching `CHECK`).
-- **Cleanup** (`src/cleanup.rs`, hourly): deletes expired `user_tokens`,
-  expired sessions, and sign-ups that never set a password after 7 days and
-  have no live link.
+- **Cleanup** (`src/cleanup.rs`, run hourly as one `cleanup` job, so once
+  per cluster): deletes expired `user_tokens`, expired sessions, sign-ups
+  that never set a password after 7 days and have no live link, API tokens
+  7 days past expiry, rate-limit hits older than a day, account events older
+  than 13 months (`EVENT_RETENTION`) and failed jobs older than 30 days.
+- **Email is always a job** (`src/jobs.rs`): code never calls the mailer;
+  it `enqueue`s `Job::SendEmail(email)` (inside the same transaction as the
+  change it reports, where there is one) and a worker sends it with retries
+  and backoff. A failed send never fails the request.
 - **Untrusted input limits**: parse emails with `utils::parse_email` (trims,
   lowercases, rejects >254 chars or no `@`) before they reach rate limiters,
   queries or the DB; names are capped by `check_name`, passwords by
@@ -58,11 +64,13 @@ paths:
   user re-entering their password goes through `check_current_password(cx,
   user, password)`, which applies the password limiter and the per-account
   lockout and returns `CurrentPasswordProblem`.
-- **Rate limits** (`src/rate_limit.rs`, `governor`, in memory, read with
-  `rate_limits(cx)`): password submissions (login + both set-password forms)
+- **Rate limits** (`src/rate_limit.rs`, sliding windows in the
+  `rate_limit_hits` table, so they hold across instances and restarts; read
+  with `rate_limits(cx)`, every check is `async` and returns
+  `Result<bool, sqlx::Error>`): password submissions (login + both set-password forms)
   10/min per IP, email requests (sign-ups + password resets) 5 per 10 min per
   IP, and at most 3 emails per hour to any one address. Failed logins are
-  counted per account (`FailureWindow`, only wrong email/password counts, a
+  counted per account (only wrong email/password counts, a
   successful login clears it): 5 per 15 min per account+IP, 50 per hour per
   account from any IP — then even the right password gets "Too many
   attempts". Per-IP blocks show a friendly message with status 429; the
@@ -71,7 +79,7 @@ paths:
   by 1000. Client IPs come from Topcoat's `client_ip(cx)` (the connection
   address via `attach_remote_addr`); **behind a proxy/load balancer set
   `TRUSTED_PROXY_HOPS`** to the number of proxies, or every visitor shares
-  the proxy's IP. Counters reset on restart and aren't shared across servers.
+  the proxy's IP.
 - **Emailed links** use the `user_tokens` table: one row per token with a
   `purpose`, only the SHA-256 hash stored, single use (consumed with
   `DELETE … RETURNING`), expiry per purpose. Send one with
@@ -104,9 +112,10 @@ paths:
   inputs are the shared `new_password_fields`.
 - **Password reset** (`reset_password.rs`): `/reset-password` always answers
   "if an account exists, we've sent a link" (active → 1-hour reset link;
-  awaiting password → a fresh sign-up link; unknown → nothing). The email is
-  sent from a background task so the response takes the same time whether
-  or not the account exists. `GET /reset-password/{token}` only shows the
+  awaiting password → a fresh sign-up link; unknown → nothing). The request
+  only enqueues a `send_password_reset` job (one insert, whatever the
+  email), so the response takes the same time whether or not the account
+  exists; the worker looks the account up and sends the right email. `GET /reset-password/{token}` only shows the
   form; `POST` (`set_password_from_link`: rate-limited, and it checks the
   link exists *before* running argon2) consumes the token, sets the password
   with `query_update_password` (bumps `session_version`, so other devices

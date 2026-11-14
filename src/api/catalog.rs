@@ -1,14 +1,11 @@
-use schemars::{Schema, schema_for};
-use serde::Serialize;
+use schemars::Schema;
 use serde_json::{Map, Value, json};
-use topcoat::router::content::Json;
+use topcoat::router::{StatusCode, content::Json};
 
 use crate::action::ActionProblem;
 use crate::api::auth::ApiAuthProblem;
-use crate::api::body::BodyProblem;
 use crate::api::problem::{ApiFailure, ApiProblem};
 use crate::api::scope::ApiScope;
-use crate::profile::actions::{ProfileView, UpdateProfile};
 use crate::user::name::NameProblem;
 
 pub const TITLE: &str = "Webserver API";
@@ -45,7 +42,7 @@ pub struct ErrorDoc {
 }
 
 impl ErrorDoc {
-    fn of<P: ActionProblem>(problem: P) -> Self {
+    pub fn of<P: ActionProblem>(problem: P) -> Self {
         Self {
             status: problem.status().as_u16(),
             code: problem.code(),
@@ -108,58 +105,7 @@ impl Endpoint {
     }
 }
 
-fn example<T: Serialize>(value: &T) -> Value {
-    serde_json::to_value(value).unwrap_or(Value::Null)
-}
-
-fn sample_profile() -> ProfileView {
-    ProfileView {
-        name: "Ada Lovelace".to_string(),
-        email: "ada@example.com".to_string(),
-    }
-}
-
-pub fn endpoints() -> Vec<Endpoint> {
-    let scope_error = ErrorDoc::of(ApiFailure::InsufficientScope);
-    let body_errors = BodyProblem::ALL.into_iter().map(ErrorDoc::of);
-    let name_errors = NameProblem::ALL.into_iter().map(ErrorDoc::of);
-
-    vec![
-        Endpoint {
-            id: "get-profile",
-            group: "Profile",
-            method: HttpMethod::Get,
-            path: "/api/v1/me",
-            summary: "Get your profile",
-            description: "Returns the name and email of the account the token belongs to.",
-            scope: ApiScope::ProfileRead,
-            request: None,
-            response: schema_for!(ProfileView),
-            example_request: None,
-            example_response: example(&sample_profile()),
-            errors: vec![scope_error.clone()],
-        },
-        Endpoint {
-            id: "update-profile",
-            group: "Profile",
-            method: HttpMethod::Patch,
-            path: "/api/v1/me",
-            summary: "Update your profile",
-            description: "Changes the account's display name and returns the updated profile. The change appears in the app straight away and is recorded in the account's activity log.",
-            scope: ApiScope::ProfileWrite,
-            request: Some(schema_for!(UpdateProfile)),
-            response: schema_for!(ProfileView),
-            example_request: Some(example(&UpdateProfile {
-                name: "Ada Lovelace".to_string(),
-            })),
-            example_response: example(&sample_profile()),
-            errors: std::iter::once(scope_error)
-                .chain(body_errors)
-                .chain(name_errors)
-                .collect(),
-        },
-    ]
-}
+pub use crate::api::registry::endpoints;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NavLink {
@@ -251,7 +197,7 @@ fn rules(property: &Value) -> String {
     rules.join(", ")
 }
 
-fn without_meta(schema: &Schema) -> Value {
+pub fn without_meta(schema: &Schema) -> Value {
     let mut value = schema.as_value().clone();
     if let Some(object) = value.as_object_mut() {
         object.remove("$schema");
@@ -304,16 +250,28 @@ fn error_responses(errors: &[ErrorDoc], responses: &mut Map<String, Value>) {
             .map(|error| format!("`{}`: {}", error.code, error.message))
             .collect::<Vec<_>>()
             .join("\n");
+        let examples: Map<String, Value> = group
+            .iter()
+            .map(|error| (error.code.to_string(), error_example(error)))
+            .collect();
         responses.insert(
             status.to_string(),
             json!({
                 "description": description,
                 "content": { "application/problem+json": {
-                    "schema": { "$ref": "#/components/schemas/Problem" }
+                    "schema": { "$ref": "#/components/schemas/Problem" },
+                    "examples": examples,
                 } }
             }),
         );
     }
+}
+
+fn error_example(error: &ErrorDoc) -> Value {
+    let status = StatusCode::from_u16(error.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    let (_, _, Json(body)) = ApiProblem::new(status, error.code, error.message).response();
+
+    json!({ "summary": error.message, "value": body })
 }
 
 pub fn openapi(base_url: &str) -> Value {
@@ -399,6 +357,27 @@ pub fn openapi(base_url: &str) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_documented_error_has_an_example_problem() {
+        let document = openapi("http://localhost");
+        for (path, operations) in document["paths"].as_object().unwrap() {
+            for (method, operation) in operations.as_object().unwrap() {
+                for (status, response) in operation["responses"].as_object().unwrap() {
+                    if status == "200" {
+                        continue;
+                    }
+                    let examples = &response["content"]["application/problem+json"]["examples"];
+                    let examples = examples.as_object().unwrap();
+                    assert!(!examples.is_empty(), "{method} {path} {status}");
+                    for (code, example) in examples {
+                        assert_eq!(example["value"]["code"], code.as_str());
+                        assert_eq!(example["value"]["status"].to_string(), *status);
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn request_fields_come_from_the_action_types() {

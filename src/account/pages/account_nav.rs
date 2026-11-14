@@ -1,13 +1,12 @@
+use crate::routes::api_docs_url;
 use topcoat::{
     Result,
     context::Cx,
-    router::href,
     view::{View, component, view},
 };
 
 use crate::account::tabs::AccountTab;
 use crate::components::icon::{IconName, icon};
-use crate::pages::api_docs::api_docs_page;
 
 struct NavTab {
     tab: AccountTab,
@@ -31,7 +30,7 @@ pub async fn account_nav(cx: &Cx, active: AccountTab) -> Result<impl View> {
         .collect();
     let external_links = [
         ("Support", "/support".to_string()),
-        ("Documentation", href!(api_docs_page).resolve(cx)),
+        ("Documentation", api_docs_url(cx)),
         ("System status", "/status".to_string()),
     ];
 

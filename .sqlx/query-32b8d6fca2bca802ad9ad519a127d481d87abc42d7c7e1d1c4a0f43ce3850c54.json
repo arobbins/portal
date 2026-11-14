@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT count(*) AS \"hits!\" FROM rate_limit_hits\n        WHERE bucket = $1 AND key = $2 AND at > now() - make_interval(secs => $3)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hits!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "32b8d6fca2bca802ad9ad519a127d481d87abc42d7c7e1d1c4a0f43ce3850c54"
+}

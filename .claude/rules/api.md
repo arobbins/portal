@@ -9,6 +9,7 @@ paths:
   - "src/api_tokens/**"
   - "src/profile/**"
   - "src/pages/api_docs.rs"
+  - "src/pages/llms_txt.rs"
   - "e2e/tests/api-*.spec.ts"
   - "e2e/support/api.ts"
 ---
@@ -16,7 +17,7 @@ paths:
 # Actions, API tokens and the JSON API
 
 The app is AI-native: every feature is one **action** that the page, the
-JSON API and (later) MCP tools all call, so permission checks can't be
+JSON API and the MCP endpoint all call, so permission checks can't be
 skipped by any path. New features follow the `new-action` skill.
 
 ## Feature modules
@@ -38,15 +39,20 @@ bodies, problems, scopes, catalog, `v1` routes).
   `request_password_reset`, `set_password_from_link`, passkey sign-in) take no
   `Caller` and return `Outcome<Output, Problem>`; they rate-limit themselves.
 - **Authorization lives in the action**, first thing:
-  `authorize!(caller.require(ApiScope::X))` (the browser passes every scope; a
-  token needs it, with `implies`) or `authorize!(caller.require_browser())`
-  for anything security-sensitive (password, email, passkeys, API tokens,
-  account deletion). Return problems with `return fail(Problem::X)`.
+  `authorize!(caller.require(Permission::X))` (`src/permission.rs`). A
+  `Permission` is checked twice: the caller's workspace role must grant it
+  (`WorkspaceRole::Owner` grants everything today), and a token caller also
+  needs the permission's `api_scope()` (with `implies`). Security-sensitive
+  permissions (password, email, passkeys, API tokens, account deletion) have
+  no API scope, so a token is always `Denied::BrowserOnly`. Add a permission
+  for every new capability; never check scopes directly. Return problems
+  with `return fail(Problem::X)`.
 - Owned rows are scoped by `caller.owner_id()`. **Tenancy plan**: `Caller` has
   a `workspace` (`Workspace::Personal` today, so `owner_id()` is the user's
-  id). Teams add `Workspace::Organization { id, role }`, an `org_id` on owned
-  tables and a membership check where `Caller` is built; actions don't change
-  because they already ask for `owner_id()`.
+  id). Teams add `Workspace::Organization { id, role }`, roles beyond
+  `Owner` in `WorkspaceRole::grants`, an `org_id` on owned tables and a
+  membership check where `Caller` is built; actions don't change because
+  they already ask for `owner_id()` and a `Permission`.
 - Lists a page shows come from actions too (`list_passkeys`,
   `list_api_tokens`), so an API or MCP tool can expose them later.
 - Pages build callers with `browser_caller(cx)` (procedures; `None` → return
@@ -95,12 +101,17 @@ the integer `id` never leaves the server. Actions check the format with
 
 ## JSON API (`src/api/`)
 
+- **Registry** (`api/registry.rs`): every API endpoint is an `ApiAction`
+  impl next to its action (id, group, method, path, summary, description,
+  scope, `Input`/`Output`/`Problem` types, examples, problem docs) listed
+  in `endpoints()`. The docs page, `/api/v1/openapi.json`, `/llms.txt` and
+  the MCP tools are generated from it; nothing about an endpoint is
+  written twice.
 - Routes live in `api/v1/<feature>.rs` as Topcoat `#[route]`s named
-  `<verb>_<thing>_route` returning `ApiResponse` through `api_call(cx, async
-  |caller| …)` or `api_call_with_body(cx, body, async |caller, input: T| …)`
-  (they authenticate, read the JSON body and turn server errors into 500
-  `internal_error`), then `respond(action(..))`. Public endpoints use
-  `public_api_call`. No logic in routes.
+  `<verb>_<thing>_route` whose whole body is `serve::<A>(cx)` (no body) or
+  `serve_with_body::<A>(cx, body)`; they authenticate, read the JSON body,
+  run the action and turn server errors into 500 `internal_error`. Public
+  endpoints use `public_api_call`. No logic in routes.
 - Errors are RFC 9457 `application/problem+json`: `type`, `title`,
   `status`, `detail`, plus `code` and, for field problems, `errors: [{field,
   code, message}]` (`ApiProblem::of(problem)`; extra members with
@@ -116,16 +127,31 @@ the integer `id` never leaves the server. Actions check the format with
   POSTs that create something accept an `Idempotency-Key` header; breaking
   changes go to `/api/v2`.
 
-## Docs (`/docs/api`, `/api/v1/openapi.json`)
+## MCP (`src/mcp.rs`, `POST /mcp`)
 
-- Both are generated from `api/catalog.rs`: one `Endpoint` per route (id
-  `<verb>-<thing>`, method, path, summary "Verb your thing", description,
-  scope, `schema_for!` request/response, examples built from real values,
-  errors from the problem enums' `ALL`). Field tables read the schemars
+- Streamable HTTP, stateless JSON-RPC 2.0 (`initialize`, `ping`,
+  `tools/list`, `tools/call`; notifications get 202). Every registered
+  `ApiAction` is a tool named after its id (`get_profile`), with its request
+  schema as `inputSchema` and response schema as `outputSchema`.
+- Only tokens issued for `TokenAudience::Mcp` ("Used by: AI assistants" on
+  the Developer tab) work here, and they don't work on `/api/v1`.
+  `tools/list` shows only the tools the token's permissions allow.
+- Tool problems are results with `isError: true` and the problem+json body
+  as text (so the model can read `code` and `detail`); bad arguments and
+  unknown tools are JSON-RPC `-32602` errors.
+
+## Docs (`/docs/api`, `/api/v1/openapi.json`, `/llms.txt`)
+
+- Both (and `/llms.txt`) are generated from the registry: `endpoint::<A>()`
+  turns each `ApiAction` into an `Endpoint` (id `<verb>-<thing>`, summary
+  "Verb your thing", `schema_for!` request/response, examples built from
+  real values, the scope error, body errors for methods with a body, and the
+  action's problems). Every error response in the OpenAPI document carries a
+  real problem+json example per code. Field tables read the schemars
   descriptions and length limits, so write good `#[schemars(description)]`s.
   Never hand-write an error code or field list on the page.
-- Adding an endpoint means adding its `Endpoint` to `catalog::endpoints()`;
-  `main.rs` tests that every catalog entry exists and needs a token, and
+- Adding an endpoint means an `ApiAction` impl plus a line in
+  `registry::endpoints()`; `main.rs` tests that every catalog entry exists and needs a token, and
   `api-docs.spec.ts` checks the page and the OpenAPI document.
 - Error enums the docs list need `pub const ALL` (`ApiAuthProblem`,
   `BodyProblem`, `NameProblem`); shared API errors are `ApiFailure`.
@@ -141,13 +167,14 @@ the integer `id` never leaves the server. Actions check the format with
   read); no wildcard scope. A scope with `requires_admin` is dropped at
   request time for non-admins. Adding a scope: enum + serde name, `ALL`,
   labels, and the `api_tokens.scopes` CHECK (new migration).
-- **Audience**: `TokenAudience` (`Api`; `Mcp` later). `authenticate` rejects
+- **Audience**: `TokenAudience` (`Api`, `Mcp`; chosen when creating the
+  token, default `Api`). `authenticate` rejects
   tokens issued for another audience.
 - **Requests** (`api/auth.rs`): only `Authorization: Bearer`. Missing → 401
   `WWW-Authenticate: Bearer realm="api"`; unknown/expired/revoked/malformed
   all give the same 401 `invalid_token`; a missing scope → 403
   `insufficient_scope` with `scope="…"` in `WWW-Authenticate`. Limits: 20
-  invalid tokens per IP per 10 min, and 600 calls/min per token (burst 60),
+  invalid tokens per IP per 10 min, and 600 calls per rolling minute per token,
   both 429 with `Retry-After`. `last_used_at` is written at most every 5
   minutes.
 - **Creating/revoking** are browser-only actions (`api_tokens/actions.rs`):

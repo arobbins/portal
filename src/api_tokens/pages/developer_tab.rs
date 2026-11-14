@@ -1,3 +1,4 @@
+use crate::routes::api_docs_url;
 use topcoat::{
     Result,
     context::{Cx, try_context},
@@ -13,7 +14,7 @@ use topcoat::{
 
 use crate::account::tabs::{AccountSection, AccountTab};
 use crate::action::{ActionProblem, FieldError, ID_FIELD, browser_caller, require_browser_caller};
-use crate::api::scope::{ApiScope, parse_scopes};
+use crate::api::scope::{ApiScope, TokenAudience, parse_scopes};
 use crate::api_tokens::actions::{
     CreateToken, CreateTokenProblem, RevokeToken, TokenLifetime, create_api_token, list_api_tokens,
     revoke_api_token,
@@ -38,7 +39,6 @@ use crate::components::toaster::{NO_TOAST, toaster};
 use crate::components::tone::Tone;
 use crate::flash::{Flash, flash_toasts, set_flash, take_flash, toast_name};
 use crate::layout::page_heading::{PageHeadingVariant, page_heading};
-use crate::pages::api_docs::api_docs_page;
 use crate::user::name::{MAX_NAME_LENGTH, NAME_FIELD};
 use crate::utils::format_date;
 use crate::web::session;
@@ -78,6 +78,9 @@ impl TokenRow {
             .into_iter()
             .map(|scope| PropertyTag::new(scope.as_str(), Tone::Neutral))
             .collect();
+        if TokenAudience::from_str(&token.audience) == Some(TokenAudience::Mcp) {
+            tags.push(PropertyTag::new("MCP", Tone::Info));
+        }
         if expired {
             tags.push(PropertyTag::new("Expired", Tone::Error));
         }
@@ -120,6 +123,7 @@ pub async fn developer_tab(cx: &Cx) -> Result<impl View> {
     let name_draft = signal(cx, String::new);
     let access_draft = signal(cx, || DEFAULT_ACCESS.as_str().to_string());
     let lifetime_draft = signal(cx, || TokenLifetime::DEFAULT.value().to_string());
+    let audience_draft = signal(cx, || TokenAudience::DEFAULT.as_str().to_string());
     let password_draft = signal(cx, String::new);
     let error_field = signal(cx, String::new);
     let error_message = signal(cx, || failed.map_or("", ActionProblem::message).to_string());
@@ -139,6 +143,13 @@ pub async fn developer_tab(cx: &Cx) -> Result<impl View> {
             label: scope.choice_label(),
         })
         .collect();
+    let audience_choices: Vec<Choice<'static>> = TokenAudience::ALL
+        .into_iter()
+        .map(|audience| Choice {
+            value: audience.as_str(),
+            label: audience.label(),
+        })
+        .collect();
     let lifetime_choices: Vec<Choice<'static>> = TokenLifetime::ALL
         .into_iter()
         .map(|lifetime| Choice {
@@ -152,7 +163,7 @@ pub async fn developer_tab(cx: &Cx) -> Result<impl View> {
         Err(FieldError::general(UNREACHABLE));
     let max_name_length = MAX_NAME_LENGTH.to_string();
     let developer_url = AccountTab::Developer.href(cx);
-    let docs_url = href!(api_docs_page).resolve(cx);
+    let docs_url = api_docs_url(cx);
 
     Ok(view! {
         <div class="p-account__sub-page-content">
@@ -242,6 +253,7 @@ pub async fn developer_tab(cx: &Cx) -> Result<impl View> {
                                     name_draft.get(),
                                     access_draft.get(),
                                     lifetime_draft.get(),
+                                    audience_draft.get(),
                                     password_draft.get(),
                                 );
                                 let result = raw!(
@@ -286,6 +298,15 @@ pub async fn developer_tab(cx: &Cx) -> Result<impl View> {
                             selected: Some(DEFAULT_ACCESS.as_str()),
                             required: true,
                             attrs: attributes! { @change=$(|e: Event| access_draft.set(e.target.value)) }
+                        )
+                        select_field(
+                            label: "Used by",
+                            id: "api-token-audience",
+                            name: "audience",
+                            options: &audience_choices,
+                            selected: Some(TokenAudience::DEFAULT.as_str()),
+                            required: true,
+                            attrs: attributes! { @change=$(|e: Event| audience_draft.set(e.target.value)) }
                         )
                         select_field(
                             label: "Expires after",
@@ -415,14 +436,16 @@ async fn create_api_token_js(
     name: String,
     access: String,
     lifetime: String,
+    audience: String,
     current_password: String,
 ) -> Result<Result<String, FieldError>> {
     let Some(caller) = browser_caller(cx) else {
         return Ok(Err(FieldError::session_expired()));
     };
-    let (Ok(access), Ok(lifetime)) = (
+    let (Ok(access), Ok(lifetime), Some(audience)) = (
         serde_json::from_value::<ApiScope>(access.into()),
         serde_json::from_value::<TokenLifetime>(lifetime.into()),
+        TokenAudience::from_str(&audience),
     ) else {
         return Ok(Err(FieldError::of(CreateTokenProblem::UnknownAccess)));
     };
@@ -430,6 +453,7 @@ async fn create_api_token_js(
         name,
         access,
         lifetime,
+        audience,
         current_password,
     };
 

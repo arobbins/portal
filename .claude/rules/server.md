@@ -42,3 +42,12 @@ paths:
   `POSTMARK_SERVER_TOKEN`, `POSTMARK_BASE_URL`, `POSTMARK_FROM_EMAIL`),
   `log` (prints emails, including links), or `file` (writes JSON to
   `MAIL_DIR`). Unknown values stop the server at startup.
+- **Health and tracing** (`src/health.rs`, `main.rs`): `/healthz` (the
+  process is up) and `/readyz` (the database answers) sit outside sessions
+  and the canonical-host redirect, so load balancers can call them by IP.
+  Every request gets an `x-request-id` (kept if the client sent one), echoed
+  in the response and recorded on the request's log span.
+- **Background jobs** (`src/jobs.rs`): `JOB_WORKERS` (default 2, `0` to run
+  none) workers start with the web server; `webserver work` runs workers
+  without HTTP for a separate worker process. Jobs are claimed with
+  `FOR UPDATE SKIP LOCKED`, so any number of processes can share the queue.

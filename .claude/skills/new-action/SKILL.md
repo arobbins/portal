@@ -1,6 +1,6 @@
 ---
 name: new-action
-description: Add something the app can do as one shared action that the UI, the JSON API and (later) MCP tools all call — input/output types with JSON Schema, a problem enum with codes, the scope check, the event log, the page wiring, the /api/v1 route and tests. Use whenever adding or changing a feature that reads or changes user data.
+description: Add something the app can do as one shared action that the UI, the JSON API and the MCP endpoint all call — input/output types with JSON Schema, a problem enum with codes, the scope check, the event log, the page wiring, the /api/v1 route and tests. Use whenever adding or changing a feature that reads or changes user data.
 ---
 
 # New action
@@ -18,11 +18,14 @@ only the `User` model, its queries, `name.rs` and the event log.
 
 ## 2. Decide access
 
-- Which `ApiScope` does it need? Reuse `<area>:read` / `<area>:write`, or add a pair
-  (enum variant with `#[serde(rename = "area:read")]`, `ALL`, `label`, `choice_label`,
-  `implies`, and a migration extending the `api_tokens.scopes` CHECK). No wildcard scopes.
+- Add (or reuse) a `Permission` in `src/permission.rs` and decide its `api_scope()`:
+  reuse `<area>:read` / `<area>:write`, or add a scope pair (enum variant with
+  `#[serde(rename = "area:read")]`, `ALL`, `label`, `choice_label`, `implies`, and a
+  migration extending the `api_tokens.scopes` CHECK). No wildcard scopes.
 - Security-sensitive (password, email, passkeys, tokens, deleting the account, billing
-  ownership)? Then it's `caller.require_browser()` and gets **no** API route.
+  ownership)? Its permission's `api_scope()` is `None`: tokens are denied and it gets
+  **no** API route or MCP tool.
+- Decide which `WorkspaceRole`s grant it (`WorkspaceRole::grants`).
 - Runs before anyone is signed in (sign-in, sign-up, reset)? It's a public action: no
   `Caller`, returns `Outcome<T, Problem>`, does its own rate limiting.
 
@@ -62,7 +65,7 @@ problems instead of copying them: `NameProblem`, `PasswordProblem`,
 
 ```rust
 pub async fn do_thing(cx: &Cx, caller: &Caller, input: &DoThing) -> ActionResult<ThingView, ThingProblem> {
-    authorize!(caller.require(ApiScope::ThingWrite));
+    authorize!(caller.require(Permission::EditThings));
     let name = match check_name(&input.name) {
         Ok(name) => name,
         Err(problem) => return fail(ThingProblem::Name(problem)),
@@ -107,28 +110,52 @@ POST routes under `/account` are `/account/<thing>/<verb>`; forms for signed-out
 to the page's own URL. Redirect targets come from `href!(…)`, `AccountTab::X.href(cx)` or
 `AccountSection::X.href(cx)`. The rest follows `new-form-flow`.
 
-## 6. API route in `src/api/v1/<feature>.rs`
+## 6. Expose it to the API (scoped actions only)
+
+Implement `ApiAction` next to the action (`profile/actions.rs` is the reference): one
+declaration drives the route handler, the `/docs/api` page, the OpenAPI document,
+`/llms.txt` and the MCP tool list.
 
 ```rust
-#[route(GET "/api/v1/things")]
-pub async fn list_things_route(cx: &Cx) -> Result<ApiResponse> {
-    api_call(cx, async |caller| Ok(respond(list_things(cx, &caller).await?))).await
-}
+pub struct CreateThingAction;
 
-#[route(POST "/api/v1/things", with(BodyLimit::max(MAX_JSON_BODY)))]
-pub async fn create_thing_route(cx: &Cx, body: Body) -> Result<ApiResponse> {
-    api_call_with_body(cx, body, async |caller, input: DoThing| {
-        Ok(respond(do_thing(cx, &caller, &input).await?))
-    })
-    .await
+impl ApiAction for CreateThingAction {
+    const ID: &'static str = "create-thing";
+    const GROUP: &'static str = "Things";
+    const METHOD: HttpMethod = HttpMethod::Post;
+    const PATH: &'static str = "/api/v1/things";
+    const SUMMARY: &'static str = "Create a thing";
+    const DESCRIPTION: &'static str = "What it does, what it returns, what it records.";
+    const PERMISSION: Permission = Permission::EditThings;
+
+    type Input = DoThing;          // `NoInput` for GET
+    type Output = ThingView;
+    type Problem = ThingProblem;   // `Infallible` if it can't fail
+
+    async fn run(cx: &Cx, caller: &Caller, input: &DoThing) -> ActionResult<ThingView, ThingProblem> {
+        do_thing(cx, caller, input).await
+    }
+
+    fn example_input() -> Option<DoThing> { Some(/* real-looking values */) }
+    fn example_output() -> ThingView { /* … */ }
+    fn problems() -> Vec<ErrorDoc> { ThingProblem::ALL.into_iter().map(ErrorDoc::of).collect() }
 }
 ```
 
-Then document it: add an `Endpoint` to `api::catalog::endpoints()` (id `<verb>-<thing>`,
-summary "Verb your thing", scope, request and response `schema_for!`, examples built from
-real values, errors from the problem enum's `ALL` plus `ApiFailure::InsufficientScope` and
-`BodyProblem::ALL` for bodies). The docs page, the OpenAPI document and the "every
-documented endpoint exists" test pick it up. Add `pub mod <feature>;` to `src/api/v1.rs`.
+Add it to `endpoints()` in `src/api/registry.rs`, then the thin route in
+`src/api/v1/<feature>.rs` (Topcoat needs the path in the attribute):
+
+```rust
+#[route(POST "/api/v1/things", with(BodyLimit::max(MAX_JSON_BODY)))]
+pub async fn create_thing_route(cx: &Cx, body: Body) -> Result<ApiResponse> {
+    serve_with_body::<CreateThingAction>(cx, body).await   // `serve::<A>(cx)` for GET
+}
+```
+
+Add `pub mod <feature>;` to `src/api/v1.rs`. The scope, body and problem errors are
+documented automatically; `scripts/check_conventions.py` fails if a `/api/v1` route has no
+registered `ApiAction`, and `main.rs` tests that every registered endpoint exists and needs
+a token.
 
 Lists: cursor pagination. Creates: accept `Idempotency-Key` (build the shared mechanism
 the first time it's needed).

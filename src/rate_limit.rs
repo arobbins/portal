@@ -1,70 +1,14 @@
-use std::collections::HashMap;
-use std::hash::Hash;
 use std::net::{IpAddr, Ipv4Addr};
-use std::num::NonZeroU32;
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
 
-use governor::{DefaultKeyedRateLimiter, Quota, RateLimiter};
+use sqlx::{PgExecutor, PgPool};
 
 const UNKNOWN_IP: IpAddr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
 const RELAXED_SCALE: u32 = 1000;
+const MAX_KEY_LENGTH: usize = 254;
 pub const API_CALLS_PER_MINUTE: u32 = 600;
-pub const API_CALL_BURST: u32 = 60;
 pub const BAD_API_TOKENS_PER_WINDOW: u32 = 20;
 pub const BAD_API_TOKEN_WINDOW_MINUTES: u64 = 10;
-
-struct FailureWindow<K> {
-    window: Duration,
-    max_failures: usize,
-    failures: Mutex<HashMap<K, Vec<Instant>>>,
-}
-
-impl<K: Eq + Hash> FailureWindow<K> {
-    fn new(window: Duration, max_failures: usize) -> Self {
-        Self {
-            window,
-            max_failures,
-            failures: Mutex::new(HashMap::new()),
-        }
-    }
-
-    fn with_recent<T>(&self, key: K, read: impl FnOnce(&mut Vec<Instant>) -> T) -> T {
-        let mut failures = self
-            .failures
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let recent = failures.entry(key).or_default();
-        recent.retain(|at| at.elapsed() < self.window);
-        read(recent)
-    }
-
-    fn is_blocked(&self, key: K) -> bool {
-        self.with_recent(key, |recent| recent.len() >= self.max_failures)
-    }
-
-    fn record(&self, key: K) {
-        self.with_recent(key, |recent| recent.push(Instant::now()));
-    }
-
-    fn clear(&self, key: &K) {
-        self.failures
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .remove(key);
-    }
-
-    fn forget_idle(&self) {
-        let mut failures = self
-            .failures
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        failures.retain(|_, recent| {
-            recent.retain(|at| at.elapsed() < self.window);
-            !recent.is_empty()
-        });
-    }
-}
+pub const KEEP_HITS_FOR: time::Duration = time::Duration::days(1);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RateLimitMode {
@@ -72,18 +16,76 @@ pub enum RateLimitMode {
     Relaxed,
 }
 
-pub struct RateLimits {
-    password_submissions_by_ip: DefaultKeyedRateLimiter<IpAddr>,
-    email_requests_by_ip: DefaultKeyedRateLimiter<IpAddr>,
-    passkey_challenges_by_ip: DefaultKeyedRateLimiter<IpAddr>,
-    emails_by_address: DefaultKeyedRateLimiter<String>,
-    failed_logins_by_account_and_ip: FailureWindow<(String, IpAddr)>,
-    failed_logins_by_account: FailureWindow<String>,
-    failed_api_auth_by_ip: FailureWindow<IpAddr>,
-    api_calls_by_token: DefaultKeyedRateLimiter<i32>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Limit {
+    PasswordSubmissionsByIp,
+    EmailRequestsByIp,
+    PasskeyChallengesByIp,
+    EmailsToAddress,
+    ApiCallsByToken,
+    FailedLoginsByAccountAndIp,
+    FailedLoginsByAccount,
+    FailedApiAuthByIp,
 }
 
-const MAX_KEY_LENGTH: usize = 254;
+impl Limit {
+    fn bucket(self) -> &'static str {
+        match self {
+            Self::PasswordSubmissionsByIp => "password_submissions_by_ip",
+            Self::EmailRequestsByIp => "email_requests_by_ip",
+            Self::PasskeyChallengesByIp => "passkey_challenges_by_ip",
+            Self::EmailsToAddress => "emails_to_address",
+            Self::ApiCallsByToken => "api_calls_by_token",
+            Self::FailedLoginsByAccountAndIp => "failed_logins_by_account_and_ip",
+            Self::FailedLoginsByAccount => "failed_logins_by_account",
+            Self::FailedApiAuthByIp => "failed_api_auth_by_ip",
+        }
+    }
+
+    fn window_seconds(self) -> f64 {
+        let minutes: u64 = match self {
+            Self::PasswordSubmissionsByIp | Self::PasskeyChallengesByIp | Self::ApiCallsByToken => {
+                1
+            }
+            Self::EmailRequestsByIp => 10,
+            Self::FailedLoginsByAccountAndIp => 15,
+            Self::FailedApiAuthByIp => BAD_API_TOKEN_WINDOW_MINUTES,
+            Self::EmailsToAddress | Self::FailedLoginsByAccount => 60,
+        };
+        (minutes * 60) as f64
+    }
+
+    fn max(self, mode: RateLimitMode) -> i64 {
+        let base: u32 = match self {
+            Self::PasswordSubmissionsByIp => 10,
+            Self::EmailRequestsByIp => 5,
+            Self::PasskeyChallengesByIp => 30,
+            Self::EmailsToAddress => 3,
+            Self::ApiCallsByToken => API_CALLS_PER_MINUTE,
+            Self::FailedLoginsByAccountAndIp => 5,
+            Self::FailedLoginsByAccount => 50,
+            Self::FailedApiAuthByIp => BAD_API_TOKENS_PER_WINDOW,
+        };
+        let scales = !matches!(
+            self,
+            Self::FailedLoginsByAccountAndIp | Self::FailedLoginsByAccount
+        );
+        let scale = match mode {
+            RateLimitMode::Relaxed if scales => RELAXED_SCALE,
+            _ => 1,
+        };
+        i64::from(base * scale)
+    }
+}
+
+pub struct RateLimits {
+    db: PgPool,
+    mode: RateLimitMode,
+}
+
+fn ip_key(ip: Option<IpAddr>) -> String {
+    ip.unwrap_or(UNKNOWN_IP).to_string()
+}
 
 fn account_key(email: &str) -> String {
     email
@@ -94,110 +96,186 @@ fn account_key(email: &str) -> String {
         .to_lowercase()
 }
 
-fn quota(refill_every: Duration, burst: u32) -> Quota {
-    Quota::with_period(refill_every)
-        .expect("refill period must be non-zero")
-        .allow_burst(NonZeroU32::new(burst).expect("burst must be non-zero"))
+impl RateLimits {
+    pub fn new(db: PgPool, mode: RateLimitMode) -> Self {
+        Self { db, mode }
+    }
+
+    async fn allow(&self, limit: Limit, key: &str) -> Result<bool, sqlx::Error> {
+        query_take_rate_limit_slot(
+            limit.bucket(),
+            key,
+            limit.window_seconds(),
+            limit.max(self.mode),
+            &self.db,
+        )
+        .await
+    }
+
+    async fn blocked(&self, limit: Limit, key: &str) -> Result<bool, sqlx::Error> {
+        let hits =
+            query_count_rate_limit_hits(limit.bucket(), key, limit.window_seconds(), &self.db)
+                .await?;
+        Ok(hits >= limit.max(self.mode))
+    }
+
+    async fn record(&self, limit: Limit, key: &str) -> Result<(), sqlx::Error> {
+        query_insert_rate_limit_hit(limit.bucket(), key, &self.db).await
+    }
+
+    pub async fn allow_password_submission(&self, ip: Option<IpAddr>) -> Result<bool, sqlx::Error> {
+        self.allow(Limit::PasswordSubmissionsByIp, &ip_key(ip))
+            .await
+    }
+
+    pub async fn allow_email_request(&self, ip: Option<IpAddr>) -> Result<bool, sqlx::Error> {
+        self.allow(Limit::EmailRequestsByIp, &ip_key(ip)).await
+    }
+
+    pub async fn allow_passkey_challenge(&self, ip: Option<IpAddr>) -> Result<bool, sqlx::Error> {
+        self.allow(Limit::PasskeyChallengesByIp, &ip_key(ip)).await
+    }
+
+    pub async fn allow_email_to(&self, address: &str) -> Result<bool, sqlx::Error> {
+        self.allow(Limit::EmailsToAddress, &account_key(address))
+            .await
+    }
+
+    pub async fn allow_api_call(&self, token_id: i32) -> Result<bool, sqlx::Error> {
+        self.allow(Limit::ApiCallsByToken, &token_id.to_string())
+            .await
+    }
+
+    pub async fn login_blocked(
+        &self,
+        email: &str,
+        ip: Option<IpAddr>,
+    ) -> Result<bool, sqlx::Error> {
+        let account = account_key(email);
+        Ok(self
+            .blocked(
+                Limit::FailedLoginsByAccountAndIp,
+                &format!("{account} {}", ip_key(ip)),
+            )
+            .await?
+            || self.blocked(Limit::FailedLoginsByAccount, &account).await?)
+    }
+
+    pub async fn record_failed_login(
+        &self,
+        email: &str,
+        ip: Option<IpAddr>,
+    ) -> Result<(), sqlx::Error> {
+        let account = account_key(email);
+        self.record(
+            Limit::FailedLoginsByAccountAndIp,
+            &format!("{account} {}", ip_key(ip)),
+        )
+        .await?;
+        self.record(Limit::FailedLoginsByAccount, &account).await
+    }
+
+    pub async fn clear_failed_logins(
+        &self,
+        email: &str,
+        ip: Option<IpAddr>,
+    ) -> Result<(), sqlx::Error> {
+        let key = format!("{} {}", account_key(email), ip_key(ip));
+        query_delete_rate_limit_hits(Limit::FailedLoginsByAccountAndIp.bucket(), &key, &self.db)
+            .await
+    }
+
+    pub async fn api_auth_blocked(&self, ip: Option<IpAddr>) -> Result<bool, sqlx::Error> {
+        self.blocked(Limit::FailedApiAuthByIp, &ip_key(ip)).await
+    }
+
+    pub async fn record_failed_api_auth(&self, ip: Option<IpAddr>) -> Result<(), sqlx::Error> {
+        self.record(Limit::FailedApiAuthByIp, &ip_key(ip)).await
+    }
 }
 
-impl RateLimits {
-    pub fn new(mode: RateLimitMode) -> Self {
-        let scale = match mode {
-            RateLimitMode::Strict => 1,
-            RateLimitMode::Relaxed => RELAXED_SCALE,
-        };
+async fn query_take_rate_limit_slot(
+    bucket: &str,
+    key: &str,
+    window_seconds: f64,
+    max: i64,
+    db: impl PgExecutor<'_>,
+) -> Result<bool, sqlx::Error> {
+    let taken = sqlx::query_scalar!(
+        r#"WITH recent AS (
+            SELECT count(*) AS hits FROM rate_limit_hits
+            WHERE bucket = $1 AND key = $2 AND at > now() - make_interval(secs => $3)
+        )
+        INSERT INTO rate_limit_hits (bucket, key)
+        SELECT $1, $2 FROM recent WHERE recent.hits < $4
+        RETURNING 1 AS "taken!""#,
+        bucket,
+        key,
+        window_seconds,
+        max,
+    )
+    .fetch_optional(db)
+    .await?;
 
-        Self {
-            password_submissions_by_ip: RateLimiter::keyed(quota(
-                Duration::from_secs(6),
-                10 * scale,
-            )),
-            email_requests_by_ip: RateLimiter::keyed(quota(Duration::from_secs(120), 5 * scale)),
-            passkey_challenges_by_ip: RateLimiter::keyed(quota(Duration::from_secs(2), 30 * scale)),
-            emails_by_address: RateLimiter::keyed(quota(Duration::from_secs(1200), 3 * scale)),
-            failed_logins_by_account_and_ip: FailureWindow::new(Duration::from_secs(15 * 60), 5),
-            failed_logins_by_account: FailureWindow::new(Duration::from_secs(60 * 60), 50),
-            failed_api_auth_by_ip: FailureWindow::new(
-                Duration::from_secs(BAD_API_TOKEN_WINDOW_MINUTES * 60),
-                (BAD_API_TOKENS_PER_WINDOW * scale) as usize,
-            ),
-            api_calls_by_token: RateLimiter::keyed(quota(
-                Duration::from_millis(60_000 / u64::from(API_CALLS_PER_MINUTE)),
-                API_CALL_BURST * scale,
-            )),
-        }
-    }
+    Ok(taken.is_some())
+}
 
-    pub fn allow_password_submission(&self, ip: Option<IpAddr>) -> bool {
-        self.password_submissions_by_ip
-            .check_key(&ip.unwrap_or(UNKNOWN_IP))
-            .is_ok()
-    }
+async fn query_count_rate_limit_hits(
+    bucket: &str,
+    key: &str,
+    window_seconds: f64,
+    db: impl PgExecutor<'_>,
+) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar!(
+        r#"SELECT count(*) AS "hits!" FROM rate_limit_hits
+        WHERE bucket = $1 AND key = $2 AND at > now() - make_interval(secs => $3)"#,
+        bucket,
+        key,
+        window_seconds,
+    )
+    .fetch_one(db)
+    .await
+}
 
-    pub fn allow_email_request(&self, ip: Option<IpAddr>) -> bool {
-        self.email_requests_by_ip
-            .check_key(&ip.unwrap_or(UNKNOWN_IP))
-            .is_ok()
-    }
+async fn query_insert_rate_limit_hit(
+    bucket: &str,
+    key: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "INSERT INTO rate_limit_hits (bucket, key) VALUES ($1, $2)",
+        bucket,
+        key,
+    )
+    .execute(db)
+    .await?;
 
-    pub fn allow_passkey_challenge(&self, ip: Option<IpAddr>) -> bool {
-        self.passkey_challenges_by_ip
-            .check_key(&ip.unwrap_or(UNKNOWN_IP))
-            .is_ok()
-    }
+    Ok(())
+}
 
-    pub fn allow_email_to(&self, address: &str) -> bool {
-        self.emails_by_address
-            .check_key(&account_key(address))
-            .is_ok()
-    }
+async fn query_delete_rate_limit_hits(
+    bucket: &str,
+    key: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "DELETE FROM rate_limit_hits WHERE bucket = $1 AND key = $2",
+        bucket,
+        key,
+    )
+    .execute(db)
+    .await?;
 
-    pub fn login_blocked(&self, email: &str, ip: Option<IpAddr>) -> bool {
-        let account = account_key(email);
-        let ip = ip.unwrap_or(UNKNOWN_IP);
+    Ok(())
+}
 
-        self.failed_logins_by_account_and_ip
-            .is_blocked((account.clone(), ip))
-            || self.failed_logins_by_account.is_blocked(account)
-    }
+pub async fn query_delete_old_rate_limit_hits(db: impl PgExecutor<'_>) -> Result<u64, sqlx::Error> {
+    let cutoff = time::OffsetDateTime::now_utc() - KEEP_HITS_FOR;
+    let result = sqlx::query!("DELETE FROM rate_limit_hits WHERE at < $1", cutoff)
+        .execute(db)
+        .await?;
 
-    pub fn record_failed_login(&self, email: &str, ip: Option<IpAddr>) {
-        let account = account_key(email);
-        let ip = ip.unwrap_or(UNKNOWN_IP);
-
-        self.failed_logins_by_account_and_ip
-            .record((account.clone(), ip));
-        self.failed_logins_by_account.record(account);
-    }
-
-    pub fn clear_failed_logins(&self, email: &str, ip: Option<IpAddr>) {
-        self.failed_logins_by_account_and_ip
-            .clear(&(account_key(email), ip.unwrap_or(UNKNOWN_IP)));
-    }
-
-    pub fn api_auth_blocked(&self, ip: Option<IpAddr>) -> bool {
-        self.failed_api_auth_by_ip
-            .is_blocked(ip.unwrap_or(UNKNOWN_IP))
-    }
-
-    pub fn record_failed_api_auth(&self, ip: Option<IpAddr>) {
-        self.failed_api_auth_by_ip.record(ip.unwrap_or(UNKNOWN_IP));
-    }
-
-    pub fn allow_api_call(&self, token_id: i32) -> bool {
-        self.api_calls_by_token.check_key(&token_id).is_ok()
-    }
-
-    pub fn forget_idle_keys(&self) {
-        self.password_submissions_by_ip.retain_recent();
-        self.email_requests_by_ip.retain_recent();
-        self.passkey_challenges_by_ip.retain_recent();
-        self.emails_by_address.retain_recent();
-        self.failed_logins_by_account_and_ip.forget_idle();
-        self.failed_logins_by_account.forget_idle();
-        self.failed_api_auth_by_ip.forget_idle();
-        self.api_calls_by_token.retain_recent();
-    }
+    Ok(result.rows_affected())
 }
 
 #[cfg(test)]
@@ -208,120 +286,222 @@ mod tests {
         Some(IpAddr::V4(Ipv4Addr::new(203, 0, 113, last)))
     }
 
-    #[test]
-    fn password_submissions_are_limited_per_ip() {
-        let limits = RateLimits::new(RateLimitMode::Strict);
-
-        for _ in 0..10 {
-            assert!(limits.allow_password_submission(ip(1)));
+    async fn allowed_in_a_row(times: usize, check: impl AsyncFn() -> bool) -> bool {
+        for _ in 0..times {
+            if !check().await {
+                return false;
+            }
         }
-        assert!(!limits.allow_password_submission(ip(1)));
-        assert!(limits.allow_password_submission(ip(2)));
+        true
     }
 
-    #[test]
-    fn email_requests_are_limited_per_ip() {
-        let limits = RateLimits::new(RateLimitMode::Strict);
+    #[sqlx::test]
+    async fn password_submissions_are_limited_per_ip(db: PgPool) {
+        let limits = RateLimits::new(db, RateLimitMode::Strict);
+
+        assert!(
+            allowed_in_a_row(10, async || limits
+                .allow_password_submission(ip(1))
+                .await
+                .unwrap())
+            .await
+        );
+        assert!(!limits.allow_password_submission(ip(1)).await.unwrap());
+        assert!(limits.allow_password_submission(ip(2)).await.unwrap());
+    }
+
+    #[sqlx::test]
+    async fn email_requests_are_limited_per_ip(db: PgPool) {
+        let limits = RateLimits::new(db, RateLimitMode::Strict);
+
+        assert!(
+            allowed_in_a_row(5, async || limits.allow_email_request(ip(1)).await.unwrap()).await
+        );
+        assert!(!limits.allow_email_request(ip(1)).await.unwrap());
+        assert!(limits.allow_email_request(ip(2)).await.unwrap());
+    }
+
+    #[sqlx::test]
+    async fn emails_are_limited_per_address_regardless_of_case(db: PgPool) {
+        let limits = RateLimits::new(db, RateLimitMode::Strict);
+
+        assert!(
+            allowed_in_a_row(3, async || limits
+                .allow_email_to("victim@example.test")
+                .await
+                .unwrap())
+            .await
+        );
+        assert!(!limits.allow_email_to("Victim@Example.test").await.unwrap());
+        assert!(
+            limits
+                .allow_email_to("someone-else@example.test")
+                .await
+                .unwrap()
+        );
+    }
+
+    #[sqlx::test]
+    async fn five_failed_logins_block_that_account_from_that_ip(db: PgPool) {
+        let limits = RateLimits::new(db, RateLimitMode::Strict);
 
         for _ in 0..5 {
-            assert!(limits.allow_email_request(ip(1)));
+            assert!(
+                !limits
+                    .login_blocked("owner@example.test", ip(1))
+                    .await
+                    .unwrap()
+            );
+            limits
+                .record_failed_login("owner@example.test", ip(1))
+                .await
+                .unwrap();
         }
-        assert!(!limits.allow_email_request(ip(1)));
-        assert!(limits.allow_email_request(ip(2)));
+
+        assert!(
+            limits
+                .login_blocked("Owner@Example.test", ip(1))
+                .await
+                .unwrap()
+        );
+        assert!(
+            !limits
+                .login_blocked("owner@example.test", ip(2))
+                .await
+                .unwrap()
+        );
+        assert!(
+            !limits
+                .login_blocked("someone-else@example.test", ip(1))
+                .await
+                .unwrap()
+        );
     }
 
-    #[test]
-    fn emails_are_limited_per_address_regardless_of_case() {
-        let limits = RateLimits::new(RateLimitMode::Strict);
-
-        for _ in 0..3 {
-            assert!(limits.allow_email_to("victim@example.test"));
-        }
-        assert!(!limits.allow_email_to("Victim@Example.test"));
-        assert!(limits.allow_email_to("someone-else@example.test"));
-    }
-
-    #[test]
-    fn five_failed_logins_block_that_account_from_that_ip() {
-        let limits = RateLimits::new(RateLimitMode::Strict);
-
+    #[sqlx::test]
+    async fn a_successful_login_clears_the_failures(db: PgPool) {
+        let limits = RateLimits::new(db, RateLimitMode::Strict);
         for _ in 0..5 {
-            assert!(!limits.login_blocked("owner@example.test", ip(1)));
-            limits.record_failed_login("owner@example.test", ip(1));
+            limits
+                .record_failed_login("owner@example.test", ip(1))
+                .await
+                .unwrap();
         }
 
-        assert!(limits.login_blocked("Owner@Example.test", ip(1)));
-        assert!(!limits.login_blocked("owner@example.test", ip(2)));
-        assert!(!limits.login_blocked("someone-else@example.test", ip(1)));
+        limits
+            .clear_failed_logins("owner@example.test", ip(1))
+            .await
+            .unwrap();
+
+        assert!(
+            !limits
+                .login_blocked("owner@example.test", ip(1))
+                .await
+                .unwrap()
+        );
     }
 
-    #[test]
-    fn a_successful_login_clears_the_failures() {
-        let limits = RateLimits::new(RateLimitMode::Strict);
-
-        for _ in 0..4 {
-            limits.record_failed_login("owner@example.test", ip(1));
-        }
-        limits.clear_failed_logins("owner@example.test", ip(1));
-        limits.record_failed_login("owner@example.test", ip(1));
-
-        assert!(!limits.login_blocked("owner@example.test", ip(1)));
-    }
-
-    #[test]
-    fn many_failures_from_many_ips_block_the_account_everywhere() {
-        let limits = RateLimits::new(RateLimitMode::Strict);
-
-        for attacker in 0..50 {
-            limits.record_failed_login("owner@example.test", ip(attacker));
+    #[sqlx::test]
+    async fn many_failures_from_many_ips_block_the_account_everywhere(db: PgPool) {
+        let limits = RateLimits::new(db, RateLimitMode::Strict);
+        for attempt in 0..50u8 {
+            limits
+                .record_failed_login("owner@example.test", ip(attempt))
+                .await
+                .unwrap();
         }
 
-        assert!(limits.login_blocked("owner@example.test", ip(200)));
+        assert!(
+            limits
+                .login_blocked("owner@example.test", ip(200))
+                .await
+                .unwrap()
+        );
     }
 
-    #[test]
-    fn failures_expire_after_the_window() {
-        let window = FailureWindow::new(Duration::from_millis(50), 1);
-        window.record("key");
-        assert!(window.is_blocked("key"));
-
-        std::thread::sleep(Duration::from_millis(60));
-
-        assert!(!window.is_blocked("key"));
-    }
-
-    #[test]
-    fn twenty_bad_api_tokens_block_that_ip_only() {
-        let limits = RateLimits::new(RateLimitMode::Strict);
-
-        for _ in 0..19 {
-            limits.record_failed_api_auth(ip(7));
+    #[sqlx::test]
+    async fn failures_expire_after_the_window(db: PgPool) {
+        let limits = RateLimits::new(db.clone(), RateLimitMode::Strict);
+        for _ in 0..5 {
+            limits
+                .record_failed_login("owner@example.test", ip(1))
+                .await
+                .unwrap();
         }
-        assert!(!limits.api_auth_blocked(ip(7)));
+        sqlx::query!("UPDATE rate_limit_hits SET at = now() - interval '16 minutes'")
+            .execute(&db)
+            .await
+            .unwrap();
 
-        limits.record_failed_api_auth(ip(7));
-        assert!(limits.api_auth_blocked(ip(7)));
-        assert!(!limits.api_auth_blocked(ip(8)));
+        assert!(
+            !limits
+                .login_blocked("owner@example.test", ip(1))
+                .await
+                .unwrap()
+        );
     }
 
-    #[test]
-    fn each_api_token_gets_a_burst_of_sixty_calls() {
-        let limits = RateLimits::new(RateLimitMode::Strict);
-
-        for _ in 0..60 {
-            assert!(limits.allow_api_call(1));
+    #[sqlx::test]
+    async fn twenty_bad_api_tokens_block_that_ip_only(db: PgPool) {
+        let limits = RateLimits::new(db, RateLimitMode::Strict);
+        for _ in 0..BAD_API_TOKENS_PER_WINDOW {
+            assert!(!limits.api_auth_blocked(ip(7)).await.unwrap());
+            limits.record_failed_api_auth(ip(7)).await.unwrap();
         }
-        assert!(!limits.allow_api_call(1));
-        assert!(limits.allow_api_call(2));
+
+        assert!(limits.api_auth_blocked(ip(7)).await.unwrap());
+        assert!(!limits.api_auth_blocked(ip(8)).await.unwrap());
     }
 
-    #[test]
-    fn relaxed_mode_allows_far_more() {
-        let limits = RateLimits::new(RateLimitMode::Relaxed);
+    #[sqlx::test]
+    async fn api_calls_are_limited_per_token(db: PgPool) {
+        let limits = RateLimits::new(db, RateLimitMode::Strict);
 
-        for _ in 0..100 {
-            assert!(limits.allow_password_submission(ip(1)));
-            assert!(limits.allow_email_to("victim@example.test"));
+        assert!(
+            allowed_in_a_row(API_CALLS_PER_MINUTE as usize, async || limits
+                .allow_api_call(1)
+                .await
+                .unwrap())
+            .await
+        );
+        assert!(!limits.allow_api_call(1).await.unwrap());
+        assert!(limits.allow_api_call(2).await.unwrap());
+    }
+
+    #[sqlx::test]
+    async fn relaxed_mode_allows_far_more_but_never_relaxes_login_lockout(db: PgPool) {
+        let limits = RateLimits::new(db, RateLimitMode::Relaxed);
+
+        assert!(
+            allowed_in_a_row(50, async || limits
+                .allow_password_submission(ip(1))
+                .await
+                .unwrap())
+            .await
+        );
+        for _ in 0..5 {
+            limits
+                .record_failed_login("owner@example.test", ip(1))
+                .await
+                .unwrap();
         }
+        assert!(
+            limits
+                .login_blocked("owner@example.test", ip(1))
+                .await
+                .unwrap()
+        );
+    }
+
+    #[sqlx::test]
+    async fn old_hits_are_cleaned_up(db: PgPool) {
+        let limits = RateLimits::new(db.clone(), RateLimitMode::Strict);
+        limits.record_failed_api_auth(ip(1)).await.unwrap();
+        sqlx::query!("UPDATE rate_limit_hits SET at = now() - interval '2 days'")
+            .execute(&db)
+            .await
+            .unwrap();
+
+        assert_eq!(query_delete_old_rate_limit_hits(&db).await.unwrap(), 1);
     }
 }

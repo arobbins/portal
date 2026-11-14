@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM rate_limit_hits WHERE bucket = $1 AND key = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e15c1247b00c1e6ba9d891730ffd82363939a39ba448da6aa1a9ebf3c266f8cc"
+}

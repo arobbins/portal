@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT public_id, name, last_four, scopes, created_at, expires_at, last_used_at FROM api_tokens WHERE user_id = $1 ORDER BY created_at DESC",
+  "query": "SELECT public_id, name, last_four, scopes, audience, created_at, expires_at, last_used_at FROM api_tokens WHERE user_id = $1 ORDER BY created_at DESC",
   "describe": {
     "columns": [
       {
@@ -25,16 +25,21 @@
       },
       {
         "ordinal": 4,
+        "name": "audience",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "expires_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "last_used_at",
         "type_info": "Timestamptz"
       }
@@ -51,8 +56,9 @@
       false,
       false,
       false,
+      false,
       true
     ]
   },
-  "hash": "5b8aee9f258af5cc7de4cccacd52a679f9df727b7c6cd1bacca6f193ba65a3dd"
+  "hash": "8cf2aca78b136ede71725628ef353f9b3261c11af8f3d16b9d8d524f888af02d"
 }

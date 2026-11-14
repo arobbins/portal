@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO jobs (kind, payload, max_attempts) VALUES ('send_email', '{}', 2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "0dbfe1ba17f1e3d55321f1a64d30a99fcc2c5f06db75f62c0746b8b8bcced039"
+}

@@ -1,12 +1,12 @@
+use crate::routes::account_url;
 use serde_json::json;
 use topcoat::{
     Result,
     context::Cx,
-    router::{Body, BodyLimit, StatusCode, href, route},
+    router::{Body, BodyLimit, StatusCode, route},
 };
 use webauthn_rs::prelude::{PublicKeyCredential, RegisterPublicKeyCredential};
 
-use crate::account::pages::account::account_page;
 use crate::action::{ActionError, ActionProblem, SESSION_EXPIRED, browser_caller};
 use crate::api::body::{MAX_JSON_BODY, read_json};
 use crate::api::problem::{ApiProblem, ApiResponse, ok};
@@ -96,6 +96,6 @@ pub async fn finish_authentication(cx: &Cx, body: Body) -> Result<ApiResponse> {
     sign_in(&session(cx)?, &user).await?;
 
     let mut body = accepted_credentials(&user, cx).await?;
-    body["redirect"] = json!(href!(account_page).resolve(cx));
+    body["redirect"] = json!(account_url(cx));
     Ok(ok(&body))
 }

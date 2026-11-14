@@ -1,3 +1,5 @@
+use crate::routes::login_url;
+use crate::routes::register_url;
 use topcoat::{
     Result,
     context::Cx,
@@ -7,15 +9,13 @@ use topcoat::{
 };
 
 use crate::app::{SITE_NAME, page_title};
-use crate::auth::pages::login::login_page;
-use crate::auth::pages::register::register_page;
 use crate::components::button::{ButtonVariant, button};
 use crate::pages::api_docs::api_docs_page;
 
 #[page("/", with(Metadata::new().title(page_title("Home"))))]
 pub async fn home_page(cx: &Cx) -> Result<impl View> {
-    let register_href = href!(register_page).resolve(cx);
-    let login_href = href!(login_page).resolve(cx);
+    let register_href = register_url(cx);
+    let login_href = login_url(cx);
     let docs_href = href!(api_docs_page).resolve(cx);
 
     Ok(view! {

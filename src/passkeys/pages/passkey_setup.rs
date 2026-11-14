@@ -1,3 +1,4 @@
+use crate::routes::account_url;
 use topcoat::{
     Result,
     context::Cx,
@@ -11,7 +12,6 @@ use topcoat::{
 };
 use tower_sessions::Session;
 
-use crate::account::pages::account::account_page;
 use crate::account::tabs::AccountSection;
 use crate::action::require_browser_caller;
 use crate::app::page_title;
@@ -34,7 +34,7 @@ pub async fn after_password_sign_in(cx: &Cx, session: &Session, user: &User) -> 
         grant_passkey_prompt(session, user).await?;
         Ok(href!(passkey_setup_page).resolve(cx))
     } else {
-        Ok(href!(account_page).resolve(cx))
+        Ok(account_url(cx))
     }
 }
 
@@ -44,7 +44,7 @@ pub async fn passkey_setup_page(cx: &Cx) -> Result<impl View> {
     let prompt_ready = passkey_prompt_granted(&session(cx)?, &user).await?
         && query_get_passkey_prompt_due(user.id, db(cx)).await?;
     if !prompt_ready {
-        return Err(redirect(href!(account_page).resolve(cx)).into());
+        return Err(redirect(account_url(cx)).into());
     }
 
     let flash = take_flash(cx, FLASHES).await?;
@@ -124,5 +124,5 @@ async fn answer_prompt(cx: &Cx, answer: PromptAnswer) -> Result<SeeOther> {
         match error.for_browser()? {}
     }
 
-    Ok(see_other(href!(account_page).resolve(cx)))
+    Ok(see_other(account_url(cx)))
 }

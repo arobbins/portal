@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM account_events WHERE created_at < $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "be6ae28e1f8ec0a9bed04a4405ea6c4f6254cc514de18c5cae5a0bea217d0a32"
+}

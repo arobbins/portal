@@ -8,6 +8,7 @@ use crate::mail::Mailer;
 use crate::rate_limit::RateLimitMode;
 
 const MAIL_TIMEOUT: Duration = Duration::from_secs(10);
+const DEFAULT_JOB_WORKERS: usize = 2;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -17,6 +18,7 @@ pub struct Config {
     pub mailer: Mailer,
     pub rate_limit_mode: RateLimitMode,
     pub trusted_proxy_hops: Option<usize>,
+    pub job_workers: usize,
 }
 
 impl Config {
@@ -77,6 +79,16 @@ impl Config {
             })
         });
 
+        let job_workers = match get("JOB_WORKERS") {
+            None => DEFAULT_JOB_WORKERS,
+            Some(count) => count.parse::<usize>().unwrap_or_else(|_| {
+                problems.push(format!(
+                    "JOB_WORKERS must be a whole number (got `{count}`)"
+                ));
+                DEFAULT_JOB_WORKERS
+            }),
+        };
+
         let passkey_domain = passkey_domain(&app_base_url).unwrap_or_else(|problem| {
             if !app_base_url.is_empty() {
                 problems.push(problem);
@@ -98,6 +110,7 @@ impl Config {
                 mailer,
                 rate_limit_mode,
                 trusted_proxy_hops,
+                job_workers,
             })
         } else {
             Err(problems)

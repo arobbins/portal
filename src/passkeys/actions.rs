@@ -20,6 +20,7 @@ use crate::action::{
 };
 use crate::auth::password::{CurrentPasswordProblem, check_current_password};
 use crate::auth::session::{passkey_prompt_granted, revoke_passkey_prompt};
+use crate::jobs::{Job, enqueue};
 use crate::passkeys::emails::passkey_added_email;
 use crate::passkeys::queries::{
     NewPasskey, Passkey as StoredPasskey, query_decline_passkey_prompt, query_delete_passkey,
@@ -30,12 +31,13 @@ use crate::passkeys::webauthn::{
     AUTHENTICATION_STATE, REGISTRATION_STATE, aaguid_from_attestation, provider_name,
     store_ceremony, take_ceremony,
 };
+use crate::permission::Permission;
 use crate::secret::PublicIdKind;
 use crate::user::events::{AccountEventKind, EventSource, record_event};
 use crate::user::model::{AccountStatus, User};
 use crate::user::name::{MAX_NAME_LENGTH, NameProblem, check_name};
 use crate::user::queries::query_get_user_by_webauthn_id;
-use crate::web::{app_url, config, db, mailer, rate_limits, session, webauthn};
+use crate::web::{app_url, config, db, rate_limits, session, webauthn};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CeremonyProblem {
@@ -115,19 +117,21 @@ pub async fn start_passkey_registration(
     caller: &Caller,
     input: &StartRegistration,
 ) -> ActionResult<Value, StartRegistrationProblem> {
-    authorize!(caller.require_browser());
+    authorize!(caller.require(Permission::ManagePasskeys));
     let user = &caller.user;
     let session = session(cx)?;
     match &input.current_password {
         Some(password) => {
-            if let Err(problem) = check_current_password(cx, user, password) {
+            if let Err(problem) = check_current_password(cx, user, password).await? {
                 return fail(StartRegistrationProblem::CurrentPassword(problem));
             }
         }
         None => {
             let limits = rate_limits(cx);
             let ip = client_ip(cx);
-            if !limits.allow_password_submission(ip) || limits.login_blocked(&user.email, ip) {
+            if !limits.allow_password_submission(ip).await?
+                || limits.login_blocked(&user.email, ip).await?
+            {
                 return fail(StartRegistrationProblem::CurrentPassword(
                     CurrentPasswordProblem::TooManyAttempts,
                 ));
@@ -162,7 +166,7 @@ pub async fn finish_passkey_registration(
     caller: &Caller,
     credential: &RegisterPublicKeyCredential,
 ) -> ActionResult<(), CeremonyProblem> {
-    authorize!(caller.require_browser());
+    authorize!(caller.require(Permission::ManagePasskeys));
     let user = &caller.user;
     let session = session(cx)?;
     let Some(state) = take_ceremony::<PasskeyRegistration>(&session, REGISTRATION_STATE).await?
@@ -199,15 +203,10 @@ pub async fn finish_passkey_registration(
         &mut *tx,
     )
     .await?;
-    tx.commit().await?;
-
     let security_url = app_url(cx, &AccountSection::Passkeys.href(cx));
-    if let Err(e) = mailer(cx)
-        .send(&passkey_added_email(&user.email, name, &security_url))
-        .await
-    {
-        tracing::error!("Failed to send passkey-added email: {e}");
-    }
+    let email = passkey_added_email(&user.email, name, &security_url);
+    enqueue(&Job::SendEmail(email), &mut *tx).await?;
+    tx.commit().await?;
     revoke_passkey_prompt(&session).await?;
 
     Ok(Ok(()))
@@ -283,7 +282,7 @@ pub async fn rename_passkey(
     caller: &Caller,
     input: &RenamePasskey,
 ) -> ActionResult<(), RenamePasskeyProblem> {
-    authorize!(caller.require_browser());
+    authorize!(caller.require(Permission::ManagePasskeys));
     let name = match check_name(&input.name) {
         Ok(name) => name,
         Err(problem) => return fail(RenamePasskeyProblem::Name(problem)),
@@ -322,7 +321,7 @@ pub async fn remove_passkey(
     caller: &Caller,
     input: &RemovePasskey,
 ) -> ActionResult<String, PasskeyNotFound> {
-    authorize!(caller.require_browser());
+    authorize!(caller.require(Permission::ManagePasskeys));
     if !PublicIdKind::Passkey.is_valid(&input.id) {
         return fail(PasskeyNotFound::NotFound);
     }
@@ -357,7 +356,7 @@ pub async fn answer_passkey_prompt(
     caller: &Caller,
     answer: PromptAnswer,
 ) -> ActionResult<(), Infallible> {
-    authorize!(caller.require_browser());
+    authorize!(caller.require(Permission::ManagePasskeys));
     let mut tx = db(cx).begin().await?;
     let kind = match answer {
         PromptAnswer::NotNow => {
@@ -380,7 +379,7 @@ pub async fn list_passkeys(
     cx: &Cx,
     caller: &Caller,
 ) -> ActionResult<Vec<StoredPasskey>, Infallible> {
-    authorize!(caller.require_browser());
+    authorize!(caller.require(Permission::ManagePasskeys));
 
     Ok(Ok(query_list_passkeys(caller.owner_id(), db(cx)).await?))
 }
@@ -398,7 +397,10 @@ pub async fn start_passkey_sign_in(
     cx: &Cx,
     input: &StartSignIn,
 ) -> Outcome<Value, TooManyAttempts> {
-    if !rate_limits(cx).allow_passkey_challenge(client_ip(cx)) {
+    if !rate_limits(cx)
+        .allow_passkey_challenge(client_ip(cx))
+        .await?
+    {
         return fail(TooManyAttempts);
     }
     let (mut options, state) = webauthn(cx)
@@ -454,7 +456,10 @@ pub async fn finish_passkey_sign_in(
     cx: &Cx,
     credential: &PublicKeyCredential,
 ) -> Outcome<User, PasskeySignInProblem> {
-    if !rate_limits(cx).allow_password_submission(client_ip(cx)) {
+    if !rate_limits(cx)
+        .allow_password_submission(client_ip(cx))
+        .await?
+    {
         return fail(PasskeySignInProblem::TooManyAttempts);
     }
     let session = session(cx)?;

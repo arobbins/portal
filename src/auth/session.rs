@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::routes::account_url;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use topcoat::{
@@ -10,7 +11,6 @@ use topcoat::{
 };
 use tower_sessions::Session;
 
-use crate::account::pages::account::account_page;
 use crate::auth::pages::login::login_page;
 use crate::user::model::User;
 use crate::user::queries::query_get_user_by_id;
@@ -56,7 +56,7 @@ pub fn require_user(cx: &Cx) -> Result<Arc<User>> {
 
 pub fn redirect_signed_in_users(cx: &Cx) -> Result<()> {
     if current_user(cx).is_some() {
-        return Err(see_other(href!(account_page).resolve(cx)).into());
+        return Err(see_other(account_url(cx)).into());
     }
 
     Ok(())

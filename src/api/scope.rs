@@ -65,15 +65,35 @@ pub fn grants(scopes: &[ApiScope], needed: ApiScope) -> bool {
     scopes.iter().any(|scope| scope.implies(needed))
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum TokenAudience {
+    #[serde(rename = "api")]
     Api,
+    #[serde(rename = "mcp")]
+    Mcp,
 }
 
 impl TokenAudience {
+    pub const ALL: [Self; 2] = [Self::Api, Self::Mcp];
+    pub const DEFAULT: Self = Self::Api;
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Api => "api",
+            Self::Mcp => "mcp",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|audience| audience.as_str() == value)
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Api => "Scripts and apps (JSON API)",
+            Self::Mcp => "AI assistants (MCP)",
         }
     }
 }

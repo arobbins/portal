@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE rate_limit_hits SET at = now() - interval '16 minutes'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "a65874c3b93a73d3c26209ad6eb2eb0812af5467ab6605ab5ead769ca386e517"
+}

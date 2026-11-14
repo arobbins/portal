@@ -1,3 +1,7 @@
+use crate::routes::account_url;
+use crate::routes::api_docs_url;
+use crate::routes::login_url;
+use crate::routes::register_url;
 use topcoat::{
     Result,
     context::Cx,
@@ -5,11 +9,7 @@ use topcoat::{
     view::{View, component, view},
 };
 
-use crate::account::pages::account::account_page;
-use crate::auth::pages::login::login_page;
-use crate::auth::pages::register::register_page;
 use crate::pages::about::about_page;
-use crate::pages::api_docs::api_docs_page;
 use crate::pages::home::home_page;
 use crate::pages::styleguide::styleguide_page;
 use crate::pages::webtransport::webtransport_page;
@@ -38,12 +38,12 @@ pub async fn nav(cx: &Cx) -> Result<impl View> {
                     label: "WebTransport"
                 )
                 nav_item(href: href!(styleguide_page).resolve(cx), label: "Styleguide")
-                nav_item(href: href!(api_docs_page).resolve(cx), label: "API docs")
+                nav_item(href: api_docs_url(cx), label: "API docs")
                 if is_signed_in {
-                    nav_item(href: href!(account_page).resolve(cx), label: "Account")
+                    nav_item(href: account_url(cx), label: "Account")
                 } else {
-                    nav_item(href: href!(register_page).resolve(cx), label: "Register")
-                    nav_item(href: href!(login_page).resolve(cx), label: "Sign in")
+                    nav_item(href: register_url(cx), label: "Register")
+                    nav_item(href: login_url(cx), label: "Sign in")
                 }
             </ul>
         </nav>

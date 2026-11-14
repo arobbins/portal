@@ -66,7 +66,7 @@ fn database_name(database_url: &str) -> &str {
 }
 
 async fn query_reset_users(db: &PgPool) -> Result<(), sqlx::Error> {
-    sqlx::query!("TRUNCATE users, user_tokens RESTART IDENTITY CASCADE")
+    sqlx::query!("TRUNCATE users, user_tokens, jobs, rate_limit_hits RESTART IDENTITY CASCADE")
         .execute(db)
         .await?;
 

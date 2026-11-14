@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM rate_limit_hits WHERE at < $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dbd503f3aec662713ee5193bec640d9fc8e5597ba60637bf1ba1cf2eceb1103f"
+}

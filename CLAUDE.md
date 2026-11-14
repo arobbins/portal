@@ -13,15 +13,17 @@ when you work on matching files: `accounts.md` (registration, sessions,
 links, rate limits, password reset), `passkeys.md`, `api.md` (actions, API
 tokens, bearer auth, scopes, JSON errors), `forms.md`,
 `styling.md` (layout, CSS, theming), `server.md` (config, headers, email,
-logging), `e2e.md` (Playwright conventions).
+logging), `e2e.md` (Playwright conventions), `topcoat.md` (Topcoat
+conventions and gotchas), `layout.md` (file map), `components.md`
+(component catalog).
 
 ## Architecture principles
 
 - **AI-native: every feature is one action** (`<feature>/actions.rs`) that
-  the page, the JSON API (`/api/v1`) and later MCP tools all call — sign-in,
+  the page, the JSON API (`/api/v1`) and the MCP endpoint (`/mcp`) all call — sign-in,
   sign-up and password reset included (public actions, no `Caller`). Pages,
   procedures and routes only call actions; permission checks live in the
-  action (`authorize!(caller.require(scope))` / `require_browser()`), and every
+  action (`authorize!(caller.require(Permission::X))`), and every
   write records an account event. New features ship to the UI and the API
   together: the `new-action` skill. Contract details: `.claude/rules/api.md`.
 - **Feature modules**: `src/<feature>/` holds `actions.rs`, `queries.rs`,
@@ -38,6 +40,15 @@ logging), `e2e.md` (Playwright conventions).
   (in `./check.sh`) fails on a hard-coded path or a limit written into a
   message without a `*_matches_the_limit` test. Account POST routes are
   `/account/<thing>/<verb>`; signed-out forms post to their page's URL.
+- **Features own their tables**: only a feature's own module calls its
+  `query_*` functions; other features call a function it exposes
+  (`api_tokens::verify::revoke_all_for_user`). Links across features go
+  through `src/routes.rs` (`login_url(cx)`, `account_url(cx)`, …), so core
+  code never imports a page.
+- **Slow or fallible work is a job** (`src/jobs.rs`): emails and cleanup
+  are rows in `jobs`, run by workers in the web process (`JOB_WORKERS`,
+  default 2) or a separate `webserver work`. State that must hold across
+  instances (rate limits, jobs) lives in Postgres, never in memory.
 - **Public ids**: rows a browser or API can name use a prefixed public id
   (`tok_…`, `pk_…`, `secret::PublicIdKind`); integer ids stay internal.
 - **Compile-time safety first**: components, props, routes (`href!`), and sqlx
@@ -124,75 +135,10 @@ logging), `e2e.md` (Playwright conventions).
 
 ## Layout
 
-- `src/main.rs` — axum server: sessions, db pool, `/assets`, the Topcoat
-  fallback, and the `webserver seed` subcommand.
-- `src/config.rs` — `Config` (all settings, parsed and validated at startup),
-  in Topcoat app context as `config(cx)`.
-- `src/mail.rs` — `Mailer` (`postmark` | `log` | `file`), built by `Config`,
-  read with `mailer(cx)`.
-- `src/seed.rs` — `webserver seed`: creates/migrates/resets a `*_test` database
-  and inserts the e2e users (refuses any other database name).
-- `src/theme.rs` — `Theme` enum and `theme` cookie parsing.
-- `src/app.rs` — Topcoat router builder, root `#[layout("/")]` (HTML document,
-  header, footer, 404 error boundary), and `unknown_page`, a catch-all
-  page that returns a 404 with its own title (written out instead of
-  `not_found!`, which can't take `with(...)`).
-- `src/components/` — reusable UI, one file per component; each has a matching
-  CSS file in `assets/css/components/` and a demo in `src/pages/styleguide/`.
-  Import components by module path: `components::button::{button, ButtonSize}`
-  (`#[component]` generates a module named after the function, so they can't
-  be re-exported from `components.rs`). Available: `button` (Primary /
-  Secondary / Danger; pass `href` to render it as a link, which ignores
-  `busy`, `disabled` and `button_type`), `form` controls (incl. `code_field`), `card` +
-  `card_header` + `card_body` (every settings block), `badge`, `avatar`,
-  `tone` (`Tone`: the `tone` prop of `notice`, `badge`, `toaster` and
-  property tags),
-  `label` (`LabelSize::Sm` above lists, demos and sidebar groups; `Md`
-  above fields; pass `for_id` to tie it to a control, which `form_label`
-  and fieldset legends already do),
-  `menu` (popover, opened by any button with `popovertarget`), `tabs` + `tab`
-  (link tabs), `table` + `table_row`/`table_heading`/`table_cell`,
-  `empty_state`, `toggle` (a `role="switch"` checkbox), `copy_field`,
-  `property_list` + `property` (name, badge tags, description, detail and
-  actions: lists of fields, passkeys, tokens), `code_panel` + `code_block`
-  (dark code with a copy button; `language: CodeLanguage::Json | Shell`
-  highlights it on the server via `src/syntax.rs`, `line_numbers: true`
-  adds CSS-only line numbers that are never copied; its Copy button is
-  its own small dark-panel button on purpose, because `button` variants are
-  styled for light surfaces, while `copy_field` uses a Secondary `button`),
-  `modal`, `confirm_dialog` (destructive confirmations), `notice`, `toaster`,
-  `icon`, `theme_switcher`. Use these before writing page-specific markup.
-- `src/layout/` — header, nav, footer, logo, page heading.
-- `src/pages/` — general pages (`#[page("/path")]`); `src/pages/styleguide/` —
-  one section per component.
-- `src/action.rs` — `Caller` (browser or API token, `workspace`,
-  `owner_id()`), `Denied`, `ActionError`, `ActionProblem`, `ActionResult` /
-  `Outcome`, `fail`, `authorize!`, `FieldError`, `TooManyAttempts`,
-  `page_status`, `browser_caller` / `require_browser_caller`.
-- `src/auth/` — sign-in, sign-up, emailed links and passwords: `actions.rs`,
-  `session.rs` (`current_user`, `require_user`, `sign_in`, passkey prompt
-  grant), `password.rs` (`hash_password`, `password_matches`,
-  `check_current_password`, `check_new_password`), `links.rs`
-  (`TokenPurpose`, `email_user_link`), `queries.rs`, `emails.rs`, `pages/`.
-- `src/passkeys/` — `actions.rs`, `routes.rs` (JSON), `webauthn.rs`,
-  `queries.rs`, `emails.rs`, `pages/` (Security card, sign-in prompt).
-- `src/profile/` — profile actions and the Profile tab.
-- `src/api_tokens/` — token actions, format (`token.rs`), queries, emails and
-  the Developer tab.
-- `src/account/` — `tabs.rs` (`AccountTab`, `AccountSection`) and the account
-  shell pages (layout, nav, menu, Security tab, placeholders).
-- `src/user/` — `User` model, user queries, `name.rs`, `events.rs`
-  (`record_event`, `EventSource`).
-- `src/secret.rs` — `random_base62`, `hash_secret`, `PublicIdKind`.
-- `src/web.rs` — `GlobalState`, `globals(cx)`, `session(cx)`, `db(cx)`,
-  `inject_globals` axum middleware.
-- `src/api/` — HTTP plumbing only: bearer auth (`auth.rs`), `api_call`
-  wrappers (`handler.rs`), problem+json responses (`problem.rs`), JSON bodies
-  (`body.rs`), scopes (`scope.rs`), routes in `v1/<feature>.rs`, and the
-  endpoint catalog (`catalog.rs`) that generates the `/docs/api` page
-  (`pages/api_docs.rs`) and `/api/v1/openapi.json`.
-- `src/rate_limit.rs`, `src/cleanup.rs` (hourly), `src/flash.rs`,
-  `src/utils.rs`.
+Feature modules are described under "Feature modules" above. The full file
+map is `.claude/rules/layout.md` and the component catalog is
+`.claude/rules/components.md`; both load when you open matching files. Use
+existing components before writing page-specific markup.
 
 ## State machines
 
@@ -214,77 +160,23 @@ holding one name), and its transitions live in one place:
 | Passkey prompt | `users.passkey_prompt_after` (NULL / date / `infinity`) | `answer_passkey_prompt` (`PromptAnswer::NotNow` / `Never`); due = no passkeys and not in the future |
 | Passkey prompt grant | session `PasskeyPromptGrant { user_id, granted_at }` | `grant_passkey_prompt` (prompt shown) → `passkey_prompt_granted` (5 min) → `revoke_passkey_prompt` / `sign_in` |
 | API token | `api_tokens` row (`ApiScope`s, `TokenAudience`, expiry) | create (password + email) → used (`last_used_at`) → revoked / password reset / expired → `cleanup` after 7 days |
-| Caller | `Caller.via`: `Channel::Browser` / `ApiToken { id, scopes }`; `Caller.workspace`: `Workspace::Personal` | built per request (`browser_caller` / `authenticate`); checked by `authorize!(require / require_browser)` |
+| Caller | `Caller.via`: `Channel::Browser` / `ApiToken { id, scopes }`; `Caller.workspace`: `Workspace::Personal` | built per request (`browser_caller` / `authenticate`); checked by `authorize!(caller.require(Permission))` (role, then token scope) |
 | Account event | `account_events` row (`AccountEventKind`, JSON `detail`, channel, token id) | `record_event` in every account change's transaction (append-only; usage stamps and cleanup aren't events) |
+| Job | `jobs` row (`Job`: `SendEmail` / `SendPasswordReset` / `Cleanup`; `queued` / `failed`) | `enqueue` → claimed (`SKIP LOCKED`, 5-min lock) → deleted on success / retried with backoff / `failed` after `max_attempts`; one `cleanup` job reschedules itself hourly |
+| Rate limit | `rate_limit_hits` rows per bucket + key | `allow_*` (insert if under the limit) / `record_*` failures / `clear_failed_logins`; rows older than a day removed by cleanup |
+| Permission | `Permission` + `WorkspaceRole` (`Owner`) | checked by `Caller::require`: role grants it, then token scope if the caller is a token |
 | Config | `Config`, `Mailer`, `RateLimitMode` | parsed once at startup |
 
 When adding state, extend one of these or add a row here.
 
-## Topcoat conventions (0.12)
+## Topcoat
 
-- Every `#[component]`, `#[page]`, `#[route]`, `#[layout]` and `#[procedure]`
-  takes `cx: &Cx` as its first parameter, named exactly `cx`, even if unused:
-  `view!` captures it. Helper functions that need context take `cx: &Cx` too.
-- One context: shared values are added with `.with(value)` on the router
-  builder (`app.rs`) and read with `context::<T>(cx)` / `try_context::<T>(cx)`
-  behind small helpers (`db(cx)`, `config(cx)`, `rate_limits(cx)` in
-  `web.rs`). `rewrite(…).with(value)` carries a value to the page it rewrites
-  to; the page reads it with `try_context`. `cx.with(value)` shadows a value
-  for code given the child context.
-- Axum extensions (`Session`, `GlobalState`) are still read with
-  `request::extensions(cx)`.
-- `path_param!(token)` generates `token(cx) -> &str`; there are no wrapper
-  types. `href!(handler)` links to a handler; path values go in as
-  `href!(handler, name: value)`.
-- In component calls a comma separates the last prop from the first child:
-  `button(busy: $(…), "Save")`.
-- Page titles come from the `metadata` module: the root layout sets the site
-  name, each page adds `with(Metadata::new().title(page_title("Login")))`
-  (`app::page_title` appends " · Webserver"), and `topcoat::metadata::tags()`
-  renders `<title>`, charset and viewport in `<head>`. Use
-  `Metadata::from_fn` when the title depends on the request (see the account
-  tab page).
-- Router setup: `.assets(bundle).layer(RuntimeLayer::new())`; origin policy,
-  body limits and compression are per-route `with(...)` values if ever needed.
-- Pages, routes and the layout use explicit paths and are collected by
-  `.discover()`; nothing needs registering by hand.
-- `topcoat fmt` formats every Topcoat macro (`#[page]`, `href!`, `view!`…);
-  run it rather than hand-wrapping macro arguments.
-
-## Topcoat gotchas
-
-- A procedure call rejects (it doesn't return `Err`) when the request fails
-  or the server errors. Turn that into an `Err` with one `raw!`, using a
-  fallback built in server-side Rust:
-  `let save_failed: std::result::Result<String, String> = Err(…);` before
-  `view!`, then inside the handler
-  `let result = raw!("await Promise.resolve(${_pending}).catch(() => ${save_failed})", save_failed.clone());`
-  (see `profile/pages/profile_tab.rs`).
-- Don't bind an input's `:value` to the same signal its `@input` writes: the
-  binding rewrites the field whenever the signal changes. Keep a separate
-  signal for `:value` that only changes when you deliberately reset the field
-  (`field_value` vs `draft_name` in `profile/pages/profile_tab.rs`).
-- Closures in `attributes! { @click=$(...) }` need a typed param:
-  `|_e: Event|`. Inside `view!` directly, `|_e|` is fine.
-- `$(...)` supports only a subset of Rust (no string concatenation, no
-  `format!`): precompute class strings on the server and capture them.
-- `raw!("js", fallback)` quirks: always pass a fallback (`()`), or code after it
-  won't compile; put it last in its block (Topcoat omits the trailing `;`, so a
-  following statement starting with `(` breaks the JS); wrap `${binding}`
-  values in `String(...)` before comparing — bindings are runtime wrapper
-  objects, and handler events are wrapped too (use `e.current_target.value`,
-  not `${e}.target`).
-- An `await` inside `raw!` only compiles at the top level of an `async`
-  handler, not inside an `if`/`match` block (the browser throws "Failed to
-  compile event @click"). Await first, then branch on the result (see
-  `copy_field.rs`).
-- Don't use cross-document view transitions (`@view-transition`): Chromium
-  flashes white between pages.
-- After upgrading `topcoat-cli` or the Rust toolchain, restart `topcoat dev`: an older CLI still
-  running rebuilds with an incompatible bundler and writes an empty asset
-  bundle, so every page panics with "failed to resolve asset".
-- A missing asset bundle panics at startup; `topcoat dev` (or
-  `topcoat asset bundle`) creates it in `target/<profile>/assets`.
+Conventions and gotchas are in `.claude/rules/topcoat.md` (loaded for any
+`.rs` file). The ones that bite first: every `#[component]`/`#[page]`/
+`#[route]`/`#[procedure]` takes `cx: &Cx` first; links are `href!(handler)`;
+run `topcoat fmt` instead of hand-wrapping macros; a procedure call
+*rejects* on network/server errors, so wrap it in the `raw!(… .catch(…))`
+pattern.
 
 ## Development
 
@@ -309,7 +201,8 @@ within days). `Cargo.lock` versions are unaffected; to take a fresh fix
 sooner, run that one update with
 `CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE=allow`.
 
-**Before calling work done, run `./check.sh`**: `cargo fmt --check`,
+**Before calling work done, run `./check.sh`** (through the `check` skill,
+which prints only failures): `cargo fmt --check`,
 `topcoat fmt --check`, `scripts/check_conventions.py`,
 `cargo clippy --all-targets -- -D warnings`,
 `cargo test`, and the Playwright suite. Format with
@@ -338,13 +231,14 @@ options). Settings are in the `verify` skill.
 
 **Claude Code setup** (`.claude/`):
 - Hooks: every edited `.rs` file is formatted with `topcoat fmt --rustfmt`;
-  before a turn ends, `cargo clippy --all-targets -D warnings` runs (in
+  before a turn ends, `scripts/check_conventions.py` and then
+  `cargo clippy --all-targets -D warnings` run (clippy in
   `target/claude-check`, skipped when nothing changed); edits to applied
   migrations and generated files (`assets/dist/`, `target/`, `e2e/.mail`,
   `e2e/test-results/`) are blocked (reading them is fine, e.g. failure
   screenshots), and so is reading `.env`; session start reports branch, database,
   pending migrations and whether `topcoat dev` is running.
-- Skills: `new-action`, `new-component`, `new-query`, `new-flash`, `new-form-flow`,
+- Skills: `check` (full `./check.sh`, failures only), `new-action`, `new-component`, `new-query`, `new-flash`, `new-form-flow`,
   `new-e2e-test`, `verify`.
 - After a non-trivial change, run the `convention-reviewer` agent on the diff
   and fix its must-fix findings before reporting done.

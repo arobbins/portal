@@ -4,6 +4,15 @@ set -uo pipefail
 input=$(cat)
 cd "${CLAUDE_PROJECT_DIR:-.}" || exit 0
 
+if ! conventions=$(python3 scripts/check_conventions.py 2>&1); then
+  if [[ "$(jq -r '.stop_hook_active // false' <<<"$input")" == "true" ]]; then
+    jq -n --arg e "$conventions" '{systemMessage: ("Project conventions still fail:\n" + $e)}'
+    exit 0
+  fi
+  printf 'scripts/check_conventions.py fails. Fix these before finishing:\n%s\n' "$conventions" >&2
+  exit 2
+fi
+
 state_dir=target/claude-check
 mkdir -p "$state_dir"
 stamp="$state_dir/last-pass"

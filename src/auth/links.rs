@@ -1,11 +1,10 @@
 use sqlx::{PgConnection, PgPool};
 use time::{Duration, OffsetDateTime};
 
-use crate::auth::queries::{
-    query_consume_user_token, query_delete_user_tokens, query_insert_user_token,
-};
+use crate::auth::queries::{query_delete_user_tokens, query_insert_user_token};
 use crate::config::Config;
-use crate::mail::{Email, MailError};
+use crate::jobs::{Job, enqueue};
+use crate::mail::Email;
 use crate::secret::{hash_secret, random_base62};
 
 const LINK_TOKEN_LENGTH: usize = 32;
@@ -75,20 +74,15 @@ pub async fn email_user_link(
     user_id: i32,
     purpose: TokenPurpose,
     email: impl FnOnce(&str) -> Email,
-) -> Result<Result<(), MailError>, sqlx::Error> {
+) -> Result<(), sqlx::Error> {
     let mut tx = db.begin().await?;
     let token = replace_user_token(user_id, purpose, &mut tx).await?;
-    tx.commit().await?;
-
-    let sent = config
-        .mailer
-        .send(&email(&purpose.url(config, &token)))
-        .await;
-    if sent.is_err() {
-        query_consume_user_token(purpose, &hash_secret(&token), db).await?;
-    }
-
-    Ok(sent)
+    enqueue(
+        &Job::SendEmail(email(&purpose.url(config, &token))),
+        &mut *tx,
+    )
+    .await?;
+    tx.commit().await
 }
 
 #[cfg(test)]

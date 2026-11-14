@@ -8,7 +8,7 @@ use topcoat::{
     router::{StatusCode, request::client_ip},
 };
 
-use crate::action::{ActionProblem, TooManyAttempts};
+use crate::action::{ActionProblem, Outcome, TooManyAttempts, fail};
 use crate::secret::random_base62;
 use crate::user::model::{AccountStatus, User};
 use crate::web::rate_limits;
@@ -115,15 +115,16 @@ impl ActionProblem for CurrentPasswordProblem {
     }
 }
 
-pub fn check_current_password(
+pub async fn check_current_password(
     cx: &Cx,
     user: &User,
     password: &str,
-) -> Result<(), CurrentPasswordProblem> {
+) -> Outcome<(), CurrentPasswordProblem> {
     let limits = rate_limits(cx);
     let ip = client_ip(cx);
-    if !limits.allow_password_submission(ip) || limits.login_blocked(&user.email, ip) {
-        return Err(CurrentPasswordProblem::TooManyAttempts);
+    if !limits.allow_password_submission(ip).await? || limits.login_blocked(&user.email, ip).await?
+    {
+        return fail(CurrentPasswordProblem::TooManyAttempts);
     }
 
     let hash = match user.status() {
@@ -131,12 +132,12 @@ pub fn check_current_password(
         AccountStatus::AwaitingPassword => None,
     };
     if !password_matches(hash, password) {
-        limits.record_failed_login(&user.email, ip);
-        return Err(CurrentPasswordProblem::Wrong);
+        limits.record_failed_login(&user.email, ip).await?;
+        return fail(CurrentPasswordProblem::Wrong);
     }
-    limits.clear_failed_logins(&user.email, ip);
+    limits.clear_failed_logins(&user.email, ip).await?;
 
-    Ok(())
+    Ok(Ok(()))
 }
 
 static UNMATCHABLE_HASH: LazyLock<String> =

@@ -18,6 +18,7 @@ pub struct ApiTokenSummary {
     pub name: String,
     pub last_four: String,
     pub scopes: Vec<String>,
+    pub audience: String,
     pub created_at: time::OffsetDateTime,
     pub expires_at: time::OffsetDateTime,
     pub last_used_at: Option<time::OffsetDateTime>,
@@ -59,7 +60,7 @@ pub async fn query_list_api_tokens(
 ) -> Result<Vec<ApiTokenSummary>, sqlx::Error> {
     let tokens = sqlx::query_as!(
         ApiTokenSummary,
-        "SELECT public_id, name, last_four, scopes, created_at, expires_at, last_used_at FROM api_tokens WHERE user_id = $1 ORDER BY created_at DESC",
+        "SELECT public_id, name, last_four, scopes, audience, created_at, expires_at, last_used_at FROM api_tokens WHERE user_id = $1 ORDER BY created_at DESC",
         user_id,
     )
     .fetch_all(db)

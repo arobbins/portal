@@ -1,21 +1,9 @@
-import { readFileSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+import { e2ePort, testDatabaseUrl } from "./support/environment";
 import { MAIL_DIR } from "./support/mail";
 
-const port = 3100;
+const port = e2ePort();
 const baseURL = `http://localhost:${port}`;
-
-function testDatabaseUrl(): string {
-  if (process.env.TEST_DATABASE_URL) return process.env.TEST_DATABASE_URL;
-
-  const line = readFileSync(new URL("../.env", import.meta.url), "utf8")
-    .split("\n")
-    .find((entry) => entry.startsWith("DATABASE_URL="));
-  if (!line) throw new Error("Set TEST_DATABASE_URL or DATABASE_URL in ../.env");
-
-  const devUrl = line.slice("DATABASE_URL=".length).trim().replace(/^"|"$/g, "");
-  return `${devUrl}_test`;
-}
 
 export default defineConfig({
   testDir: "./tests",

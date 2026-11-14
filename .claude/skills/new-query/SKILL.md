@@ -15,8 +15,8 @@ description: Add a database change or query to this app — a sqlx migration in 
 - Users table invariants that must survive: `CHECK ((password IS NULL) = (verified_at IS NULL))`.
 - Migrations that rewrite existing rows: drop or relax a constraint *before* the `UPDATE`
   that would violate it, then add the new one.
-- **Try it on the e2e test database first**: `cd e2e && npx playwright test
-  tests/home.spec.ts --project=chromium` (its server runs `sqlx migrate run` against the
+- **Try it on the e2e test database first**: `cd e2e && rtk proxy npx playwright test
+  tests/home.spec.ts --project=chromium --reporter=line` (its server runs `sqlx migrate run` against the
   `_test` database, which keeps older rows than dev). If it fails, fix the file freely: it
   isn't applied anywhere that matters yet.
 - Only then apply it to the dev database: `sqlx migrate run` (sqlx macros check queries
@@ -85,5 +85,7 @@ is stale. Include the changed `.sqlx/*.json` files in the commit.
 
 - If new state with more than two values appears, add an enum and a row in the CLAUDE.md
   "State machines" table.
-- If cleanup is needed for expiring rows, add it to `src/cleanup.rs`.
+- If expiring rows need deleting, add the query to `cleanup::run` (the hourly cleanup job).
+- Sending email or calling another service after a write: `jobs::enqueue(&Job::…, &mut *tx)`
+  in the same transaction, never inline.
 - Run `./check.sh`.

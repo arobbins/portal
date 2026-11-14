@@ -15,10 +15,12 @@ use crate::api_tokens::queries::{
 };
 use crate::api_tokens::token::generate_api_token;
 use crate::auth::password::{CurrentPasswordProblem, check_current_password};
+use crate::jobs::{Job, enqueue};
+use crate::permission::Permission;
 use crate::secret::PublicIdKind;
 use crate::user::events::{AccountEventKind, EventSource, record_event};
 use crate::user::name::{MAX_NAME_LENGTH, NAME_FIELD, NameProblem, check_name};
-use crate::web::{app_url, db, mailer, rate_limits};
+use crate::web::{app_url, db, rate_limits};
 
 const MAX_TOKENS_PER_USER: i64 = 50;
 
@@ -138,6 +140,9 @@ pub struct CreateToken {
     pub access: ApiScope,
     #[schemars(description = "How many days until the token expires.")]
     pub lifetime: TokenLifetime,
+    #[serde(default = "default_audience")]
+    #[schemars(description = "What will use the token: the JSON API (default) or an MCP client.")]
+    pub audience: TokenAudience,
     #[schemars(description = "The account's current password.")]
     pub current_password: String,
 }
@@ -150,11 +155,15 @@ pub struct RevokeToken {
     pub id: String,
 }
 
+fn default_audience() -> TokenAudience {
+    TokenAudience::DEFAULT
+}
+
 pub async fn list_api_tokens(
     cx: &Cx,
     caller: &Caller,
 ) -> ActionResult<Vec<ApiTokenSummary>, Infallible> {
-    authorize!(caller.require_browser());
+    authorize!(caller.require(Permission::ManageApiTokens));
 
     Ok(Ok(query_list_api_tokens(caller.owner_id(), db(cx)).await?))
 }
@@ -164,9 +173,9 @@ pub async fn create_api_token(
     caller: &Caller,
     input: &CreateToken,
 ) -> ActionResult<String, CreateTokenProblem> {
-    authorize!(caller.require_browser());
+    authorize!(caller.require(Permission::ManageApiTokens));
     let user = &caller.user;
-    if let Err(problem) = check_current_password(cx, user, &input.current_password) {
+    if let Err(problem) = check_current_password(cx, user, &input.current_password).await? {
         return fail(CreateTokenProblem::CurrentPassword(problem));
     }
     let name = match check_name(&input.name) {
@@ -189,7 +198,7 @@ pub async fn create_api_token(
             token_hash: &token.hash,
             last_four: &token.last_four,
             scopes: &scopes,
-            audience: TokenAudience::Api.as_str(),
+            audience: input.audience.as_str(),
             expires_at: time::OffsetDateTime::now_utc()
                 + time::Duration::days(input.lifetime.days()),
             max_per_user: MAX_TOKENS_PER_USER,
@@ -204,21 +213,16 @@ pub async fn create_api_token(
         cx,
         &EventSource::of(caller),
         AccountEventKind::ApiTokenCreated,
-        json!({ "token": public_id, "name": name, "scopes": scopes }),
+        json!({ "token": public_id, "name": name, "scopes": scopes, "audience": input.audience.as_str() }),
         &mut *tx,
     )
     .await?;
-    tx.commit().await?;
-
-    if rate_limits(cx).allow_email_to(&user.email) {
+    if rate_limits(cx).allow_email_to(&user.email).await? {
         let developer_url = app_url(cx, &AccountSection::ApiTokens.href(cx));
-        if let Err(e) = mailer(cx)
-            .send(&api_token_created_email(&user.email, name, &developer_url))
-            .await
-        {
-            tracing::error!("Failed to send API-token-created email: {e}");
-        }
+        let email = api_token_created_email(&user.email, name, &developer_url);
+        enqueue(&Job::SendEmail(email), &mut *tx).await?;
     }
+    tx.commit().await?;
 
     Ok(Ok(token.raw))
 }
@@ -228,7 +232,7 @@ pub async fn revoke_api_token(
     caller: &Caller,
     input: &RevokeToken,
 ) -> ActionResult<String, RevokeTokenProblem> {
-    authorize!(caller.require_browser());
+    authorize!(caller.require(Permission::ManageApiTokens));
     if !PublicIdKind::ApiToken.is_valid(&input.id) {
         return fail(RevokeTokenProblem::NotFound);
     }
@@ -306,6 +310,7 @@ mod tests {
                 name: "Escalation".to_string(),
                 access: ApiScope::ProfileWrite,
                 lifetime: TokenLifetime::Year,
+                audience: TokenAudience::Api,
                 current_password: "a-strong-test-password".to_string(),
             },
         )

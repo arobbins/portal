@@ -1,16 +1,17 @@
 use std::convert::Infallible;
 use std::sync::Arc;
 
+use crate::routes::login_url;
 use topcoat::{
     Error, Result,
     context::Cx,
-    router::{StatusCode, error::see_other, href},
+    router::{StatusCode, error::see_other},
     runtime::record,
 };
 
 use crate::api::scope::{ApiScope, grants};
-use crate::auth::pages::login::login_page;
 use crate::auth::session::current_user;
+use crate::permission::{Permission, WorkspaceRole};
 use crate::user::model::User;
 
 pub type Outcome<T, P> = Result<std::result::Result<T, P>>;
@@ -65,6 +66,7 @@ pub struct Caller {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Denied {
+    NotPermitted(Permission),
     MissingScope(ApiScope),
     BrowserOnly,
 }
@@ -192,18 +194,21 @@ impl Caller {
         }
     }
 
-    pub fn require(&self, needed: ApiScope) -> std::result::Result<(), Denied> {
-        match &self.via {
-            Channel::Browser => Ok(()),
-            Channel::ApiToken { scopes, .. } if grants(scopes, needed) => Ok(()),
-            Channel::ApiToken { .. } => Err(Denied::MissingScope(needed)),
+    pub fn role(&self) -> WorkspaceRole {
+        match self.workspace {
+            Workspace::Personal => WorkspaceRole::Owner,
         }
     }
 
-    pub fn require_browser(&self) -> std::result::Result<(), Denied> {
-        match self.via {
-            Channel::Browser => Ok(()),
-            Channel::ApiToken { .. } => Err(Denied::BrowserOnly),
+    pub fn require(&self, permission: Permission) -> std::result::Result<(), Denied> {
+        if !self.role().grants(permission) {
+            return Err(Denied::NotPermitted(permission));
+        }
+        match (&self.via, permission.api_scope()) {
+            (Channel::Browser, _) => Ok(()),
+            (Channel::ApiToken { .. }, None) => Err(Denied::BrowserOnly),
+            (Channel::ApiToken { scopes, .. }, Some(scope)) if grants(scopes, scope) => Ok(()),
+            (Channel::ApiToken { .. }, Some(scope)) => Err(Denied::MissingScope(scope)),
         }
     }
 
@@ -217,7 +222,7 @@ pub fn browser_caller(cx: &Cx) -> Option<Caller> {
 }
 
 pub fn require_browser_caller(cx: &Cx) -> Result<Caller> {
-    browser_caller(cx).ok_or_else(|| see_other(href!(login_page).resolve(cx)).into())
+    browser_caller(cx).ok_or_else(|| see_other(login_url(cx)).into())
 }
 
 #[cfg(test)]
@@ -235,8 +240,9 @@ mod tests {
     fn the_browser_has_every_scope() {
         let browser = caller(Channel::Browser);
 
-        assert_eq!(browser.require(ApiScope::ProfileWrite), Ok(()));
-        assert_eq!(browser.require_browser(), Ok(()));
+        for permission in Permission::ALL {
+            assert_eq!(browser.require(permission), Ok(()));
+        }
         assert_eq!(browser.api_token_id(), None);
         assert_eq!(browser.owner_id(), browser.user.id);
     }
@@ -252,13 +258,16 @@ mod tests {
             scopes: vec![ApiScope::ProfileWrite],
         });
 
-        assert_eq!(reader.require(ApiScope::ProfileRead), Ok(()));
+        assert_eq!(reader.require(Permission::ViewProfile), Ok(()));
         assert_eq!(
-            reader.require(ApiScope::ProfileWrite),
+            reader.require(Permission::EditProfile),
             Err(Denied::MissingScope(ApiScope::ProfileWrite))
         );
-        assert_eq!(writer.require(ApiScope::ProfileRead), Ok(()));
-        assert_eq!(writer.require_browser(), Err(Denied::BrowserOnly));
+        assert_eq!(writer.require(Permission::ViewProfile), Ok(()));
+        assert_eq!(
+            writer.require(Permission::ManageApiTokens),
+            Err(Denied::BrowserOnly)
+        );
         assert_eq!(writer.api_token_id(), Some(8));
     }
 
