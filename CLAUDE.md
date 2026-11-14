@@ -10,12 +10,36 @@ bundled/minified by Lightning CSS in `build.rs` (`assets/css/` →
 
 Detailed rules for each area live in `.claude/rules/` and load automatically
 when you work on matching files: `accounts.md` (registration, sessions,
-links, rate limits, password reset), `passkeys.md`, `forms.md`,
+links, rate limits, password reset), `passkeys.md`, `api.md` (actions, API
+tokens, bearer auth, scopes, JSON errors), `forms.md`,
 `styling.md` (layout, CSS, theming), `server.md` (config, headers, email,
 logging), `e2e.md` (Playwright conventions).
 
 ## Architecture principles
 
+- **AI-native: every feature is one action** (`<feature>/actions.rs`) that
+  the page, the JSON API (`/api/v1`) and later MCP tools all call — sign-in,
+  sign-up and password reset included (public actions, no `Caller`). Pages,
+  procedures and routes only call actions; permission checks live in the
+  action (`authorize!(caller.require(scope))` / `require_browser()`), and every
+  write records an account event. New features ship to the UI and the API
+  together: the `new-action` skill. Contract details: `.claude/rules/api.md`.
+- **Feature modules**: `src/<feature>/` holds `actions.rs`, `queries.rs`,
+  `pages/` and `emails.rs` (`auth`, `passkeys`, `profile`, `api_tokens`,
+  `account`). `user/` is only the user model, its queries, names and the event
+  log; `api/` is only HTTP plumbing.
+- **One error contract**: problems are `ActionProblem` enums with a stable
+  `code`, `message`, `field` and `status`. Procedures return `FieldError`,
+  JSON (API and the browser's passkey routes) returns problem+json, HTML
+  pages render the message with `page_status(problem)`.
+- **No typed app paths**: links and redirects use `href!(handler)`,
+  `AccountTab::X.href(cx)` / `AccountSection::X.href(cx)`, or
+  `TokenPurpose::path` for emailed links; `scripts/check_conventions.py`
+  (in `./check.sh`) fails on a hard-coded path or a limit written into a
+  message without a `*_matches_the_limit` test. Account POST routes are
+  `/account/<thing>/<verb>`; signed-out forms post to their page's URL.
+- **Public ids**: rows a browser or API can name use a prefixed public id
+  (`tok_…`, `pk_…`, `secret::PublicIdKind`); integer ids stay internal.
 - **Compile-time safety first**: components, props, routes (`href!`), and sqlx
   queries are all checked by the compiler. Component variants are Rust enums
   (`ButtonSize::Sm`), never strings.
@@ -37,7 +61,7 @@ logging), `e2e.md` (Playwright conventions).
   a toast (an open modal covers toasts).
 - **Forms are plain HTML POSTs**: a `#[route(POST ...)]` handler either
   `see_other(...)` redirects on success or `rewrite(...)`s back to the GET page
-  with a request-context value carrying the error (see `user/pages/login.rs`).
+  with a request-context value carrying the error (see `auth/pages/login.rs`).
   They work without JS; `@submit` only adds the busy state. Busy state:
   pass `submitting: Some(&is_submitting)` to `form(…)` and give the button
   `busy: $(is_submitting.get())` only. Controls, layout and errors: see
@@ -48,23 +72,35 @@ logging), `e2e.md` (Playwright conventions).
   accepts), which removes it only if it's one the page accepts. Never put
   message flags in the URL (they reappear on refresh and can be faked). Add a
   `Flash` variant (with its `name()` and `message()`) for new messages.
-- **Failure reasons are enums** with `message()` and, where it matters,
-  `status()` (`LoginProblem`, `RegisterProblem`, `ResetRequestProblem`,
-  `NameProblem`, `PasswordProblem`); render `(problem.status())` and
-  `(problem.message())`, never compare message text. Shared rules live in
-  `user/name.rs` and `user/password.rs`.
-- **Every sqlx query is its own `async fn query_<verb>_<thing>`** returning
-  `Result<T, sqlx::Error>`, with `db` as the last parameter and a param struct
-  for multi-column inserts (`NewUser<'a>`); never inline sqlx in a handler,
-  page or procedure. Recipe: the `new-query` skill.
+- **Failure reasons are enums** implementing `ActionProblem`
+  (`SignInProblem`, `RegisterProblem`, `ChangePasswordProblem`,
+  `CreateTokenProblem`, …); render `(page_status(problem))` and
+  `(problem.message())`, never compare message text. Shared problems are
+  wrapped, never copied: `NameProblem` (`user/name.rs`), `PasswordProblem`
+  and `CurrentPasswordProblem` (`auth/password.rs`), `TooManyAttempts`
+  (`action.rs`).
+- **Every sqlx query is its own `async fn query_<verb>_<thing>`** in the
+  feature's `queries.rs`, returning `Result<T, sqlx::Error>`, with `db: impl
+  PgExecutor<'_>` as the last parameter, ids by value and a param struct for
+  multi-column inserts (`NewUser<'a>`); never inline sqlx in a handler, page
+  or procedure. Recipe: the `new-query` skill.
 - **Configuration is parsed once** (`src/config.rs`) and read with
   `config(cx)` / `app_url(cx, path)`; nothing else reads env vars (except
   `DATABASE_URL` in `main.rs`).
-- **Styling**: BEM classes are the contract (CSS targets only them, never
-  element structure or ids); colors are role-named `light-dark()` variables
-  in `variables.css`, never hard-coded; no inline styles; one breakpoint
-  (`max-width: 760px`), check pages at 390px. Details in
-  `.claude/rules/styling.md`.
+- **Styling**: BEM classes with a prefix (`a-` component, `l-` layout, `p-`
+  page, `u-` utility) are the contract (CSS targets only them, never element
+  structure or ids); colors are role-named `light-dark()` variables built
+  from `--palette-*` in `variables.css`, never hard-coded; sizes come from
+  the `--space-*`, `--text-*`, `--radius-*` and `--duration-*` scales;
+  status colour is the `Tone` enum; no inline styles; one breakpoint
+  (`max-width: 760px`, plus 1100px inside `l-docs`), check pages at 390px.
+  Details in `.claude/rules/styling.md`.
+- **Wording**: sentence case everywhere; buttons are "Verb noun" and a
+  modal's heading repeats the button that opens it ("Edit profile",
+  "Change password", "Add passkey", "Create API token"); "Sign in" /
+  "Sign out" / "Register"; passkeys are *removed*, API tokens are *revoked*
+  (they're credentials handed to other apps). Messages are full sentences;
+  "Please …" only when asking the visitor to do something.
 
 ## Security invariants (never break these)
 
@@ -81,6 +117,10 @@ logging), `e2e.md` (Playwright conventions).
 - Every value from the browser (signals, procedure/shard args) is user
   input; procedures and shards bypass layout/page guards, so re-check auth.
 - Never hold a DB connection across a network call.
+- API tokens: only hashes are stored, they're accepted only from the
+  `Authorization: Bearer` header and only for their own audience, they're
+  never put in a flash, session, URL or log, and no token can change
+  security settings (password, email, passkeys, tokens, account deletion).
 
 ## Layout
 
@@ -102,22 +142,55 @@ logging), `e2e.md` (Playwright conventions).
   Import components by module path: `components::button::{button, ButtonSize}`
   (`#[component]` generates a module named after the function, so they can't
   be re-exported from `components.rs`). Available: `button` (Primary /
-  Secondary / Danger), `form` controls (incl. `code_field`), `card` +
+  Secondary / Danger; pass `href` to render it as a link, which ignores
+  `busy`, `disabled` and `button_type`), `form` controls (incl. `code_field`), `card` +
   `card_header` + `card_body` (every settings block), `badge`, `avatar`,
+  `tone` (`Tone`: the `tone` prop of `notice`, `badge`, `toaster` and
+  property tags),
+  `label` (`LabelSize::Sm` above lists, demos and sidebar groups; `Md`
+  above fields; pass `for_id` to tie it to a control, which `form_label`
+  and fieldset legends already do),
   `menu` (popover, opened by any button with `popovertarget`), `tabs` + `tab`
   (link tabs), `table` + `table_row`/`table_heading`/`table_cell`,
   `empty_state`, `toggle` (a `role="switch"` checkbox), `copy_field`,
+  `property_list` + `property` (name, badge tags, description, detail and
+  actions: lists of fields, passkeys, tokens), `code_panel` + `code_block`
+  (dark code with a copy button; `language: CodeLanguage::Json | Shell`
+  highlights it on the server via `src/syntax.rs`, `line_numbers: true`
+  adds CSS-only line numbers that are never copied; its Copy button is
+  its own small dark-panel button on purpose, because `button` variants are
+  styled for light surfaces, while `copy_field` uses a Secondary `button`),
   `modal`, `confirm_dialog` (destructive confirmations), `notice`, `toaster`,
   `icon`, `theme_switcher`. Use these before writing page-specific markup.
 - `src/layout/` — header, nav, footer, logo, page heading.
 - `src/pages/` — general pages (`#[page("/path")]`); `src/pages/styleguide/` —
   one section per component.
-- `src/user/` — `pages/` (pages, POST routes, account components; email
-  verification in `verify_email.rs`), `auth.rs` (`current_user`,
-  `require_user`, `sign_in`, `hash_password`), `queries`, `service` (email
-  content), `tokens.rs` (`TokenPurpose`, `generate_token`), `passkeys.rs`.
+- `src/action.rs` — `Caller` (browser or API token, `workspace`,
+  `owner_id()`), `Denied`, `ActionError`, `ActionProblem`, `ActionResult` /
+  `Outcome`, `fail`, `authorize!`, `FieldError`, `TooManyAttempts`,
+  `page_status`, `browser_caller` / `require_browser_caller`.
+- `src/auth/` — sign-in, sign-up, emailed links and passwords: `actions.rs`,
+  `session.rs` (`current_user`, `require_user`, `sign_in`, passkey prompt
+  grant), `password.rs` (`hash_password`, `password_matches`,
+  `check_current_password`, `check_new_password`), `links.rs`
+  (`TokenPurpose`, `email_user_link`), `queries.rs`, `emails.rs`, `pages/`.
+- `src/passkeys/` — `actions.rs`, `routes.rs` (JSON), `webauthn.rs`,
+  `queries.rs`, `emails.rs`, `pages/` (Security card, sign-in prompt).
+- `src/profile/` — profile actions and the Profile tab.
+- `src/api_tokens/` — token actions, format (`token.rs`), queries, emails and
+  the Developer tab.
+- `src/account/` — `tabs.rs` (`AccountTab`, `AccountSection`) and the account
+  shell pages (layout, nav, menu, Security tab, placeholders).
+- `src/user/` — `User` model, user queries, `name.rs`, `events.rs`
+  (`record_event`, `EventSource`).
+- `src/secret.rs` — `random_base62`, `hash_secret`, `PublicIdKind`.
 - `src/web.rs` — `GlobalState`, `globals(cx)`, `session(cx)`, `db(cx)`,
   `inject_globals` axum middleware.
+- `src/api/` — HTTP plumbing only: bearer auth (`auth.rs`), `api_call`
+  wrappers (`handler.rs`), problem+json responses (`problem.rs`), JSON bodies
+  (`body.rs`), scopes (`scope.rs`), routes in `v1/<feature>.rs`, and the
+  endpoint catalog (`catalog.rs`) that generates the `/docs/api` page
+  (`pages/api_docs.rs`) and `/api/v1/openapi.json`.
 - `src/rate_limit.rs`, `src/cleanup.rs` (hourly), `src/flash.rs`,
   `src/utils.rs`.
 
@@ -137,9 +210,12 @@ holding one name), and its transitions live in one place:
 | Form submit | `submitting` signal | idle → busy on submit → idle on bfcache restore (reload) |
 | Form failure | `*Problem` enums | rendered after `rewrite(…)` |
 | Theme | `Theme` + cookie | `POST /theme` or `window.setTheme` (`assets/js/theme.js`) |
-| Account tab | `AccountTab` (`ALL`, `href()`) | URL → `from_slug`, unknown → 404 |
-| Passkey prompt | `users.passkey_prompt_after` (NULL / date / `infinity`) | `query_snooze_passkey_prompt` / `query_decline_passkey_prompt`; due = no passkeys and not in the future |
+| Account tab | `AccountTab` (`ALL`, `slug`, `href(cx)`, `sections`) + `AccountSection` (`anchor`, `label`, `href(cx)`) | URL → `from_slug`, unknown → 404 |
+| Passkey prompt | `users.passkey_prompt_after` (NULL / date / `infinity`) | `answer_passkey_prompt` (`PromptAnswer::NotNow` / `Never`); due = no passkeys and not in the future |
 | Passkey prompt grant | session `PasskeyPromptGrant { user_id, granted_at }` | `grant_passkey_prompt` (prompt shown) → `passkey_prompt_granted` (5 min) → `revoke_passkey_prompt` / `sign_in` |
+| API token | `api_tokens` row (`ApiScope`s, `TokenAudience`, expiry) | create (password + email) → used (`last_used_at`) → revoked / password reset / expired → `cleanup` after 7 days |
+| Caller | `Caller.via`: `Channel::Browser` / `ApiToken { id, scopes }`; `Caller.workspace`: `Workspace::Personal` | built per request (`browser_caller` / `authenticate`); checked by `authorize!(require / require_browser)` |
+| Account event | `account_events` row (`AccountEventKind`, JSON `detail`, channel, token id) | `record_event` in every account change's transaction (append-only; usage stamps and cleanup aren't events) |
 | Config | `Config`, `Mailer`, `RateLimitMode` | parsed once at startup |
 
 When adding state, extend one of these or add a row here.
@@ -183,11 +259,11 @@ When adding state, extend one of these or add a row here.
   `let save_failed: std::result::Result<String, String> = Err(…);` before
   `view!`, then inside the handler
   `let result = raw!("await Promise.resolve(${_pending}).catch(() => ${save_failed})", save_failed.clone());`
-  (see `account_profile.rs`).
+  (see `profile/pages/profile_tab.rs`).
 - Don't bind an input's `:value` to the same signal its `@input` writes: the
   binding rewrites the field whenever the signal changes. Keep a separate
   signal for `:value` that only changes when you deliberately reset the field
-  (`field_value` vs `draft_name` in `account_profile.rs`).
+  (`field_value` vs `draft_name` in `profile/pages/profile_tab.rs`).
 - Closures in `attributes! { @click=$(...) }` need a typed param:
   `|_e: Event|`. Inside `view!` directly, `|_e|` is fine.
 - `$(...)` supports only a subset of Rust (no string concatenation, no
@@ -234,16 +310,18 @@ sooner, run that one update with
 `CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE=allow`.
 
 **Before calling work done, run `./check.sh`**: `cargo fmt --check`,
-`topcoat fmt --check`, `cargo clippy --all-targets -- -D warnings`,
+`topcoat fmt --check`, `scripts/check_conventions.py`,
+`cargo clippy --all-targets -- -D warnings`,
 `cargo test`, and the Playwright suite. Format with
 `topcoat fmt --rustfmt $(find src -name "*.rs")` (formats Rust and `view!`
 bodies; never use `leptosfmt`). While iterating, use the `verify` skill
 (one spec, Chromium only, plus screenshots).
 
 **Migrations**: add a *new* file in `migrations/` (never edit an applied one;
-a hook blocks it), then `sqlx migrate run` against the dev database (sqlx
-macros check queries against it at compile time). The test database is
-migrated automatically by `webserver seed`. Query metadata for offline
+a hook blocks it). Try it on the e2e test database first (any Playwright
+run migrates it, and it holds older rows than dev), then `sqlx migrate run`
+against the dev database (sqlx macros check queries against it at compile
+time); recipe in the `new-query` skill. Query metadata for offline
 builds lives in `.sqlx/` (committed): after changing a query run
 `cargo sqlx prepare -- --all-targets` (the stop hook does it for you;
 `./check.sh` fails if it's stale). Build without Postgres with
@@ -266,7 +344,7 @@ options). Settings are in the `verify` skill.
   `e2e/test-results/`) are blocked (reading them is fine, e.g. failure
   screenshots), and so is reading `.env`; session start reports branch, database,
   pending migrations and whether `topcoat dev` is running.
-- Skills: `new-component`, `new-query`, `new-flash`, `new-form-flow`,
+- Skills: `new-action`, `new-component`, `new-query`, `new-flash`, `new-form-flow`,
   `new-e2e-test`, `verify`.
 - After a non-trivial change, run the `convention-reviewer` agent on the diff
   and fix its must-fix findings before reporting done.

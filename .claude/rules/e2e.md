@@ -18,7 +18,8 @@ data.
   `test.use({ allowedConsoleErrors: [/…/] })`.
 - Shared helpers: `support/flows.ts` (`register`, `logIn`, `uniqueEmail`,
   `createAccount`, `createAccountAtPasskeyPrompt`, `skipPasskeyPrompt`,
-  `logOut`, `setPassword`), `support/passkeys.ts` (virtual authenticator), `support/mail.ts`
+  `logOut`, `setPassword`), `support/passkeys.ts` (virtual authenticator), `support/api.ts` (`createToken`,
+  `bearer`, `getMe`), `support/mail.ts`
   (`waitForEmails`, `expectNoEmails`, `verificationLink`, `resetLink`),
   `support/users.ts` (seeded users — keep in sync with `src/seed.rs`).
   Tests that change data use their own `uniqueEmail` user, never the seeded
@@ -41,7 +42,9 @@ data.
   logs.
 - Find elements by role/label/text
   (`getByRole("button", { name: "Show toast" })`), not CSS classes; assert
-  visible behavior. One spec file per feature.
+  visible behavior. One spec file per feature. Scoping to a settings card
+  by its `id` (`page.locator("#passkeys")`, `#api-tokens`) is fine: card ids
+  are stable anchors the account nav links to.
 - The full recipe is the `new-e2e-test` skill; run a single spec quickly
   with the `verify` skill.
 - Screenshots: `npm run screenshot` (`screenshot.config.ts`, spec in

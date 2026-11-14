@@ -11,7 +11,7 @@ pub async fn footer(cx: &Cx) -> Result<impl View> {
     let year = globals(cx).year;
 
     Ok(view! {
-        <footer class="l-contain footer">
+        <footer class="l-footer">
             <p>
                 "© "
                 (year)

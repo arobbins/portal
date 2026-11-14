@@ -2,7 +2,7 @@ use topcoat::{
     Result,
     context::Cx,
     runtime::Expr,
-    view::{Attributes, Child, View, component, view},
+    view::{Attributes, Child, View, ViewExt, component, view},
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -72,11 +72,16 @@ pub async fn button(
     #[into]
     #[default(false.into())]
     disabled: Expr<bool>,
+    #[default] href: Option<&str>,
     #[default] attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
     let class = format!("a-button {} {}", variant.modifier(), size.modifier());
     let busy_class = format!("{class} a-button--is-busy");
+
+    if let Some(href) = href {
+        return Ok(view! { <a class=(class.as_str()) href=(href) (attrs)>(child)</a> }.boxed());
+    }
 
     Ok(view! {
         <button
@@ -87,5 +92,6 @@ pub async fn button(
         >
             (child)
         </button>
-    })
+    }
+    .boxed())
 }

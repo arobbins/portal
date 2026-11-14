@@ -52,7 +52,7 @@ test("logging out returns to login and protects the account page again", async (
   await expect(page).toHaveURL("/account");
 
   await page.getByRole("button", { name: verifiedUser.name }).click();
-  await page.getByRole("button", { name: "Logout" }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
 
   await expect(page).toHaveURL("/login");
   await page.goto("/account");
@@ -85,11 +85,11 @@ test("a login takes as long for an unknown email as for a real account", async (
   expect(unknown).toBeGreaterThan(known * 0.5);
 });
 
-test("the login page links to sign up", async ({ page }) => {
+test("the sign-in page links to registration", async ({ page }) => {
   await page.goto("/login");
 
   await expect(page.getByText("Don't have an account yet?")).toBeVisible();
-  await page.getByRole("link", { name: "Sign up" }).click();
+  await page.getByRole("main").getByRole("link", { name: "Register" }).click();
 
   await expect(page).toHaveURL("/register");
 });

@@ -1,4 +1,11 @@
-.passkey-sign-in {
+.p-auth__intro {
+  max-width: 450px;
+  margin: 0 auto;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.p-auth__passkey {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -6,64 +13,58 @@
   margin: var(--form-gap) auto 0;
 }
 
-.passkey-sign-in__divider {
+.p-auth__passkey-divider {
   margin: 0 0 var(--form-gap);
   text-align: center;
   color: var(--color-text-muted);
 }
 
-.passkey-sign-in .a-form-error {
+.p-auth__passkey .a-form-error {
   margin: var(--form-gap) 0 0;
 }
 
-.passkey-sign-in .a-button {
+.p-auth__passkey .a-button {
   justify-content: center;
 }
 
-.auth-switch {
+.p-auth__switch {
   max-width: 450px;
   margin: calc(var(--form-gap) * 1.5) auto 0;
   text-align: center;
-  font-size: 0.9em;
+  font-size: 0.875em;
   color: var(--color-text-muted);
 }
 
-.auth-switch__link {
+.p-auth__switch-link {
   color: inherit;
 }
 
-.passkey-setup {
+.p-passkey-setup {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
 }
 
-.passkey-setup__badge {
+.p-passkey-setup__badge {
   display: grid;
   place-items: center;
   width: 4.5rem;
   height: 4.5rem;
   margin: var(--form-gap) 0 calc(var(--form-gap) * 0.75);
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   color: var(--color-passkey-badge-icon);
   background: var(--color-passkey-badge-bg);
   box-shadow: 0 0 0 6px var(--color-passkey-badge-ring);
 }
 
-.passkey-setup__badge svg {
+.p-passkey-setup__badge svg {
   width: 2.75rem;
   height: 2.75rem;
 }
 
-.passkey-setup__intro {
-  max-width: 450px;
-  margin: 0 auto;
-  color: var(--color-text-muted);
-}
-
-.passkey-setup__add,
-.passkey-setup__skip {
+.p-passkey-setup__add,
+.p-passkey-setup__skip {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -72,35 +73,35 @@
   margin: var(--form-gap) auto 0;
 }
 
-.passkey-setup__add .a-button,
-.passkey-setup__skip .a-button {
+.p-passkey-setup__add .a-button,
+.p-passkey-setup__skip .a-button {
   justify-content: center;
 }
 
-.passkey-setup__skip {
+.p-passkey-setup__skip {
   margin-top: calc(var(--form-gap) * 0.5);
 }
 
-.passkey-setup__add .a-form-error {
+.p-passkey-setup__add .a-form-error {
   margin: 0 0 var(--form-gap);
   text-align: left;
 }
 
-.passkey-setup__decline {
+.p-passkey-setup__decline {
   margin: calc(var(--form-gap) * 1.25) auto 0;
 }
 
-.passkey-setup__decline-button {
+.p-passkey-setup__decline-button {
   padding: 0;
   border: 0;
   background: none;
   font: inherit;
-  font-size: 0.9em;
+  font-size: 0.875em;
   color: var(--color-text-muted);
   text-decoration: underline;
   cursor: pointer;
 }
 
-.passkey-setup__decline-button:hover {
+.p-passkey-setup__decline-button:hover {
   color: var(--color-text);
 }

@@ -6,21 +6,20 @@ use topcoat::{
 
 use super::styleguide_section;
 use crate::components::avatar::{AvatarSize, avatar};
-use crate::components::badge::{BadgeKind, badge};
+use crate::components::badge::badge;
+use crate::components::tone::Tone;
 
 #[component]
 pub async fn badges_section(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         styleguide_section(
             title: "Badges and avatars",
-            <div class="styleguide__row">
-                badge("Neutral")
-                badge(kind: BadgeKind::Success, "Active")
-                badge(kind: BadgeKind::Warning, "This device only")
-                badge(kind: BadgeKind::Error, "Expired")
-                badge(kind: BadgeKind::Info, "Beta")
+            <div class="p-styleguide__row">
+                for tone in Tone::ALL {
+                    badge(tone: tone, (tone.label()))
+                }
             </div>
-            <div class="styleguide__row">
+            <div class="p-styleguide__row">
                 avatar(size: AvatarSize::Sm)
                 avatar(size: AvatarSize::Md)
                 avatar(size: AvatarSize::Lg)

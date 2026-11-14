@@ -4,10 +4,13 @@ use sqlx::PgPool;
 use tower_sessions::session_store::ExpiredDeletion;
 use tower_sessions_sqlx_store::PostgresStore;
 
-use crate::user::queries::{query_delete_abandoned_signups, query_delete_expired_user_tokens};
+use crate::api_tokens::queries::query_delete_expired_api_tokens;
+use crate::auth::queries::query_delete_expired_user_tokens;
+use crate::user::queries::query_delete_abandoned_signups;
 
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(60 * 60);
 const ABANDONED_SIGNUP_AGE: time::Duration = time::Duration::days(7);
+const EXPIRED_API_TOKEN_GRACE: time::Duration = time::Duration::days(7);
 
 pub fn spawn(db: PgPool, sessions: PostgresStore) {
     tokio::spawn(async move {
@@ -28,10 +31,15 @@ pub async fn run(db: &PgPool, sessions: &PostgresStore) -> Result<(), String> {
     let signups = query_delete_abandoned_signups(ABANDONED_SIGNUP_AGE, db)
         .await
         .map_err(|e| e.to_string())?;
+    let api_tokens = query_delete_expired_api_tokens(EXPIRED_API_TOKEN_GRACE, db)
+        .await
+        .map_err(|e| e.to_string())?;
     sessions.delete_expired().await.map_err(|e| e.to_string())?;
 
-    if tokens > 0 || signups > 0 {
-        tracing::info!("cleanup removed {tokens} expired tokens and {signups} abandoned sign-ups");
+    if tokens > 0 || signups > 0 || api_tokens > 0 {
+        tracing::info!(
+            "cleanup removed {tokens} expired links, {api_tokens} expired API tokens and {signups} abandoned sign-ups"
+        );
     }
 
     Ok(())
@@ -40,12 +48,12 @@ pub async fn run(db: &PgPool, sessions: &PostgresStore) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::user::auth::hash_password;
+    use crate::auth::links::TokenPurpose;
+    use crate::auth::password::hash_password;
+    use crate::auth::queries::query_insert_user_token;
     use crate::user::queries::{
-        NewUser, query_get_user_by_id, query_insert_user, query_insert_user_token,
-        query_set_password_and_verify_user,
+        NewUser, query_get_user_by_id, query_insert_user, query_set_password_and_verify_user,
     };
-    use crate::user::tokens::TokenPurpose;
     use tower_sessions::session::{Id, Record};
     use tower_sessions::session_store::SessionStore;
 
@@ -82,7 +90,7 @@ mod tests {
     }
 
     async fn exists(user_id: i32, db: &PgPool) -> bool {
-        query_get_user_by_id(&user_id, db).await.unwrap().is_some()
+        query_get_user_by_id(user_id, db).await.unwrap().is_some()
     }
 
     async fn token_count(db: &PgPool) -> i64 {

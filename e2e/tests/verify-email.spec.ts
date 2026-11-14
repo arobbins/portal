@@ -29,7 +29,7 @@ test("a new user can register, set a password from the email link, and log in", 
   await expect(page.getByText("Name: Journey tester")).toBeVisible();
 
   await page.getByRole("button", { name: "Journey tester" }).click();
-  await page.getByRole("button", { name: "Logout" }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
   await logIn(page, email, PASSWORD);
 
   await expect(page).toHaveURL("/account");
@@ -59,7 +59,7 @@ test("the link stops working once the password is set", async ({ page }, testInf
 });
 
 test("an unknown link shows a friendly error page", async ({ page }) => {
-  const response = await page.goto("/user/verify/not-a-real-token");
+  const response = await page.goto("/verify-email/not-a-real-token");
 
   expect(response?.status()).toBe(400);
   await expect(page.getByRole("heading", { name: "This link has expired" })).toBeVisible();

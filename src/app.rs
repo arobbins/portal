@@ -14,8 +14,8 @@ use topcoat::{
 
 use crate::config::Config;
 use crate::layout::{footer::footer, header::header};
+use crate::passkeys::webauthn;
 use crate::rate_limit::RateLimits;
-use crate::user::passkeys;
 use topcoat::metadata::Metadata;
 
 use crate::pages::not_found::not_found_page;
@@ -30,7 +30,7 @@ pub fn router(
     assets: AssetBundle,
 ) -> Router {
     let trusted_proxy_hops = config.trusted_proxy_hops;
-    let relying_party = passkeys::relying_party(&config);
+    let relying_party = webauthn::relying_party(&config);
     let mut builder = Router::builder()
         .discover()
         .with(db)
@@ -59,7 +59,6 @@ pub fn page_title(title: &str) -> String {
 #[layout("/", with(Metadata::new().title(SITE_NAME)))]
 async fn root_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
     let globals = globals(cx);
-    let body_class = format!("l-flex-col {}", globals.current_slug);
     let theme = globals.theme;
 
     Ok(view! {
@@ -73,7 +72,7 @@ async fn root_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                 <script src="/assets/js/passkeys.js"></script>
                 topcoat::runtime::script()
             </head>
-            <body class=(body_class)>
+            <body class="l-flex-col">
                 header()
                 <main class="l-contain l-flex-1">
                     error_boundary(

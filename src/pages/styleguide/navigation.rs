@@ -23,7 +23,7 @@ pub async fn navigation_section(cx: &Cx) -> Result<impl View> {
                 tab(href: "#styleguide-tabs", "Invoices")
                 tab(href: "#styleguide-tabs", "Payment methods")
             )
-            <div class="styleguide__row">
+            <div class="p-styleguide__row">
                 button(
                     variant: ButtonVariant::Secondary,
                     attrs: attributes! { popovertarget=(MENU_ID) },
@@ -46,7 +46,7 @@ pub async fn navigation_section(cx: &Cx) -> Result<impl View> {
                 menu_link(
                     href: "#styleguide-menu",
                     icon(name: IconName::Logout)
-                    "Logout"
+                    "Sign out"
                 )
             )
         )

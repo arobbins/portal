@@ -34,7 +34,7 @@ let toast = signal(cx, || toast_name(flash).to_string());
 ```
 
 and renders `flash_toasts(toast: &toast, flashes: FLASHES)` in the view
-(see `src/user/pages/account_profile.rs`). If the page already has a `FLASHES` list, add the
+(see `src/profile/pages/profile_tab.rs`). If the page already has a `FLASHES` list, add the
 variant to it; there's only one `toast` signal per page.
 
 ## 4. JS path (procedure inside a modal)
@@ -42,7 +42,7 @@ variant to it; there's only one `toast` signal per page.
 When a `#[procedure]` succeeds without a redirect, show the same toast from the handler.
 Precompute the name before `view!` (`let sent_toast = Flash::InvoiceSent.name().to_string();`),
 then in the success branch `toast.set(sent_toast.clone())` and close the dialog (see lines
-around `saved_toast` in `account_profile.rs`).
+around `saved_toast` in `profile/pages/profile_tab.rs`).
 Errors from the procedure render inside the dialog, not as a toast.
 
 ## 5. Finish

@@ -11,7 +11,7 @@ pub async fn text_section(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         styleguide_section(
             title: "Text",
-            <div class="styleguide__prose">
+            <div class="p-styleguide__prose">
                 <h1>"Heading 1"</h1>
                 <h2>"Heading 2"</h2>
                 <h3>"Heading 3"</h3>

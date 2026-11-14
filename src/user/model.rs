@@ -5,40 +5,16 @@ pub enum Role {
     Admin,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
-#[sqlx(type_name = "text", rename_all = "lowercase")]
-pub enum SubscriberStatus {
-    Active,
-    Inactive,
-}
-
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct User {
     pub id: i32,
     pub name: String,
     pub email: String,
     pub password: Option<String>,
     pub role: Role,
-    pub photo: Option<String>,
-    pub subscriber_status: SubscriberStatus,
-    pub created_at: time::OffsetDateTime,
-    pub updated_at: time::OffsetDateTime,
     pub verified_at: Option<time::OffsetDateTime>,
     pub session_version: i32,
     pub webauthn_id: uuid::Uuid,
-}
-
-#[derive(Debug)]
-pub struct Passkey {
-    pub id: i32,
-    pub credential_id: Vec<u8>,
-    pub passkey: sqlx::types::Json<webauthn_rs::prelude::Passkey>,
-    pub name: String,
-    pub backup_eligible: bool,
-    pub backed_up: bool,
-    pub created_at: time::OffsetDateTime,
-    pub last_used_at: Option<time::OffsetDateTime>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,6 +33,23 @@ impl User {
 }
 
 #[cfg(test)]
+impl User {
+    pub fn default_for_tests() -> Self {
+        let now = time::OffsetDateTime::now_utc();
+        Self {
+            id: 1,
+            name: "Tester".to_string(),
+            email: "tester@example.test".to_string(),
+            password: Some("hash".to_string()),
+            role: Role::Subscriber,
+            verified_at: Some(now),
+            session_version: 0,
+            webauthn_id: uuid::Uuid::nil(),
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -68,10 +61,6 @@ mod tests {
             email: "tester@example.test".to_string(),
             password: password.map(str::to_string),
             role: Role::Subscriber,
-            photo: None,
-            subscriber_status: SubscriberStatus::Inactive,
-            created_at: now,
-            updated_at: now,
             verified_at: verified.then_some(now),
             session_version: 0,
             webauthn_id: uuid::Uuid::nil(),

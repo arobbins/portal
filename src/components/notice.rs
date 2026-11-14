@@ -5,25 +5,7 @@ use topcoat::{
     view::{Child, View, ViewExt, component, view},
 };
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum NoticeKind {
-    Success,
-    Warning,
-    Error,
-    #[default]
-    Info,
-}
-
-impl NoticeKind {
-    pub fn modifier(self) -> &'static str {
-        match self {
-            Self::Success => "a-notice--success",
-            Self::Warning => "a-notice--warning",
-            Self::Error => "a-notice--error",
-            Self::Info => "a-notice--info",
-        }
-    }
-}
+use super::tone::Tone;
 
 const SHOWN: &str = "shown";
 const DISMISSING: &str = "dismissing";
@@ -32,12 +14,12 @@ const DISMISSED: &str = "dismissed";
 #[component]
 pub async fn notice(
     cx: &Cx,
-    #[default] kind: NoticeKind,
+    #[default] tone: Tone,
     #[default] dismissible: bool,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
     if !dismissible {
-        let class = format!("a-notice {}", kind.modifier());
+        let class = tone.class("a-notice");
         return Ok(view! { <div class=(class)>(child)</div> }.boxed());
     }
 
@@ -45,7 +27,7 @@ pub async fn notice(
     let dismissing = DISMISSING.to_string();
     let dismissed = DISMISSED.to_string();
 
-    let class = format!("a-notice {} a-notice--is-dismissible", kind.modifier());
+    let class = format!("{} a-notice--is-dismissible", tone.class("a-notice"));
     let dismissing_class = format!("{class} a-notice--is-dismissing");
     let dismissed_class = format!("{dismissing_class} a-notice--is-dismissed");
 

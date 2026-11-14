@@ -69,7 +69,7 @@ test("adding a passkey without a password only works from the prompt", async ({
   const response = await page.request.post("/passkeys/register/start", { data: {} });
 
   expect(response.status()).toBe(400);
-  expect((await response.json()).error).toBe(
+  expect((await response.json()).detail).toBe(
     "This page expired. Add a passkey from your Security settings.",
   );
 });
@@ -93,7 +93,7 @@ test.describe("with a passkey-capable device", () => {
     await addVirtualAuthenticator(page);
     const email = await createAccountAtPasskeyPrompt(page, testInfo, "Prompt Adder");
 
-    await page.getByRole("button", { name: "Add a passkey" }).click();
+    await page.getByRole("button", { name: "Add passkey" }).click();
 
     await expect(page).toHaveURL("/account/security#passkeys");
     await expect(page.getByText("Passkey added. You can now use it to sign in.")).toHaveCSS(

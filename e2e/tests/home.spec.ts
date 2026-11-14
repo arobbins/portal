@@ -4,7 +4,7 @@ test("home page renders the header navigation", async ({ page }) => {
   await page.goto("/");
 
   const nav = page.getByRole("navigation");
-  for (const name of ["Home", "About", "WebTransport", "Styleguide"]) {
+  for (const name of ["Home", "About", "WebTransport", "Styleguide", "API docs"]) {
     await expect(nav.getByRole("link", { name })).toBeVisible();
   }
 });
@@ -27,7 +27,7 @@ test("every page has its own title and a mobile viewport", async ({ page }) => {
   );
 
   await page.goto("/login");
-  await expect(page).toHaveTitle("Login · Webserver");
+  await expect(page).toHaveTitle("Sign in · Webserver");
 });
 
 test("the full navigation shows without a menu button on desktop", async ({ page }) => {
@@ -35,6 +35,15 @@ test("the full navigation shows without a menu button on desktop", async ({ page
 
   await expect(page.getByRole("button", { name: "Menu" })).toBeHidden();
   await expect(
-    page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Login" }),
+    page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Sign in" }),
   ).toBeVisible();
+});
+
+test("the header links to the API docs", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "API docs" }).click();
+
+  await expect(page).toHaveURL("/docs/api");
+  await expect(page.getByRole("heading", { level: 1, name: "API reference" })).toBeVisible();
 });

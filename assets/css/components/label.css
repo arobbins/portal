@@ -1,0 +1,21 @@
+.a-label {
+  display: block;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-body);
+}
+
+.a-label--sm {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.a-label--md {
+  font-size: var(--control-font-size);
+  color: var(--color-text);
+}
+
+.a-label--for-field {
+  margin-bottom: var(--form-label-gap);
+}

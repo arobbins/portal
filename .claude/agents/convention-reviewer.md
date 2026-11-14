@@ -32,9 +32,29 @@ Security and auth
 - No DB connection held across a network call.
 - Rate limits applied to new password/email-sending endpoints.
 
+Actions and API
+- Every feature that reads or changes user data is an action in `<feature>/actions.rs`
+  (signed in: `ActionResult<T, P>` with `authorize!(caller.require…)` first; signed out:
+  `Outcome<T, P>`). Pages, procedures and routes only call actions; no validation, rate
+  limiting or queries in a page.
+- Inputs derive `Deserialize` + `JsonSchema` with `deny_unknown_fields`; choices are typed
+  enums, limits come from constants. Problems implement `ActionProblem` with a stable
+  `code`, and wrap shared problems (`NameProblem`, `PasswordProblem`,
+  `CurrentPasswordProblem`, `TooManyAttempts`) instead of copying their text.
+- Every write calls `record_event` (JSON object detail) in the write's transaction.
+- Procedures return `Result<Result<T, FieldError>>`; browser JSON routes and the API answer
+  errors as problem+json (`ApiProblem`); API routes use `api_call` / `api_call_with_body`.
+- Rows a browser or API can name are addressed by public id (`PublicIdKind`), never the
+  integer id, and are always filtered by `caller.owner_id()`.
+
 State and structure
 - States with more than two values are enums; new state appears in the CLAUDE.md table.
 - Failure reasons are `*Problem` enums with `message()`/`status()`; no comparing message text.
+- Feature code lives in its feature module (`auth`, `passkeys`, `profile`, `api_tokens`,
+  `account`); `user/` is only the user model, its queries, names and events; `api/` is only
+  HTTP plumbing.
+- No typed app paths: `href!(handler)`, `AccountTab` / `AccountSection`, or
+  `TokenPurpose::path`. Account POST routes are `/account/<thing>/<verb>`.
 - Success after redirect uses `set_flash`/`take_flash` with a page `FLASHES` const; no message
   flags in URLs; toast names are consts or `Flash::name()`, never literals.
 - Each sqlx query is its own `query_*` fn with `db` last; no inline sqlx in handlers.
@@ -50,13 +70,21 @@ Topcoat
 CSS and UI
 - BEM classes only; CSS never targets element structure or ids.
 - No hard-coded colors outside `variables.css`; variables named by role, defined with
-  `light-dark()`.
+  `light-dark()` from `--palette-*` values.
+- Sizes come from the scales (`--space-*`, `--text-*`, `--radius-*`, `--duration-*`); class
+  prefixes are `a-` (component), `l-` (layout), `p-` (page, in `assets/css/pages/`), `u-`
+  (utility). Status colour props are `tone: Tone`; never a new `*Kind` enum.
+- Wording: sentence case; a modal's heading repeats the button that opens it ("Verb noun");
+  "Sign in" / "Sign out" / "Register"; passkeys are removed, API tokens are revoked.
 - No inline styles. Native HTML (`dialog`, `popover`, `command`) over custom JS.
 - Layout still works at 390px.
 
 Code and tests
 - No code comments added.
-- New behavior has a Playwright spec using role/label locators and `e2e/support/test.ts`;
+- Numbers written into user-facing text have a `*_matches_the_limit` test
+  (`scripts/check_conventions.py` enforces it).
+- New behavior has a Playwright spec using role/label locators (scoping to a settings
+  card by its `id`, e.g. `#passkeys`, is allowed) and `e2e/support/test.ts`;
   tests that change data use `uniqueEmail` users.
 
 ## Report

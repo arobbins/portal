@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT channel, api_token_id, detail FROM account_events WHERE user_id = $1 ORDER BY id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "api_token_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "detail",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "2b0c384fcff1c2b7c7c0f3a223a853431dd4279524ebfd7e36af85ca4b3ef9c4"
+}

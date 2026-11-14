@@ -10,10 +10,10 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("unfinished sections say so instead of showing the profile", async ({ page }) => {
-  for (const heading of ["Billing", "Settings", "Developer"]) {
+  for (const heading of ["Billing", "Settings"]) {
     await page.goto(`/account/${heading.toLowerCase()}`);
 
-    await expect(page.getByRole("heading", { name: heading, level: 2 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
     await expect(page.getByText("This section isn't available yet.")).toBeVisible();
     await expect(page.getByText(`Name: ${verifiedUser.name}`)).toHaveCount(0);
   }

@@ -11,6 +11,9 @@ step "Formatting (cargo fmt + topcoat fmt)"
 cargo fmt --check
 topcoat fmt --check $(find src -name "*.rs")
 
+step "Project conventions (hard-coded paths, limits in messages)"
+python3 scripts/check_conventions.py
+
 step "Clippy (warnings are errors)"
 cargo clippy --all-targets -- -D warnings
 

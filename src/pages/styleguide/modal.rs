@@ -18,7 +18,7 @@ pub async fn modal_section(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         styleguide_section(
             title: "Modals",
-            <div class="styleguide__row">
+            <div class="p-styleguide__row">
                 button(
                     attrs: attributes! { command="show-modal" commandfor="styleguide-modal" },
                     "Open modal"

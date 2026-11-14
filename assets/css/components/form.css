@@ -31,11 +31,7 @@
 
 .a-form-label,
 .a-form-legend {
-  display: block;
   margin-bottom: var(--form-label-gap);
-  padding: 0;
-  font-family: var(--font-body);
-  font-size: var(--control-font-size);
 }
 
 .a-form-label-row {
@@ -51,7 +47,7 @@
 }
 
 .a-form-label-row__link {
-  font-size: 0.9em;
+  font-size: 0.875em;
   color: var(--color-text-muted);
 }
 
@@ -61,8 +57,8 @@
   padding: var(--control-padding-block) 0.7em;
   box-sizing: border-box;
   background: var(--color-control-bg);
-  border: 1px solid var(--border-control);
-  border-radius: var(--border-radius);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: var(--control-font-size);
   line-height: var(--control-line-height);
@@ -201,7 +197,7 @@
   flex: 1;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 760px) {
   .a-form-row {
     flex-direction: column;
     gap: 0;

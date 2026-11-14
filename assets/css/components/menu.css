@@ -1,20 +1,19 @@
 .a-menu {
   inset: auto;
   position-area: block-end span-inline-end;
-  margin: 6px 0 0;
+  margin: var(--space-1-5) 0 0;
   padding: 0;
   min-width: 200px;
   max-width: 260px;
-  border: 1px solid var(--border-lines);
-  border-radius: var(--border-radius);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   background-color: var(--color-surface-raised);
   box-shadow: var(--shadow-menu);
   color: var(--color-text-strong);
   opacity: 0;
-  transition:
-    opacity 0.15s,
-    overlay 0.15s allow-discrete,
-    display 0.15s allow-discrete;
+  transition: opacity var(--duration-fast),
+    overlay var(--duration-fast) allow-discrete,
+    display var(--duration-fast) allow-discrete;
 
   &:popover-open {
     opacity: 1;
@@ -29,7 +28,7 @@
 
 .a-menu__list {
   margin: 0;
-  padding: 4px 0;
+  padding: var(--space-1) 0;
   list-style: none;
 }
 
@@ -40,14 +39,14 @@
 .a-menu__item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2-5);
   width: 100%;
-  padding: 9px 15px;
+  padding: var(--space-2-5) var(--space-4);
   box-sizing: border-box;
   border: none;
   background: none;
   font: inherit;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--color-text-strong);
   text-align: left;
   text-decoration: none;

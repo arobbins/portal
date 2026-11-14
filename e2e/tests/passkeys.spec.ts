@@ -4,10 +4,10 @@ import { waitForEmails } from "../support/mail";
 import { addVirtualAuthenticator, withoutPasskeyAutofill } from "../support/passkeys";
 import { expect, test } from "../support/test";
 
-test.use({ allowedConsoleErrors: [/status of 40[01]/] });
+test.use({ allowedConsoleErrors: [/status of (400|401|422)/] });
 
 function addDialog(page: Page) {
-  return page.getByRole("dialog", { name: "Add a passkey" });
+  return page.getByRole("dialog", { name: "Add passkey" });
 }
 
 async function addPasskey(page: Page, password = ACCOUNT_PASSWORD) {
@@ -69,7 +69,7 @@ test.describe("with a passkey-capable device", () => {
     await expect(page.locator("#passkeys").getByRole("listitem")).toHaveCount(1);
 
     await page.getByRole("button", { name: "Autofill Signer" }).click();
-    await page.getByRole("button", { name: "Logout" }).click();
+    await page.getByRole("button", { name: "Sign out" }).click();
 
     await expect(page).toHaveURL("/account");
     await expect(page.getByText("Name: Autofill Signer")).toBeVisible();
@@ -156,7 +156,7 @@ test("passkey requests can't skip the start step or be replayed", async ({ page 
   });
 
   expect(response.status()).toBe(400);
-  expect((await response.json()).error).toBe("That passkey request expired. Please try again.");
+  expect((await response.json()).detail).toBe("That passkey request expired. Please try again.");
 });
 
 test("signed-out visitors can't add a passkey", async ({ page }) => {

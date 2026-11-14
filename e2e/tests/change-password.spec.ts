@@ -117,7 +117,7 @@ test("changing the password signs out other devices but not this one", async ({
 test("without JavaScript the form still works", async ({ page }, testInfo) => {
   const email = await createAccount(page, testInfo, "No Script");
   const post = (current: string) =>
-    page.request.post("/account/password", {
+    page.request.post("/account/password/change", {
       form: { current_password: current, password: NEW_PASSWORD, confirm_password: NEW_PASSWORD },
       headers: { Origin: new URL(page.url()).origin },
       maxRedirects: 0,
@@ -148,7 +148,7 @@ test("the account sidebar links to the password section", async ({ page }, testI
 
 test("signed-out visitors can't change a password", async ({ page }) => {
   await page.goto("/login");
-  const response = await page.request.post("/account/password", {
+  const response = await page.request.post("/account/password/change", {
     form: { current_password: "x", password: NEW_PASSWORD, confirm_password: NEW_PASSWORD },
     headers: { Origin: new URL(page.url()).origin },
     maxRedirects: 0,

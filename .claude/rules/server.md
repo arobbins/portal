@@ -5,7 +5,7 @@ paths:
   - "src/config.rs"
   - "src/app.rs"
   - "src/mail.rs"
-  - "src/user/service.rs"
+  - "src/*/emails.rs"
   - ".env.example"
   - "e2e/tests/security.spec.ts"
 ---

@@ -70,7 +70,7 @@ test("a valid form has no error and no invalid fields", async ({ page }) => {
 
 test("side-by-side fields stack on a phone", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const forms = page.locator(".styleguide__section", {
+  const forms = page.locator(".p-styleguide__section", {
     has: page.getByRole("heading", { name: "Forms" }),
   });
   const password = await forms.getByLabel("New password").boundingBox();

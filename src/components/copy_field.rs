@@ -1,7 +1,7 @@
 use topcoat::{
     Result,
     context::Cx,
-    runtime::{Event, signal},
+    runtime::{Event, Signal, signal},
     view::{View, attributes, component, view},
 };
 
@@ -12,9 +12,16 @@ const INPUT_CLASS: &str = "a-form-input a-copy-field__input";
 const COPIED_INPUT_CLASS: &str = "a-form-input a-copy-field__input a-copy-field__input--copied";
 
 #[component]
-pub async fn copy_field(cx: &Cx, label: &str, id: &str, value: &str) -> Result<impl View> {
+pub async fn copy_field(
+    cx: &Cx,
+    label: &str,
+    id: &str,
+    #[default] value: &str,
+    #[default] source: Option<&Signal<String>>,
+) -> Result<impl View> {
     let copied = signal(cx, || false);
-    let copy_value = value.to_string();
+    let fixed = signal(cx, || value.to_string());
+    let shown = source.cloned().unwrap_or(fixed);
     let input_id = id.to_string();
     let copy_ok: std::result::Result<bool, bool> = Ok(true);
     let copy_failed: std::result::Result<bool, bool> = Err(false);
@@ -27,15 +34,16 @@ pub async fn copy_field(cx: &Cx, label: &str, id: &str, value: &str) -> Result<i
                     :class=$(if copied.get() { COPIED_INPUT_CLASS } else { INPUT_CLASS })
                     id=(id)
                     type="text"
-                    value=(value)
+                    :value=$(shown.get())
                     readonly=(true)
                 >
                 button(
                     variant: ButtonVariant::Secondary,
                     attrs: attributes! {
                         @click=$(async |_e: Event| {
+                            let _copy_value = shown.get();
                             let result = raw!(
-                                "await navigator.clipboard.writeText(String(${copy_value})).then(() => ${copy_ok}, () => ${copy_failed})",
+                                "await navigator.clipboard.writeText(String(${_copy_value})).then(() => ${copy_ok}, () => ${copy_failed})",
                                 copy_failed,
                             );
                             copied.set(result.is_ok());

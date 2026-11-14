@@ -16,7 +16,6 @@ pub async fn logo(cx: &Cx) -> Result<impl View> {
             stroke-linecap="round"
             stroke-linejoin="round"
             stroke-width="2"
-            class="feather feather-package"
             viewBox="0 0 24 24"
         >
             <path

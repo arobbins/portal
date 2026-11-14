@@ -76,7 +76,7 @@ pub async fn cards_section(cx: &Cx) -> Result<impl View> {
                         button(
                             size: ButtonSize::Sm,
                             icon(name: IconName::Plus)
-                            "Create token"
+                            "Create API token"
                         )
                     )
                 )

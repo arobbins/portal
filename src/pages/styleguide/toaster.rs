@@ -7,8 +7,8 @@ use topcoat::{
 
 use super::styleguide_section;
 use crate::components::button::button;
-use crate::components::notice::NoticeKind;
 use crate::components::toaster::{NO_TOAST, toaster};
+use crate::components::tone::Tone;
 
 const DEMO_TOAST: &str = "demo";
 
@@ -19,7 +19,7 @@ pub async fn toaster_section(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         styleguide_section(
             title: "Toaster",
-            <div class="styleguide__row">
+            <div class="p-styleguide__row">
                 button(
                     attrs: attributes! { @click=$(|_e: Event| toast.set(DEMO_TOAST.to_owned())) },
                     "Show toast"
@@ -28,7 +28,7 @@ pub async fn toaster_section(cx: &Cx) -> Result<impl View> {
             toaster(
                 toast: &toast,
                 name: DEMO_TOAST,
-                kind: NoticeKind::Success,
+                tone: Tone::Success,
                 "Success! This is a toaster notice."
             )
         )

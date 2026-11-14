@@ -1,7 +1,7 @@
 .a-toaster {
   position: fixed;
   z-index: var(--z-toast);
-  top: 15px;
+  top: var(--space-4);
   inset-inline: 0;
   margin-inline: auto;
   width: max-content;
@@ -12,11 +12,10 @@
 .a-toaster .a-notice {
   opacity: 0;
   translate: 0 -1em;
-  transition:
-    opacity 0.25s,
-    translate 0.25s,
-    overlay 0.25s allow-discrete,
-    display 0.25s allow-discrete;
+  transition: opacity var(--duration-normal),
+    translate var(--duration-normal),
+    overlay var(--duration-normal) allow-discrete,
+    display var(--duration-normal) allow-discrete;
 }
 
 .a-toaster--is-open {

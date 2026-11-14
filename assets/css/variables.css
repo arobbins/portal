@@ -11,61 +11,52 @@
 }
 
 :root {
-  --color-bg: light-dark(#faf8f4, #12100e);
-  --color-bg-sunken: light-dark(#f3f0ea, #0e0e0d);
-  --color-surface-card: light-dark(#ffffff, #12100e);
-  --color-surface-modal: light-dark(#ffffff, #0e0e0d);
-  --color-surface-raised: light-dark(#ffffff, #2a2a24);
-  --color-surface-hover: light-dark(#efebe4, #1e1e1c);
-  --color-surface-active: light-dark(#e6e1d8, #2a2a24);
-  --color-control-bg: light-dark(#ffffff, #1e1e1c);
+  --palette-sand-50: #faf8f4;
+  --palette-sand-100: #f3f0ea;
+  --palette-sand-200: #efebe4;
+  --palette-sand-300: #e6e1d8;
+  --palette-sand-400: #e4dfd6;
+  --palette-sand-500: #d6d0c5;
+  --palette-ink-950: #0e0e0d;
+  --palette-ink-900: #12100e;
+  --palette-ink-800: #1e1e1c;
+  --palette-ink-700: #2a2a24;
+  --palette-ink-600: #48453f;
+  --palette-white: #ffffff;
+  --palette-cream: #f5ede0;
+  --palette-rust-500: #ac501e;
+  --palette-rust-600: #934419;
+  --palette-rust-400: #bc5d27;
+  --palette-red-500: #b3261e;
+  --palette-red-600: #961f19;
+  --palette-red-400: #c63a2f;
+
+  --color-bg: light-dark(var(--palette-sand-50), var(--palette-ink-900));
+  --color-bg-sunken: light-dark(var(--palette-sand-100), var(--palette-ink-950));
+  --color-surface-card: light-dark(var(--palette-white), var(--palette-ink-900));
+  --color-surface-modal: light-dark(var(--palette-white), var(--palette-ink-950));
+  --color-surface-raised: light-dark(var(--palette-white), var(--palette-ink-700));
+  --color-surface-hover: light-dark(var(--palette-sand-200), var(--palette-ink-800));
+  --color-surface-active: light-dark(var(--palette-sand-300), var(--palette-ink-700));
+  --color-control-bg: light-dark(var(--palette-white), var(--palette-ink-800));
   --color-control-hover: light-dark(
-    #f3f0ea,
-    color-mix(in oklab, #1e1e1c, black 15%)
+    var(--palette-sand-100),
+    color-mix(in oklab, var(--palette-ink-800), black 15%)
   );
-  --color-avatar-bg: light-dark(#e6e1d8, #3b3630);
-  --color-button-primary-bg: light-dark(#ac501e, #ac501e);
-  --color-button-primary-hover: light-dark(#934419, #bc5d27);
-  --color-button-primary-text: light-dark(#ffffff, #f5ede0);
-  --color-button-primary-muted-bg: light-dark(
-    color-mix(in oklab, #ac501e 45%, #faf8f4),
-    color-mix(in oklab, #ac501e 40%, #12100e)
-  );
-  --color-button-primary-muted-text: light-dark(
-    color-mix(in oklab, #ffffff 80%, #ac501e),
-    color-mix(in oklab, #f5ede0 55%, #12100e)
-  );
-  --color-button-danger-bg: light-dark(#b3261e, #b3261e);
-  --color-button-danger-hover: light-dark(#961f19, #c63a2f);
-  --color-button-danger-text: light-dark(#ffffff, #fbeaea);
-  --color-button-danger-muted-bg: light-dark(
-    color-mix(in oklab, #b3261e 40%, #faf8f4),
-    color-mix(in oklab, #b3261e 40%, #12100e)
-  );
-  --color-button-danger-muted-text: light-dark(
-    color-mix(in oklab, #ffffff 80%, #b3261e),
-    color-mix(in oklab, #fbeaea 55%, #12100e)
-  );
-  --color-toggle-off: light-dark(#d6d0c5, #48453f);
-  --color-toggle-knob: light-dark(#ffffff, #f5ede0);
 
   --color-text: light-dark(#3b352d, #cfb57f);
   --color-text-strong: light-dark(#1c1915, #ebdec3);
   --color-text-muted: light-dark(#7d6334, #947d4d);
+  --color-accent: light-dark(var(--palette-rust-500), var(--palette-rust-500));
 
-  --color-tertiary: #693629;
-  --color-accent: #ac501e;
-  --color-accent-light: #bc813c;
-  --color-passkey-badge-icon: light-dark(#ac501e, #d9804f);
-  --color-passkey-badge-bg: light-dark(#f6e6dc, #2e1c13);
-  --color-passkey-badge-ring: light-dark(rgb(172 80 30 / 8%), rgb(217 128 79 / 8%));
+  --color-border: light-dark(var(--palette-sand-400), var(--palette-ink-700));
+  --color-border-strong: light-dark(var(--palette-sand-500), var(--palette-ink-600));
+  --color-border-control: light-dark(var(--palette-sand-500), #3d3d3d);
+  --color-border-divider: light-dark(var(--palette-sand-400), #343434);
 
   --color-success-text: light-dark(#1e5e2a, #b1ffb6);
   --color-success-bg: light-dark(#e8f5e9, #417339);
   --color-success-border: light-dark(#7cc48a, #74d464);
-  --color-copy-border: light-dark(#9cc8a5, #4f7a4a);
-  --color-copy-ring: light-dark(rgb(124 196 138 / 18%), rgb(116 212 100 / 12%));
-  --color-copy-selection: light-dark(rgb(124 196 138 / 28%), rgb(116 212 100 / 22%));
 
   --color-warning-text: light-dark(#6b5310, #fff0b1);
   --color-warning-bg: light-dark(#fdf5dc, #736639);
@@ -74,25 +65,75 @@
   --color-error-text: light-dark(#8f2424, #ffb1b1);
   --color-error-bg: light-dark(#fdecec, #733939);
   --color-error-border: light-dark(#e29595, #d46464);
-  --color-error: light-dark(#b3261e, #d46464);
+  --color-error: light-dark(var(--palette-red-500), #d46464);
 
   --color-info-text: light-dark(#1f4f7a, #b1d6ff);
   --color-info-bg: light-dark(#e8f1fb, #2d5a78);
   --color-info-border: light-dark(#8db7e3, #699fe5);
 
+  --color-neutral-text: var(--color-text);
+  --color-neutral-bg: var(--color-surface-hover);
+  --color-neutral-border: var(--color-border-strong);
+
   --color-muted: light-dark(#8a8580, #7b7b7b);
   --color-busy: light-dark(#a3927a, #837454);
   --color-disabled-text: light-dark(#b5afa5, #3a3a3a);
   --color-disabled-bg: light-dark(#f1eee8, #1a1a1a);
-  --color-disabled-border: light-dark(#e4dfd6, #2d2d2d);
-  --color-autofill-bg: light-dark(#f3f0ea, #444444);
+  --color-disabled-border: light-dark(var(--palette-sand-400), #2d2d2d);
+  --color-autofill-bg: light-dark(var(--palette-sand-100), #444444);
   --color-backdrop: light-dark(rgb(30 25 20 / 35%), rgb(0 0 0 / 61%));
   --color-focus: var(--color-text-muted);
 
-  --border-lines: light-dark(#e4dfd6, #2a2a24);
-  --border-lines-strong: light-dark(#d6d0c5, #48453f);
-  --border-control: light-dark(#d6d0c5, #3d3d3d);
-  --border-divider: light-dark(#e4dfd6, #343434);
+  --color-avatar-bg: light-dark(var(--palette-sand-300), #3b3630);
+
+  --color-button-primary-bg: var(--color-accent);
+  --color-button-primary-hover: light-dark(var(--palette-rust-600), var(--palette-rust-400));
+  --color-button-primary-text: light-dark(var(--palette-white), var(--palette-cream));
+  --color-button-primary-muted-bg: light-dark(
+    color-mix(in oklab, var(--palette-rust-500) 45%, var(--palette-sand-50)),
+    color-mix(in oklab, var(--palette-rust-500) 40%, var(--palette-ink-900))
+  );
+  --color-button-primary-muted-text: light-dark(
+    color-mix(in oklab, var(--palette-white) 80%, var(--palette-rust-500)),
+    color-mix(in oklab, var(--palette-cream) 55%, var(--palette-ink-900))
+  );
+  --color-button-danger-bg: var(--palette-red-500);
+  --color-button-danger-hover: light-dark(var(--palette-red-600), var(--palette-red-400));
+  --color-button-danger-text: light-dark(var(--palette-white), #fbeaea);
+  --color-button-danger-muted-bg: light-dark(
+    color-mix(in oklab, var(--palette-red-500) 40%, var(--palette-sand-50)),
+    color-mix(in oklab, var(--palette-red-500) 40%, var(--palette-ink-900))
+  );
+  --color-button-danger-muted-text: light-dark(
+    color-mix(in oklab, var(--palette-white) 80%, var(--palette-red-500)),
+    color-mix(in oklab, #fbeaea 55%, var(--palette-ink-900))
+  );
+
+  --color-toggle-off: light-dark(var(--palette-sand-500), var(--palette-ink-600));
+  --color-toggle-knob: light-dark(var(--palette-white), var(--palette-cream));
+
+  --color-copy-border: light-dark(#9cc8a5, #4f7a4a);
+  --color-copy-ring: light-dark(rgb(124 196 138 / 18%), rgb(116 212 100 / 12%));
+  --color-copy-selection: light-dark(rgb(124 196 138 / 28%), rgb(116 212 100 / 22%));
+
+  --color-passkey-badge-icon: light-dark(var(--palette-rust-500), #d9804f);
+  --color-passkey-badge-bg: light-dark(#f6e6dc, #2e1c13);
+  --color-passkey-badge-ring: light-dark(rgb(172 80 30 / 8%), rgb(217 128 79 / 8%));
+
+  --color-code-bg: light-dark(#23201c, #0b0a09);
+  --color-code-header-bg: light-dark(#2d2924, #161412);
+  --color-code-border: light-dark(#2d2924, var(--palette-ink-700));
+  --color-code-text: light-dark(#efe8dc, #e6dcc9);
+  --color-code-muted: light-dark(#a89f90, #8f8676);
+  --color-code-line-number: light-dark(#6f675b, #5c554a);
+  --color-code-key: #e7b872;
+  --color-code-string: #a9d18e;
+  --color-code-number: #f2a36f;
+  --color-code-variable: #8fc3e0;
+  --color-code-flag: #d9a8e3;
+  --color-code-command: #f2a36f;
+  --color-code-method-get: #7fd18a;
+  --color-code-method-patch: #e8c46a;
 
   --shadow-modal: 0 10px 30px light-dark(rgb(0 0 0 / 12%), rgb(0 0 0 / 15%));
   --shadow-menu: 0 6px 20px light-dark(rgb(0 0 0 / 10%), transparent);
@@ -101,7 +142,45 @@
   --font-heading: "Satoshi", system-ui, sans-serif;
   --font-mono: "Berkeley Mono", ui-monospace, monospace;
 
-  --control-font-size: 16px;
+  --text-2xs: 12px;
+  --text-xs: 13px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 36px;
+  --text-5xl: 44px;
+  --text-6xl: 60px;
+
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-2-5: 10px;
+  --space-3: 12px;
+  --space-3-5: 14px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-24: 96px;
+
+  --radius-sm: 4px;
+  --radius-md: 7px;
+  --radius-lg: 12px;
+  --radius-full: 999px;
+
+  --duration-fast: 0.15s;
+  --duration-normal: 0.25s;
+
+  --z-toast: 100;
+
+  --control-font-size: var(--text-md);
   --control-line-height: 1.25;
   --control-padding-block: 0.6em;
   --form-gap: 1.4em;
@@ -113,8 +192,4 @@
   --notice-padding-inline-start: 0.8em;
   --notice-padding-inline-end: 1.1em;
   --notice-icon-gap: 0.45em;
-
-  --spacing-fixed-m: 20px;
-  --z-toast: 100;
-  --border-radius: 7px;
 }

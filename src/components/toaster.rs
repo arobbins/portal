@@ -5,7 +5,8 @@ use topcoat::{
     view::{Child, View, component, view},
 };
 
-use super::notice::{NoticeKind, notice};
+use super::notice::notice;
+use super::tone::Tone;
 
 pub const NO_TOAST: &str = "";
 
@@ -14,7 +15,7 @@ pub async fn toaster(
     cx: &Cx,
     toast: &Signal<String>,
     name: &str,
-    #[default] kind: NoticeKind,
+    #[default] tone: Tone,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
     let name = name.to_string();
@@ -30,7 +31,7 @@ pub async fn toaster(
             @click=$(|_e| toast.set(none.clone()))
             @animationend=$(|_e| toast.set(none.clone()))
         >
-            notice(kind: kind, (child))
+            notice(tone: tone, (child))
         </div>
     })
 }

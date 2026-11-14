@@ -14,7 +14,7 @@
 .a-toggle__text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0-5);
 }
 
 .a-toggle__label {
@@ -24,7 +24,7 @@
 
 .a-toggle__description {
   color: var(--color-text-muted);
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .a-toggle__input {
@@ -34,10 +34,10 @@
   width: 2.5em;
   height: 1.4em;
   margin: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background-color: var(--color-toggle-off);
   cursor: inherit;
-  transition: background-color 0.15s;
+  transition: background-color var(--duration-fast);
 
   &::before {
     content: "";
@@ -46,9 +46,9 @@
     left: 0.15em;
     width: 1.1em;
     height: 1.1em;
-    border-radius: 50%;
+    border-radius: var(--radius-full);
     background-color: var(--color-toggle-knob);
-    transition: translate 0.15s;
+    transition: translate var(--duration-fast);
   }
 
   &:checked {

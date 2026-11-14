@@ -13,14 +13,22 @@ description: Add a database change or query to this app — a sqlx migration in 
   (`CHECK (role IN (...))`), `REFERENCES ... ON DELETE CASCADE`, `UNIQUE`, and an index for each
   foreign key you filter by (see `20261111120000_passkeys.sql`).
 - Users table invariants that must survive: `CHECK ((password IS NULL) = (verified_at IS NULL))`.
-- Apply it to the dev database: `sqlx migrate run` (sqlx macros check queries against it at
-  compile time). The test database is migrated by `webserver seed`; don't touch it by hand.
+- Migrations that rewrite existing rows: drop or relax a constraint *before* the `UPDATE`
+  that would violate it, then add the new one.
+- **Try it on the e2e test database first**: `cd e2e && npx playwright test
+  tests/home.spec.ts --project=chromium` (its server runs `sqlx migrate run` against the
+  `_test` database, which keeps older rows than dev). If it fails, fix the file freely: it
+  isn't applied anywhere that matters yet.
+- Only then apply it to the dev database: `sqlx migrate run` (sqlx macros check queries
+  against it at compile time). From here on the file is frozen (the hook blocks edits);
+  further changes go in a new migration. Don't touch the test database by hand.
 - If seeded e2e users need the new column, update `src/seed.rs` and `e2e/support/users.ts`
   together.
 
 ## 2. Query function
 
-Every query is its own `async fn` in the feature's `queries.rs` (users: `src/user/queries.rs`):
+Every query is its own `async fn` in the feature's `queries.rs` (`src/<feature>/queries.rs`;
+the `users` table: `src/user/queries.rs`; emailed links: `src/auth/queries.rs`):
 
 ```rust
 pub async fn query_<verb>_<thing>(
@@ -35,8 +43,13 @@ pub async fn query_<verb>_<thing>(
 }
 ```
 
-- Name starts with `query_`; `db` is always the **last** parameter. Use
-  `impl PgExecutor<'_>` when it may run inside a transaction, `&PgPool` otherwise.
+- Name is `query_<verb>_<thing>[_by_<key>]`; verbs: `get` (one row or `None`), `list`
+  (`Vec`), `insert`, `update`, `delete`, `consume` (single-use delete), `record` (usage
+  stamps), or a domain verb (`snooze`, `rename`). `db` is always the **last** parameter and
+  always `impl PgExecutor<'_>` (works with a pool, a connection or `&mut *tx`).
+- Ids are passed by value (`user_id: i32`); ids that came from a browser or API are public
+  ids (`public_id: &str`) and are always paired with the owner (`AND user_id = $2`).
+- Return the macro's result directly (`.fetch_optional(db).await`) unless you map it.
 - Return `Result<_, sqlx::Error>`; callers turn it into `topcoat::Result` with `?`.
 - Inserts with several columns take a param struct (`NewUser<'a> { name: &'a str, ... }`).
 - Always use the checked macros (`query!`, `query_as!`, `query_scalar!`), never string SQL.
@@ -48,8 +61,11 @@ pub async fn query_<verb>_<thing>(
 - Anything that changes a password, or should sign out every device, sets
   `session_version = session_version + 1`.
 - Single-use tokens are consumed with `DELETE ... RETURNING`; only SHA-256 hashes are stored.
-- Rows owned by a user are always filtered by `user_id` from `require_user(cx)`, never by an id
-  from the browser alone.
+- Rows owned by a user are always filtered by the caller's `owner_id()`, never by an id from
+  the browser alone.
+- Tables whose rows a browser or API can name get a `public_id TEXT NOT NULL UNIQUE` with a
+  format CHECK (`'^tok_[A-Za-z0-9]{20}$'`) and a `secret::PublicIdKind` variant.
+- Event `detail` is a JSON object (`CHECK (jsonb_typeof(detail) = 'object')`).
 - Emails reaching a query have gone through `utils::parse_email`.
 - Never hold a DB connection or transaction across a network call (email, HTTP).
 

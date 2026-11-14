@@ -53,7 +53,7 @@ export async function expectNoEmails(address: string, waitMs = 1_000) {
 }
 
 export function verificationLink(email: Email): string {
-  const match = email.text.match(/https?:\/\/\S+\/user\/verify\/[A-Za-z0-9]+/);
+  const match = email.text.match(/https?:\/\/\S+\/verify-email\/[A-Za-z0-9]+/);
   if (!match) throw new Error(`No verification link in email: ${email.text}`);
   return match[0];
 }

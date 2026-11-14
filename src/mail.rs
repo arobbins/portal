@@ -15,6 +15,23 @@ pub struct Email {
     pub html: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MailError(String);
+
+impl MailError {
+    fn new(error: impl std::fmt::Display) -> Self {
+        Self(error.to_string())
+    }
+}
+
+impl std::fmt::Display for MailError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for MailError {}
+
 #[derive(Debug, Clone)]
 pub enum Mailer {
     Postmark {
@@ -41,7 +58,7 @@ struct PostmarkEmail<'a> {
 }
 
 impl Mailer {
-    pub async fn send(&self, email: &Email) -> Result<(), String> {
+    pub async fn send(&self, email: &Email) -> Result<(), MailError> {
         match self {
             Self::Log => {
                 tracing::info!(to = %email.to, subject = %email.subject, "email (not sent):\n{}", email.text);
@@ -50,17 +67,17 @@ impl Mailer {
             Self::File { dir } => {
                 let nanos = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .map_err(|e| e.to_string())?
+                    .map_err(MailError::new)?
                     .as_nanos();
                 let sequence = NEXT_MAIL_FILE.fetch_add(1, Ordering::Relaxed);
-                let json = serde_json::to_vec_pretty(email).map_err(|e| e.to_string())?;
+                let json = serde_json::to_vec_pretty(email).map_err(MailError::new)?;
 
                 tokio::fs::create_dir_all(dir)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(MailError::new)?;
                 tokio::fs::write(dir.join(format!("{nanos}-{sequence:08}.json")), json)
                     .await
-                    .map_err(|e| e.to_string())
+                    .map_err(MailError::new)
             }
             Self::Postmark {
                 client,
@@ -84,13 +101,15 @@ impl Mailer {
                     .json(&body)
                     .send()
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(MailError::new)?;
 
                 let status = response.status();
-                let response_body = response.text().await.map_err(|e| e.to_string())?;
+                let response_body = response.text().await.map_err(MailError::new)?;
 
                 if !status.is_success() {
-                    return Err(format!("Postmark returned {status}: {response_body}"));
+                    return Err(MailError::new(format!(
+                        "Postmark returned {status}: {response_body}"
+                    )));
                 }
 
                 Ok(())

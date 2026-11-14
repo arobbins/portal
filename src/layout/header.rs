@@ -14,9 +14,9 @@ const MENU_ID: &str = "site-menu";
 #[component]
 pub async fn header(cx: &Cx) -> Result<impl View> {
     Ok(view! {
-        <header class="l-contain header">
-            <div class="header__logo">logo()</div>
-            <div class="header__menu-toggle">
+        <header class="l-header">
+            <div class="l-header__logo">logo()</div>
+            <div class="l-header__menu-toggle">
                 button(
                     variant: ButtonVariant::Secondary,
                     size: ButtonSize::Sm,
@@ -24,9 +24,9 @@ pub async fn header(cx: &Cx) -> Result<impl View> {
                     icon(name: IconName::Menu)
                 )
             </div>
-            <div class="header__menu" id=(MENU_ID) popover="">
+            <div class="l-header__menu" id=(MENU_ID) popover="">
                 nav()
-                <div class="header__theme">theme_switcher(compact: true)</div>
+                <div class="l-header__theme">theme_switcher(compact: true)</div>
             </div>
         </header>
     })

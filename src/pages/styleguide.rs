@@ -1,11 +1,14 @@
 mod badges;
 mod buttons;
 mod cards;
+mod code;
 mod forms;
 mod icons;
+mod labels;
 mod modal;
 mod navigation;
 mod notices;
+mod property_list;
 mod text;
 mod theme_switcher;
 mod toaster;
@@ -20,25 +23,82 @@ use topcoat::{
 };
 
 use crate::app::page_title;
+use crate::layout::docs_sidebar::{DocsNavGroup, DocsNavLink, docs_sidebar};
+use crate::layout::page_heading::{PageHeadingVariant, page_heading};
+
+const GROUPS: &[(&str, &[&str])] = &[
+    (
+        "Foundations",
+        &["Text", "Labels", "Icons and layout", "Theme switcher"],
+    ),
+    ("Actions", &["Buttons", "Toggles", "Modals"]),
+    ("Feedback", &["Notices", "Toaster", "Badges and avatars"]),
+    ("Forms", &["Forms"]),
+    ("Content", &["Cards and tables", "Property lists", "Code"]),
+    ("Navigation", &["Navigation"]),
+];
+
+fn section_id(title: &str) -> String {
+    title
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join("-")
+}
 
 #[page("/styleguide", with(Metadata::new().title(page_title("Styleguide"))))]
 pub async fn styleguide_page(cx: &Cx) -> Result<impl View> {
+    let groups: Vec<DocsNavGroup> = GROUPS
+        .iter()
+        .map(|(name, titles)| DocsNavGroup {
+            name: name.to_string(),
+            links: titles
+                .iter()
+                .map(|title| DocsNavLink::new(format!("#{}", section_id(title)), *title))
+                .collect(),
+        })
+        .collect();
+
     Ok(view! {
-        <section class="l-contain l-skinny styleguide">
-            <h1>"Styleguide"</h1>
-            text::text_section()
-            buttons::buttons_section()
-            badges::badges_section()
-            notices::notices_section()
-            toaster::toaster_section()
-            forms::forms_section()
-            toggles::toggles_section()
-            cards::cards_section()
-            navigation::navigation_section()
-            modal::modal_section()
-            icons::icons_section()
-            theme_switcher::theme_switcher_section()
-        </section>
+        <div class="l-docs p-styleguide">
+            docs_sidebar(
+                title: "Styleguide",
+                subtitle: "Components and patterns",
+                nav_label: "Styleguide sections",
+                groups: &groups
+            )
+            <div class="l-docs__main">
+                <section
+                    class="l-docs__section l-docs__section--single l-docs__section--first"
+                    id="overview"
+                >
+                    <div class="l-docs__prose l-docs__prose--wide">
+                        page_heading(
+                            text: "Styleguide",
+                            variant: PageHeadingVariant::Compact
+                        )
+                        <p class="p-styleguide__lead">
+                            "Every component in the app, in every variant. Build pages from these before writing page-specific markup."
+                        </p>
+                    </div>
+                </section>
+                text::text_section()
+                labels::labels_section()
+                icons::icons_section()
+                theme_switcher::theme_switcher_section()
+                buttons::buttons_section()
+                toggles::toggles_section()
+                modal::modal_section()
+                notices::notices_section()
+                toaster::toaster_section()
+                badges::badges_section()
+                forms::forms_section()
+                cards::cards_section()
+                property_list::property_list_section()
+                code::code_section()
+                navigation::navigation_section()
+            </div>
+        </div>
     })
 }
 
@@ -48,11 +108,28 @@ async fn styleguide_section(
     title: &str,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
+    let id = section_id(title);
+
     Ok(view! {
-        <section class="styleguide__section">
-            <h2>(title)</h2>
-            <hr>
-            <div class="styleguide__examples">(child)</div>
+        <section
+            class="l-docs__section l-docs__section--single p-styleguide__section"
+            id=(id)
+        >
+            <div class="l-docs__prose l-docs__prose--wide">
+                <h2>(title)</h2>
+                <div class="p-styleguide__examples">(child)</div>
+            </div>
         </section>
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn section_ids_are_slugs_of_their_titles() {
+        assert_eq!(section_id("Badges and avatars"), "badges-and-avatars");
+        assert_eq!(section_id("Code"), "code");
+    }
 }

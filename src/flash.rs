@@ -7,8 +7,8 @@ use topcoat::{
 };
 use tower_sessions::Session;
 
-use crate::components::notice::NoticeKind;
 use crate::components::toaster::{NO_TOAST, toaster};
+use crate::components::tone::Tone;
 use crate::web::session;
 
 const SESSION_FLASH: &str = "flash";
@@ -24,6 +24,7 @@ pub enum Flash {
     PasskeyAdded,
     PasskeyRenamed,
     PasskeyRemoved,
+    ApiTokenRevoked,
 }
 
 impl Flash {
@@ -38,6 +39,7 @@ impl Flash {
             Self::PasskeyAdded => "passkey-added",
             Self::PasskeyRenamed => "passkey-renamed",
             Self::PasskeyRemoved => "passkey-removed",
+            Self::ApiTokenRevoked => "api-token-revoked",
         }
     }
 
@@ -53,6 +55,7 @@ impl Flash {
             Self::PasskeyAdded => "Passkey added. You can now use it to sign in.",
             Self::PasskeyRenamed => "Passkey renamed.",
             Self::PasskeyRemoved => "Passkey removed.",
+            Self::ApiTokenRevoked => "API token revoked. Apps using it can no longer sign in.",
             Self::PasswordChanged => {
                 "Your password has been changed. Your other devices have been signed out."
             }
@@ -76,7 +79,7 @@ pub async fn flash_toasts(
             toaster(
                 toast: toast,
                 name: flash.name(),
-                kind: NoticeKind::Success,
+                tone: Tone::Success,
                 (flash.message())
             )
         }

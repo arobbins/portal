@@ -75,10 +75,10 @@ async function post(url, body) {
       credentials: "same-origin",
       body: JSON.stringify(body),
     });
-    const data = await response.json().catch(() => ({ error: GENERIC_ERROR }));
+    const data = await response.json().catch(() => ({ detail: GENERIC_ERROR }));
     return { ok: response.ok, data };
   } catch {
-    return { ok: false, data: { error: GENERIC_ERROR } };
+    return { ok: false, data: { detail: GENERIC_ERROR } };
   }
 }
 
@@ -131,10 +131,10 @@ async function register(form) {
       password ? { current_password: password.value } : {},
     );
     if (!start.ok) {
-      if (password && start.data.field === "current_password") {
+      if (password && start.data.errors?.[0]?.field === "current_password") {
         password.setAttribute("aria-invalid", "true");
       }
-      showError(REGISTER_ERROR_ID, start.data.error ?? GENERIC_ERROR);
+      showError(REGISTER_ERROR_ID, start.data.detail ?? GENERIC_ERROR);
       return;
     }
 
@@ -150,7 +150,7 @@ async function register(form) {
 
     const finish = await post("/passkeys/register/finish", credentialJSON(credential));
     if (!finish.ok) {
-      showError(REGISTER_ERROR_ID, finish.data.error ?? GENERIC_ERROR);
+      showError(REGISTER_ERROR_ID, finish.data.detail ?? GENERIC_ERROR);
       return;
     }
     if (form.dataset.passkeyDone) {
@@ -172,15 +172,15 @@ async function finishLogin(credential) {
     location.assign(finish.data.redirect);
     return;
   }
-  if (finish.data.unknownCredential) {
+  if (finish.data.unknown_credential) {
     try {
       await PublicKeyCredential.signalUnknownCredential?.({
         rpId: location.hostname,
-        credentialId: finish.data.unknownCredential,
+        credentialId: finish.data.unknown_credential,
       });
     } catch {}
   }
-  showError(LOGIN_ERROR_ID, finish.data.error ?? GENERIC_ERROR);
+  showError(LOGIN_ERROR_ID, finish.data.detail ?? GENERIC_ERROR);
   startAutofill();
 }
 
@@ -213,7 +213,7 @@ async function signInWithButton(button) {
   try {
     const start = await post("/passkeys/login/start", { conditional: false });
     if (!start.ok) {
-      showError(LOGIN_ERROR_ID, start.data.error ?? GENERIC_ERROR);
+      showError(LOGIN_ERROR_ID, start.data.detail ?? GENERIC_ERROR);
       return;
     }
     let credential;
@@ -235,7 +235,7 @@ async function signInWithButton(button) {
 function setUp() {
   if (!window.PublicKeyCredential) {
     for (const element of document.querySelectorAll("[data-passkey-login], [data-passkey-register]")) {
-      element.closest(".passkey-sign-in")?.setAttribute("hidden", "");
+      element.closest(".p-auth__passkey")?.setAttribute("hidden", "");
     }
     for (const element of document.querySelectorAll("[data-passkey-only]")) {
       element.setAttribute("hidden", "");

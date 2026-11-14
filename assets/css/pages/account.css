@@ -1,0 +1,161 @@
+.l-header:has(~ .l-contain > .p-account),
+.l-contain:has(> .p-account) ~ .l-footer {
+  display: none;
+}
+
+.l-contain:has(> .p-account) {
+  max-width: 100%;
+  padding: 0;
+}
+
+.p-account {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.p-account__header {
+  margin: 0px;
+  padding-bottom: var(--space-2-5);
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-4);
+}
+
+.p-account__sub-nav {
+  min-width: 240px;
+  padding: var(--space-4);
+  border-right: 1px solid var(--color-border);
+}
+
+.p-account__sub-nav .l-nav__list {
+  margin-top: 0;
+}
+
+.p-account__theme {
+  padding: var(--space-2-5) var(--space-4);
+}
+
+.p-account__sub-nav .l-nav__link {
+  font-size: var(--text-md);
+  padding: var(--space-1-5) var(--space-4);
+  border-radius: var(--radius-md);
+  transition: background ease var(--duration-fast);
+  color: var(--color-text-strong);
+
+  &:hover {
+    color: var(--color-text-strong);
+    background-color: var(--color-surface-hover);
+    opacity: 1;
+  }
+}
+
+.p-account__sub-nav .l-nav__link + .l-nav__list {
+  padding-left: var(--space-2-5);
+}
+
+.p-account__sub-nav .l-nav__link + .l-nav__list .l-nav__link {
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
+
+  &:hover {
+    color: var(--color-text-strong);
+    background-color: var(--color-surface-hover);
+    opacity: 1;
+  }
+}
+
+.p-account__sub-nav .l-nav__link--active:hover {
+  opacity: 1;
+  color: var(--color-text-strong);
+  background-color: var(--color-surface-hover);
+}
+
+.p-account__content {
+  padding: var(--space-10) var(--space-24);
+  background-color: var(--color-bg-sunken);
+  flex: 1;
+}
+
+.p-account__profile-dropdown {
+  width: 100%;
+  background: none;
+  border: none;
+  margin: 0;
+  align-items: center;
+  font-size: var(--text-md);
+  gap: var(--space-2-5);
+  padding: var(--space-1-5) var(--space-2-5);
+  border-radius: var(--radius-md);
+  text-shadow: none;
+  color: var(--color-text-strong);
+
+  &:hover {
+    background-color: var(--color-surface-active);
+  }
+}
+
+.p-account__profile-dropdown-name {
+  + .a-icon {
+    margin-left: auto;
+  }
+}
+
+.l-nav__list-item-group {
+  margin-bottom: var(--space-2-5);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-2-5);
+}
+
+.p-account__layout {
+  display: flex;
+  flex: 1;
+}
+
+@media (max-width: 760px) {
+  .p-account__layout {
+    flex-direction: column;
+  }
+
+  .p-account__sub-nav {
+    min-width: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .p-account__nav-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+
+  .p-account__nav-links,
+  .p-account__nav-external {
+    display: none;
+  }
+
+  .p-account__nav-list .l-nav__list-item-group {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .p-account__content {
+    padding: var(--space-6) var(--space-4);
+  }
+}
+
+.p-account__api-token-step {
+  min-width: 0;
+}
+
+.p-account__api-token-reveal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--form-gap);
+}
+
+.p-account__api-token-step--is-hidden {
+  display: none;
+}
+

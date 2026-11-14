@@ -1,7 +1,7 @@
 ---
 paths:
   - "src/components/form.rs"
-  - "src/user/pages/**"
+  - "src/*/pages/**"
   - "src/pages/**"
   - "assets/css/components/form.css"
 ---
@@ -28,9 +28,14 @@ paths:
   spacing comes from `--form-gap`, `--form-label-gap`, `--form-choice-gap`
   and `--form-column-gap` in `variables.css`; don't hard-code spacing in
   `form.css`.
+- **Forms submit to actions**: the route's `Form<…>` is the action's input
+  struct, and failures are the action's `ActionProblem`; pages never
+  validate or query. Field `name`s are the constants the problem's `field()`
+  returns.
 - **Form errors**: render the problem with `form_error((problem.message()))`
   just above the submit button, and pass `invalid: true` to the fields it's
-  about (each failure enum has `invalid_*()` helpers). `form_error` has
+  about (from `problem.field()` or an `invalid_*()` helper). The page status
+  is `page_status(problem)`. `form_error` has
   `role="alert"` and the id `FORM_ERROR_ID`, which invalid fields reference
   through `aria-describedby`; for JS-driven errors pass
   `hidden: $(message.is_empty())`.

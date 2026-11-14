@@ -1,4 +1,9 @@
+mod account;
+mod action;
+mod api;
+mod api_tokens;
 mod app;
+mod auth;
 mod cleanup;
 mod components;
 mod config;
@@ -6,8 +11,12 @@ mod flash;
 mod layout;
 mod mail;
 mod pages;
+mod passkeys;
+mod profile;
 mod rate_limit;
+mod secret;
 mod seed;
+mod syntax;
 mod theme;
 mod user;
 mod utils;
@@ -187,9 +196,14 @@ mod tests {
     use tower_sessions::MemoryStore;
 
     fn test_app() -> Router {
-        let db = PgPoolOptions::new()
-            .connect_lazy("postgres://localhost/unused")
-            .unwrap();
+        test_app_with(
+            PgPoolOptions::new()
+                .connect_lazy("postgres://localhost/unused")
+                .unwrap(),
+        )
+    }
+
+    fn test_app_with(db: PgPool) -> Router {
         let assets =
             AssetBundle::load_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target/debug/assets"))
                 .expect("missing asset bundle: run `topcoat asset bundle` before `cargo test`");
@@ -322,5 +336,48 @@ mod tests {
 
         let form_post = response_for(&app, "POST", "/theme", "127.0.0.1").await;
         assert_ne!(form_post.status(), StatusCode::PERMANENT_REDIRECT);
+    }
+
+    #[tokio::test]
+    async fn every_documented_endpoint_exists_and_needs_a_token() {
+        let app = test_app();
+
+        for endpoint in crate::api::catalog::endpoints() {
+            let request = Request::builder()
+                .method(endpoint.method.as_str())
+                .uri(endpoint.path)
+                .header("host", "localhost")
+                .body(Body::empty())
+                .unwrap();
+            let status = app.clone().oneshot(request).await.unwrap().status();
+
+            assert_eq!(
+                status,
+                StatusCode::UNAUTHORIZED,
+                "{} {}",
+                endpoint.method.as_str(),
+                endpoint.path
+            );
+        }
+    }
+
+    #[sqlx::test]
+    async fn every_emailed_link_points_at_a_real_page(db: PgPool) {
+        let app = test_app_with(db);
+        for purpose in crate::auth::links::TokenPurpose::ALL {
+            let request = Request::get(purpose.path("not-a-real-token"))
+                .header("host", "localhost")
+                .body(Body::empty())
+                .unwrap();
+            let status = app.clone().oneshot(request).await.unwrap().status();
+
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{}", purpose.as_str());
+        }
+    }
+
+    #[tokio::test]
+    async fn the_openapi_document_and_docs_page_are_public() {
+        assert_eq!(get_status("/api/v1/openapi.json").await, StatusCode::OK);
+        assert_eq!(get_status("/docs/api").await, StatusCode::OK);
     }
 }

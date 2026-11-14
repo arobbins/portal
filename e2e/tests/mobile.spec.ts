@@ -9,7 +9,15 @@ async function expectNoSidewaysScroll(page: import("@playwright/test").Page) {
 }
 
 test("public pages fit a phone screen without sideways scrolling", async ({ page }) => {
-  for (const path of ["/", "/about", "/login", "/register", "/reset-password", "/styleguide"]) {
+  for (const path of [
+    "/",
+    "/about",
+    "/login",
+    "/register",
+    "/reset-password",
+    "/styleguide",
+    "/docs/api",
+  ]) {
     await page.goto(path);
     await expectNoSidewaysScroll(page);
   }
@@ -18,10 +26,10 @@ test("public pages fit a phone screen without sideways scrolling", async ({ page
 test("the site menu opens from a button on phones", async ({ page }) => {
   await page.goto("/");
   const navigation = page.getByRole("navigation", { name: "Main" });
-  await expect(navigation.getByRole("link", { name: "Login" })).toBeHidden();
+  await expect(navigation.getByRole("link", { name: "Sign in" })).toBeHidden();
 
   await page.getByRole("button", { name: "Menu" }).click();
-  await navigation.getByRole("link", { name: "Login" }).click();
+  await navigation.getByRole("link", { name: "Sign in" }).click();
 
   await expect(page).toHaveURL("/login");
 });

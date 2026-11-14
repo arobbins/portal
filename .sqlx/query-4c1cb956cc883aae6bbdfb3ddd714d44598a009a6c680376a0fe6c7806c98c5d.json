@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO user_passkeys (user_id, public_id, credential_id, passkey, name, aaguid, backup_eligible, backed_up) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text",
+        "Bytea",
+        "Jsonb",
+        "Text",
+        "Uuid",
+        "Bool",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4c1cb956cc883aae6bbdfb3ddd714d44598a009a6c680376a0fe6c7806c98c5d"
+}

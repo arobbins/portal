@@ -51,6 +51,6 @@ export async function skipPasskeyPrompt(page: Page) {
 
 export async function logOut(page: Page, name: string) {
   await page.getByRole("button", { name }).click();
-  await page.getByRole("button", { name: "Logout" }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL("/login");
 }

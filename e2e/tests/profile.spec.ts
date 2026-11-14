@@ -8,7 +8,7 @@ async function submitName(page: Page, name: string) {
 }
 
 async function saveName(page: Page, name: string) {
-  await page.getByRole("button", { name: "Edit details" }).click();
+  await page.getByRole("button", { name: "Edit profile" }).click();
   await submitName(page, name);
 }
 
@@ -33,7 +33,7 @@ test("a name error is shown inside the dialog, not behind it", async ({ page }, 
 
   await saveName(page, "   ");
 
-  const dialog = page.getByRole("dialog", { name: "Edit profile details" });
+  const dialog = page.getByRole("dialog", { name: "Edit profile" });
   await expect(dialog.getByText("Name is required.")).toBeVisible();
 
   await submitName(page, "Valid Name");
@@ -54,7 +54,7 @@ test.describe("when the server can't be reached", () => {
 
     await saveName(page, "Offline Name");
 
-    const dialog = page.getByRole("dialog", { name: "Edit profile details" });
+    const dialog = page.getByRole("dialog", { name: "Edit profile" });
     await expect(
       dialog.getByText("We couldn't save your profile. Please try again."),
     ).toBeVisible();
@@ -65,10 +65,10 @@ test.describe("when the server can't be reached", () => {
 test("closing the dialog without saving discards the edit", async ({ page }, testInfo) => {
   await createAccount(page, testInfo, "Kept Name");
 
-  await page.getByRole("button", { name: "Edit details" }).click();
+  await page.getByRole("button", { name: "Edit profile" }).click();
   await page.getByLabel("Name").fill("Abandoned edit");
   await page.getByRole("button", { name: "Close" }).click();
-  await page.getByRole("button", { name: "Edit details" }).click();
+  await page.getByRole("button", { name: "Edit profile" }).click();
 
   await expect(page.getByLabel("Name")).toHaveValue("Kept Name");
 });

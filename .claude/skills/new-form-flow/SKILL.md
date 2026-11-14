@@ -5,37 +5,26 @@ description: Build a complete form feature in this app — GET page, POST route 
 
 # New form flow
 
-References: stand-alone page form → `src/user/pages/login.rs`; settings card with modal +
-procedure → `src/user/pages/account_profile.rs`. Read the one that matches before starting.
+Every form submits to an **action** (the `new-action` skill): the page never validates or
+queries itself. References: stand-alone page form → `src/auth/pages/login.rs`; settings
+card with modal + procedure → `src/profile/pages/profile_tab.rs`. Read the one that
+matches before starting.
 
-## 1. Input, problem enum, failure context
+## 1. Action first
+
+Write the action, its input struct (`Deserialize` + `JsonSchema`, typed fields) and its
+problem enum (`ActionProblem`, with `field()` naming the form field) with the `new-action`
+skill. The input struct is the route's `Form<…>`; only browser-only extras (a honeypot)
+get a separate form struct that builds the input (see `auth/pages/register.rs`).
+
+Field names are constants shared by the problem's `field()` and the form
+(`PASSWORD_FIELD`, `CURRENT_PASSWORD_FIELD`, `NAME_FIELD`).
+
+## 2. Failure context
 
 ```rust
-#[derive(Deserialize)]
-pub struct ThingInput { field: String }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ThingProblem { Missing, TooLong, TooManyAttempts }
-
-impl ThingProblem {
-    fn invalid_field(self) -> bool { matches!(self, Self::Missing | Self::TooLong) }
-    fn status(self) -> StatusCode { match self { Self::TooManyAttempts => StatusCode::TOO_MANY_REQUESTS, _ => StatusCode::OK } }
-    fn message(self) -> &'static str { match self { /* user-facing sentences */ } }
-}
-
 struct ThingFailed { field: String, problem: ThingProblem }
 ```
-
-- Validation that other forms share goes in its own module (`user/name.rs`,
-  `user/password.rs` style) returning the problem enum.
-- Never compare message text; branch on variants.
-
-## 2. Validation + save in one function
-
-One `async fn` used by both the POST route and the procedure, returning
-`Result<Result<T, ThingProblem>>` (outer: server errors, inner: user problems). It validates
-(including `parse_email` for emails, rate limits for password/email-sending actions), then
-calls a `query_*` function (see the `new-query` skill). Never put sqlx here.
 
 ## 3. GET page
 
@@ -49,52 +38,60 @@ pub async fn thing_page(cx: &Cx) -> Result<impl View> {
 }
 ```
 
-- Render `(problem.status())` when there's a problem.
+- Render `(page_status(problem))` when there's a problem: 200 for problems the visitor
+  can fix (the form is redisplayed), 429 for rate limits. JSON responses keep the
+  problem's real status.
 - `form(submitting: Some(&is_submitting), variant: FormVariant::Page /* or default Inline */,
   attrs: attributes! { method="post" action=(href!(thing_submit)) }, ...)`.
-- Fields from `components/form.rs` with `id`, `name`, typed `autocomplete`, `value` from
-  `failed` so input survives an error, and
-  `invalid: problem.is_some_and(ThingProblem::invalid_field)`.
+- Fields from `components/form.rs` with `id`, `name: FIELD_CONST`, typed `autocomplete`,
+  `value` from `failed` so input survives an error, and `invalid:` from the problem.
 - `form_error((problem.message()))` right above `form_actions(button(button_type:
-  ButtonType::Submit, busy: $(is_submitting.get()), "Save"))`.
+  ButtonType::Submit, busy: $(is_submitting.get()), "Save thing"))`.
 - Signed-in pages call `require_user(cx)?`; pages for guests call
   `redirect_signed_in_users(cx)?`.
 
 ## 4. POST route (works without JS)
 
 ```rust
-#[route(POST "/path")]
-pub async fn thing_submit(cx: &Cx, Form(input): Form<ThingInput>) -> Result<SeeOther> {
-    match save_thing(cx, &input.field).await? {
+#[route(POST "/account/things/update")]
+pub async fn update_thing_submit(cx: &Cx, Form(input): Form<UpdateThing>) -> Result<SeeOther> {
+    let caller = require_browser_caller(cx)?;
+    match update_thing(cx, &caller, &input).await? {
         Ok(_) => {
             set_flash(&session(cx)?, Flash::ThingSaved).await?;
-            Ok(see_other(TARGET_URL))
+            Ok(see_other(AccountSection::Things.href(cx)))
         }
-        Err(problem) => Err(rewrite(PAGE_URL, Body::empty())
+        Err(error) => Err(rewrite(AccountTab::Things.href(cx), Body::empty())
             .method(Method::GET)
-            .with(ThingFailed { field: input.field, problem })
+            .with(ThingFailed { field: input.field, problem: error.for_browser()? })
             .into()),
     }
 }
 ```
 
-Add the flash with the `new-flash` skill.
+Account routes are `/account/<thing>/<verb>`; signed-out forms post to their page's URL.
+Never type a path: `href!(handler)`, `AccountTab`, `AccountSection`. Add the flash with the
+`new-flash` skill.
 
 ## 5. Modal + procedure (settings cards only)
 
-Follow `account_profile.rs` exactly:
+Follow `profile/pages/profile_tab.rs` exactly:
 
-- Card `account__content-card` with the action button in its header
+- `card(id: Some(AccountSection::X.anchor()), …)` with the action button in its header
   (`command="show-modal" commandfor=(MODAL_ID)`; its `@click` resets the field signals).
+  The button label and the modal heading are the same "Verb noun" ("Edit profile",
+  "Change password", "Add passkey", "Create API token").
 - Two signals for the input: `field_value` (bound to `:value`) and `draft_name` (written by
   `@input`). Never bind `:value` to the signal `@input` writes.
-- `#[procedure] async fn save_thing_js(cx: &Cx, value: String) -> Result<Result<String, String>>`
-  re-checks `current_user(cx)` (procedures bypass page guards) and calls the shared function.
+- The procedure returns `Result<Result<T, FieldError>>` (see `new-action`): `FieldError` is
+  a `#[record]` with `field` and `message`, so the handler reads `failure.field` /
+  `failure.message`.
 - `@submit=$(async |e: Event| { e.prevent_default(); ... })` sets busy, calls the procedure,
-  turns a rejected call into `Err` with the `raw!(... .catch(() => ${save_failed}))` pattern,
-  then on success sets the toast to the flash name and closes the dialog with `raw!`; on
-  failure writes the error into the dialog's `form_error` (`hidden: $(error.get().is_empty())`)
-  and sets `:aria-invalid` on the field.
+  turns a rejected call into `Err(FieldError::general(UNREACHABLE))` with the
+  `raw!(... .catch(() => ${save_failed}))` pattern, then on success sets the toast to the
+  flash name and closes the dialog with `raw!`; on failure writes the message into the
+  dialog's `form_error` (`hidden: $(error.get().is_empty())`) and sets `:aria-invalid` on
+  the field whose name matches `failure.field`.
 - Keep the POST route as the no-JS fallback; its error comes back as an error toast.
 
 ## 6. Tests and finish

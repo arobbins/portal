@@ -48,7 +48,7 @@ test("an absurdly long email is rejected before it's used", async ({ page }) => 
 });
 
 test("a made-up link can't be used to submit a password", async ({ page }) => {
-  for (const path of ["/user/verify/not-a-real-token", "/reset-password/not-a-real-token"]) {
+  for (const path of ["/verify-email/not-a-real-token", "/reset-password/not-a-real-token"]) {
     await page.goto("/login");
     const response = await page.request.post(path, {
       form: { password: "a-strong-password", confirm_password: "a-strong-password" },

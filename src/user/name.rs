@@ -1,4 +1,7 @@
-const MAX_NAME_LENGTH: usize = 100;
+use crate::action::ActionProblem;
+
+pub const MAX_NAME_LENGTH: usize = 100;
+pub const NAME_FIELD: &str = "name";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NameProblem {
@@ -7,11 +10,26 @@ pub enum NameProblem {
 }
 
 impl NameProblem {
-    pub fn message(self) -> &'static str {
+    pub const ALL: [Self; 2] = [Self::Missing, Self::TooLong];
+}
+
+impl ActionProblem for NameProblem {
+    fn code(self) -> &'static str {
+        match self {
+            Self::Missing => "name_missing",
+            Self::TooLong => "name_too_long",
+        }
+    }
+
+    fn message(self) -> &'static str {
         match self {
             Self::Missing => "Name is required.",
             Self::TooLong => "Name must be 100 characters or fewer.",
         }
+    }
+
+    fn field(self) -> Option<&'static str> {
+        Some(NAME_FIELD)
     }
 }
 
@@ -41,7 +59,19 @@ mod tests {
     #[test]
     fn rejects_blank_and_over_long_names() {
         assert_eq!(check_name("   "), Err(NameProblem::Missing));
-        assert_eq!(check_name(&"é".repeat(101)), Err(NameProblem::TooLong));
-        assert!(check_name(&"é".repeat(100)).is_ok());
+        assert_eq!(
+            check_name(&"é".repeat(MAX_NAME_LENGTH + 1)),
+            Err(NameProblem::TooLong)
+        );
+        assert!(check_name(&"é".repeat(MAX_NAME_LENGTH)).is_ok());
+    }
+
+    #[test]
+    fn the_length_message_matches_the_limit() {
+        assert!(
+            NameProblem::TooLong
+                .message()
+                .contains(&format!("{MAX_NAME_LENGTH} characters"))
+        );
     }
 }

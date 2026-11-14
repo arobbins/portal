@@ -16,7 +16,7 @@ test("after 5 wrong passwords, even the right password is refused for a while", 
   await setPassword(page, PASSWORD);
   await skipPasskeyPrompt(page);
   await page.getByRole("button", { name: "Locked tester" }).click();
-  await page.getByRole("button", { name: "Logout" }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
 
   for (let attempt = 1; attempt <= 5; attempt++) {
     await logIn(page, email, `wrong-password-${attempt}`);

@@ -1,17 +1,3 @@
-use sha2::{Digest, Sha256};
-
-pub fn get_token_hash_from_token_string(token: &str) -> String {
-    hex::encode(Sha256::digest(token.as_bytes()))
-}
-
-pub fn create_body_page_class(page_path: String) -> String {
-    if page_path.is_empty() {
-        return format!("page-{}", "home");
-    }
-
-    format!("page-{}", page_path)
-}
-
 const MAX_EMAIL_LENGTH: usize = 254;
 
 pub fn parse_email(input: &str) -> Option<String> {
@@ -22,6 +8,26 @@ pub fn parse_email(input: &str) -> Option<String> {
             .is_some_and(|(local, domain)| !local.is_empty() && !domain.is_empty());
 
     is_plausible.then(|| email.to_lowercase())
+}
+
+pub fn escape_html(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for character in text.chars() {
+        match character {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&#39;"),
+            other => escaped.push(other),
+        }
+    }
+    escaped
+}
+
+pub fn format_date(date: time::OffsetDateTime) -> String {
+    let month = date.month().to_string();
+    format!("{} {}, {}", &month[..3], date.day(), date.year())
 }
 
 #[cfg(test)]
@@ -45,6 +51,21 @@ mod tests {
         assert_eq!(
             parse_email(&format!("{}@example.test", "a".repeat(250))),
             None
+        );
+    }
+
+    #[test]
+    fn dates_are_short_and_readable() {
+        let date = time::OffsetDateTime::from_unix_timestamp(1_793_700_000).unwrap();
+
+        assert_eq!(format_date(date), "Nov 3, 2026");
+    }
+
+    #[test]
+    fn html_is_escaped_for_emails() {
+        assert_eq!(
+            escape_html("<a href=\"x\">Tom & 'Jerry'</a>"),
+            "&lt;a href=&quot;x&quot;&gt;Tom &amp; &#39;Jerry&#39;&lt;/a&gt;"
         );
     }
 }

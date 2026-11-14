@@ -142,7 +142,7 @@ pub async fn forms_section(cx: &Cx) -> Result<impl View> {
                 )
                 form_actions(button(button_type: ButtonType::Submit, "Submit"))
             )
-            <h3 class="styleguide__subheading">"Error state"</h3>
+            <h3 class="p-styleguide__subheading">"Error state"</h3>
             form(
                 form_field(
                     label: "Work email",
@@ -177,7 +177,7 @@ pub async fn forms_section(cx: &Cx) -> Result<impl View> {
                 form_error("Please fix the highlighted fields.")
                 form_actions(button(button_type: ButtonType::Submit, "Submit"))
             )
-            <h3 class="styleguide__subheading">"Disabled"</h3>
+            <h3 class="p-styleguide__subheading">"Disabled"</h3>
             form(
                 form_field(
                     label: "Email",
@@ -187,7 +187,7 @@ pub async fn forms_section(cx: &Cx) -> Result<impl View> {
                     attrs: attributes! { disabled=(true) }
                 )
             )
-            <h3 class="styleguide__subheading">"Label link"</h3>
+            <h3 class="p-styleguide__subheading">"Label link"</h3>
             form(
                 form_field(
                     label: "Password",
@@ -203,7 +203,7 @@ pub async fn forms_section(cx: &Cx) -> Result<impl View> {
                     )
                 )
             )
-            <h3 class="styleguide__subheading">"One-time code"</h3>
+            <h3 class="p-styleguide__subheading">"One-time code"</h3>
             form(
                 code_field(
                     label: "Authentication code",
@@ -211,7 +211,7 @@ pub async fn forms_section(cx: &Cx) -> Result<impl View> {
                     name: "code"
                 )
             )
-            <h3 class="styleguide__subheading">"Copy field"</h3>
+            <h3 class="p-styleguide__subheading">"Copy field"</h3>
             form(
                 copy_field(
                     label: "API token",

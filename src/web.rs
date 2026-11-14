@@ -1,10 +1,9 @@
+use crate::auth::session::load_signed_in_user;
 use crate::config::Config;
 use crate::mail::Mailer;
 use crate::rate_limit::RateLimits;
 use crate::theme::Theme;
-use crate::user::auth::load_signed_in_user;
 use crate::user::model::User;
-use crate::utils::create_body_page_class;
 use webauthn_rs::prelude::Webauthn;
 
 use std::net::SocketAddr;
@@ -13,13 +12,12 @@ use std::sync::Arc;
 use axum::{
     extract::{ConnectInfo, Request, State},
     http::{
-        HeaderValue, Method, StatusCode, Uri,
+        HeaderValue, Method, StatusCode,
         header::{CACHE_CONTROL, HOST},
     },
     middleware::Next,
     response::{IntoResponse, Redirect, Response},
 };
-use chrono::Datelike;
 use sqlx::PgPool;
 use topcoat::{
     Error, Result,
@@ -32,7 +30,6 @@ use tower_sessions::Session;
 pub struct GlobalState {
     pub year: i32,
     pub current_user: Option<Arc<User>>,
-    pub current_slug: String,
     pub theme: Theme,
 }
 
@@ -132,27 +129,23 @@ pub async fn attach_remote_addr(mut req: Request, next: Next) -> Response {
 pub async fn inject_globals(
     State(db): State<PgPool>,
     session: Session,
-    uri: Uri,
     mut req: Request,
     next: Next,
 ) -> Response {
     let current_user = match load_signed_in_user(&session, &db).await {
         Ok(user) => user,
         Err(e) => {
-            tracing::error!("Failed to load signed-in user: {}", e);
+            tracing::error!("Failed to load signed-in user: {e}");
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
     };
-
-    let current_path = uri.path().trim_start_matches('/').to_string();
 
     let theme = Theme::from_headers(req.headers());
     let is_signed_in = current_user.is_some();
 
     req.extensions_mut().insert(GlobalState {
-        year: chrono::Local::now().year(),
+        year: time::OffsetDateTime::now_utc().year(),
         current_user,
-        current_slug: create_body_page_class(current_path),
         theme,
     });
 

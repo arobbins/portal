@@ -5,7 +5,8 @@ use topcoat::{
     view::{Attributes, Child, View, class, component, view},
 };
 
-use super::notice::{NoticeKind, notice};
+use super::notice::notice;
+use super::tone::Tone;
 
 pub const FORM_ERROR_ID: &str = "form-error";
 
@@ -101,6 +102,9 @@ fn error_link(invalid: bool) -> Option<&'static str> {
     invalid.then_some(FORM_ERROR_ID)
 }
 
+const FORM_LABEL_CLASS: &str = "a-label a-label--md a-form-label";
+const FORM_LEGEND_CLASS: &str = "a-label a-label--md a-form-legend";
+
 #[component]
 pub async fn form(
     cx: &Cx,
@@ -148,7 +152,7 @@ pub async fn form_error(
             role="alert"
             :class=$(if hidden { hidden_class } else { class })
         >
-            notice(kind: NoticeKind::Error, (child))
+            notice(tone: Tone::Error, (child))
         </div>
     })
 }
@@ -185,7 +189,7 @@ pub async fn form_col(
 
 #[component]
 pub async fn form_label(cx: &Cx, for_id: &str, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! { <label class="a-form-label" for=(for_id)>(child)</label> })
+    Ok(view! { <label class=(FORM_LABEL_CLASS) for=(for_id)>(child)</label> })
 }
 
 #[component]
@@ -364,7 +368,7 @@ async fn choice_group(
 
     Ok(view! {
         <fieldset class="a-form-group a-form-fieldset" id=(id)>
-            <legend class="a-form-legend">(legend)</legend>
+            <legend class=(FORM_LEGEND_CLASS)>(legend)</legend>
             #[key(option_id.as_str())]
             for (option, option_id, is_checked) in &options {
                 <label class="a-form-choice" for=(option_id.as_str())>

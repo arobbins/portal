@@ -25,17 +25,6 @@ impl AvatarSize {
 }
 
 #[component]
-pub async fn avatar(
-    cx: &Cx,
-    #[default] photo: Option<&str>,
-    #[default] size: AvatarSize,
-) -> Result<impl View> {
-    Ok(view! {
-        <span class=(size.class())>
-            match photo {
-                Some(photo) => <img class="a-avatar__photo" src=(photo) alt="">,
-                None => icon(name: IconName::User),
-            }
-        </span>
-    })
+pub async fn avatar(cx: &Cx, #[default] size: AvatarSize) -> Result<impl View> {
+    Ok(view! { <span class=(size.class())>icon(name: IconName::User)</span> })
 }

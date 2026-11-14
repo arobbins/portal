@@ -9,6 +9,10 @@ use governor::{DefaultKeyedRateLimiter, Quota, RateLimiter};
 
 const UNKNOWN_IP: IpAddr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
 const RELAXED_SCALE: u32 = 1000;
+pub const API_CALLS_PER_MINUTE: u32 = 600;
+pub const API_CALL_BURST: u32 = 60;
+pub const BAD_API_TOKENS_PER_WINDOW: u32 = 20;
+pub const BAD_API_TOKEN_WINDOW_MINUTES: u64 = 10;
 
 struct FailureWindow<K> {
     window: Duration,
@@ -75,6 +79,8 @@ pub struct RateLimits {
     emails_by_address: DefaultKeyedRateLimiter<String>,
     failed_logins_by_account_and_ip: FailureWindow<(String, IpAddr)>,
     failed_logins_by_account: FailureWindow<String>,
+    failed_api_auth_by_ip: FailureWindow<IpAddr>,
+    api_calls_by_token: DefaultKeyedRateLimiter<i32>,
 }
 
 const MAX_KEY_LENGTH: usize = 254;
@@ -111,6 +117,14 @@ impl RateLimits {
             emails_by_address: RateLimiter::keyed(quota(Duration::from_secs(1200), 3 * scale)),
             failed_logins_by_account_and_ip: FailureWindow::new(Duration::from_secs(15 * 60), 5),
             failed_logins_by_account: FailureWindow::new(Duration::from_secs(60 * 60), 50),
+            failed_api_auth_by_ip: FailureWindow::new(
+                Duration::from_secs(BAD_API_TOKEN_WINDOW_MINUTES * 60),
+                (BAD_API_TOKENS_PER_WINDOW * scale) as usize,
+            ),
+            api_calls_by_token: RateLimiter::keyed(quota(
+                Duration::from_millis(60_000 / u64::from(API_CALLS_PER_MINUTE)),
+                API_CALL_BURST * scale,
+            )),
         }
     }
 
@@ -161,6 +175,19 @@ impl RateLimits {
             .clear(&(account_key(email), ip.unwrap_or(UNKNOWN_IP)));
     }
 
+    pub fn api_auth_blocked(&self, ip: Option<IpAddr>) -> bool {
+        self.failed_api_auth_by_ip
+            .is_blocked(ip.unwrap_or(UNKNOWN_IP))
+    }
+
+    pub fn record_failed_api_auth(&self, ip: Option<IpAddr>) {
+        self.failed_api_auth_by_ip.record(ip.unwrap_or(UNKNOWN_IP));
+    }
+
+    pub fn allow_api_call(&self, token_id: i32) -> bool {
+        self.api_calls_by_token.check_key(&token_id).is_ok()
+    }
+
     pub fn forget_idle_keys(&self) {
         self.password_submissions_by_ip.retain_recent();
         self.email_requests_by_ip.retain_recent();
@@ -168,6 +195,8 @@ impl RateLimits {
         self.emails_by_address.retain_recent();
         self.failed_logins_by_account_and_ip.forget_idle();
         self.failed_logins_by_account.forget_idle();
+        self.failed_api_auth_by_ip.forget_idle();
+        self.api_calls_by_token.retain_recent();
     }
 }
 
@@ -259,6 +288,31 @@ mod tests {
         std::thread::sleep(Duration::from_millis(60));
 
         assert!(!window.is_blocked("key"));
+    }
+
+    #[test]
+    fn twenty_bad_api_tokens_block_that_ip_only() {
+        let limits = RateLimits::new(RateLimitMode::Strict);
+
+        for _ in 0..19 {
+            limits.record_failed_api_auth(ip(7));
+        }
+        assert!(!limits.api_auth_blocked(ip(7)));
+
+        limits.record_failed_api_auth(ip(7));
+        assert!(limits.api_auth_blocked(ip(7)));
+        assert!(!limits.api_auth_blocked(ip(8)));
+    }
+
+    #[test]
+    fn each_api_token_gets_a_burst_of_sixty_calls() {
+        let limits = RateLimits::new(RateLimitMode::Strict);
+
+        for _ in 0..60 {
+            assert!(limits.allow_api_call(1));
+        }
+        assert!(!limits.allow_api_call(1));
+        assert!(limits.allow_api_call(2));
     }
 
     #[test]

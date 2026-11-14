@@ -6,13 +6,14 @@
   padding: var(--control-padding-block) 0.7em;
   font-family: var(--font-body);
   font-weight: 500;
-  transition: all ease-out 0.12s;
-  border: 1px solid var(--border-control);
-  border-radius: var(--border-radius);
+  transition: all ease-out var(--duration-fast);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-md);
   color: var(--color-text);
   display: flex;
   align-items: center;
   position: relative;
+  text-decoration: none;
 
   &:hover {
     cursor: pointer;
@@ -21,7 +22,7 @@
 
   &:active {
     cursor: pointer;
-    transform: translateY(4px); /* Moves down by the depth of the shadow */
+    transform: translateY(var(--space-1));
     box-shadow: none;
   }
 
@@ -47,7 +48,7 @@
 }
 
 .a-button svg {
-  margin-right: 7px;
+  margin-right: var(--space-2);
 }
 
 .a-button--is-busy {
@@ -80,11 +81,11 @@
 }
 
 .a-button--sm {
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .a-button--lg {
-  font-size: 20px;
+  font-size: var(--text-xl);
 }
 
 .a-button--primary {
@@ -111,7 +112,7 @@
 .a-button--secondary {
   color: var(--color-text);
   background-color: transparent;
-  border: 1px solid var(--border-lines-strong);
+  border: 1px solid var(--color-border-strong);
 
   &:hover:not(:disabled) {
     border-color: var(--color-text-muted);
