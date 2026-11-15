@@ -82,7 +82,8 @@ Follow `profile/pages/profile_tab.rs` exactly (and `account/pages/security_tab.r
 - `let form = DialogForm::new(cx, "", "")` holds the error field, error message and busy
   signals; inputs take `attrs: dialog_input(cx, &form, FIELD, &value, &draft)`, the
   dialog's error is `dialog_form_error(form: &form)`, and the fallback's toast is
-  `dialog_error_toast(form: &form, toast: &toast, name: ERROR_TOAST)`.
+  `dialog_error_toast(form: &form, toast: &toast)`, with the page's toast
+  signal from `page_toast(cx, failed.is_some(), flash)`.
 
 - `card(id: Some(AccountSection::X.anchor()), …)` with the action button in its header
   (`command="show-modal" commandfor=(MODAL_ID)`; its `@click` resets the field signals).
@@ -106,5 +107,5 @@ Follow `profile/pages/profile_tab.rs` exactly (and `account/pages/security_tab.r
 - Write the spec with the `new-e2e-test` skill: success path, each problem message, the
   no-JS/rewrite path keeps the typed value, and for modals the "server can't be reached" case
   (`page.route("**/_topcoat/runtime/procedures/**", r => r.abort())`).
-- Add a row to the CLAUDE.md state table if the flow adds state with more than two values.
+- Add a row to `.claude/state-machines.md` if the flow adds state with more than two values.
 - Run the `verify` skill, then `./check.sh`, then the `convention-reviewer` agent.

@@ -30,11 +30,12 @@ The target page lists what it accepts in a page `const` and takes it once:
 const FLASHES: &[Flash] = &[Flash::InvoiceSent];
 
 let flash = take_flash(cx, FLASHES).await?;
-let toast = signal(cx, || toast_name(flash).to_string());
+let toast = flash_toast(cx, flash);
 ```
 
 and renders `flash_toasts(toast: &toast, flashes: FLASHES)` in the view
-(see `src/profile/pages/profile_tab.rs`). If the page already has a `FLASHES` list, add the
+(see `src/auth/pages/register.rs`; a page with a modal form uses
+`page_toast(cx, failed.is_some(), flash)` instead, as `profile_tab.rs` does). If the page already has a `FLASHES` list, add the
 variant to it; there's only one `toast` signal per page.
 
 ## 4. JS path (procedure inside a modal)

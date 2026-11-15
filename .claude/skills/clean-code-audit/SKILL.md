@@ -25,12 +25,13 @@ The automated rules (`scripts/clean_code.py`, which `check_conventions.py`,
 | Rule | Limit / fix |
 |---|---|
 | Plain function length | ≤ `MAX_FUNCTION_LINES` (40): extract named helpers |
-| Component / page length | ≤ `MAX_VIEW_LINES` (80): extract child components |
-| File length before tests | ≤ `MAX_FILE_LINES` (300): split by responsibility (`token_routes.rs`, `token_fields.rs`, `password_routes.rs` are the pattern) |
+| Component / page length | ≤ `MAX_VIEW_LINES` (75): extract child components |
+| File length before tests | ≤ `MAX_FILE_LINES` (275): split by responsibility (`token_routes.rs`, `token_fields.rs`, `password_routes.rs` are the pattern) |
 | Actions take `cx` or the session | take `env: &Env` + `Caller`; ceremony state goes behind a trait (`PasskeySession`) |
 | `now_utc()` outside `env.rs` | `env.now()` / `app.clock.now()` (tests use `Clock::Fixed`) |
 | `context::<…>` outside `web/` | `web::app(cx)`, `env(cx)`, `config(cx)` |
 | `rewrite(` outside `web/context.rs` | `web::redisplay(path, failure)` |
+| `#[route]` / `#[procedure]` in a `*_tab.rs`, `*_card.rs` or `*_dialog.rs` | move it to the feature's `*_routes.rs` (`password_routes.rs`, `profile_routes.rs`, `passkey_routes.rs`, `token_routes.rs`) |
 | `#[allow(dead_code)]` | delete it, or `#[cfg(test)]` |
 | `pub mod queries` in a feature | keep private; expose a function (`api_tokens::lifecycle::revoke_all_for_user`) |
 | Infrastructure (`action`, `env`, `jobs`, `mail`, `rate_limit`, `web`, …) importing a feature | invert: a trait, a `Job`, or registration in `server.rs` (the composition root). `web/middleware.rs` is the one allowed composition point |

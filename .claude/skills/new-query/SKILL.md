@@ -83,8 +83,8 @@ is stale. Include the changed `.sqlx/*.json` files in the commit.
 
 ## 5. Finish
 
-- If new state with more than two values appears, add an enum and a row in the CLAUDE.md
-  "State machines" table.
+- If new state with more than two values appears, add an enum and a row in
+  `.claude/state-machines.md`.
 - If expiring rows need deleting, expose a `pub async fn delete_*(app: &App)` from the
   feature (it reads `app.clock.now()`) and call it from `cleanup::run` (the hourly
   `CleanupJob`); `cleanup.rs` never calls a feature's `query_*` directly.
