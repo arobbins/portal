@@ -19,7 +19,7 @@ use crate::auth::session::{grant_passkey_prompt, passkey_prompt_granted, require
 use crate::components::button::{ButtonType, ButtonVariant, button};
 use crate::components::form::{FormVariant, form, form_error};
 use crate::components::icon::{IconName, icon};
-use crate::flash::{Flash, flash_toasts, take_flash, toast_name};
+use crate::flash::{Flash, flash_toast, flash_toasts, take_flash};
 use crate::layout::page_heading::page_heading;
 use crate::passkeys::actions::passkey_prompt_due;
 use crate::passkeys::actions::{PromptAnswer, answer_passkey_prompt};
@@ -50,7 +50,7 @@ pub async fn passkey_setup_page(cx: &Cx) -> Result<impl View> {
     }
 
     let flash = take_flash(cx, FLASHES).await?;
-    let toast = signal(cx, || toast_name(flash).to_string());
+    let toast = flash_toast(cx, flash);
     let is_skipping = signal(cx, || false);
     let is_declining = signal(cx, || false);
     let passkeys_href = AccountSection::Passkeys.path();

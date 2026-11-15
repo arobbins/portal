@@ -18,7 +18,7 @@ use crate::env::Env;
 use crate::web::env;
 
 pub const PROTOCOL_VERSION: &str = "2025-06-18";
-const SUPPORTED_VERSIONS: &[&str] = &["2025-06-18", "2025-03-26"];
+const SUPPORTED_VERSIONS: &[&str] = &[PROTOCOL_VERSION, "2025-03-26"];
 
 const PARSE_ERROR: i64 = -32700;
 const INVALID_REQUEST: i64 = -32600;

@@ -12,6 +12,7 @@ use topcoat::{
     view::{View, ViewExt, attributes, view},
 };
 
+use super::switch_link::switch_link;
 use crate::action::{ActionProblem, page_status};
 use crate::app::page_title;
 use crate::auth::actions::{
@@ -28,7 +29,7 @@ use crate::components::button::{ButtonType, button};
 use crate::components::form::{
     Autocomplete, FormVariant, InputType, form, form_actions, form_error, form_field,
 };
-use crate::flash::{Flash, flash_toasts, set_flash, take_flash, toast_name};
+use crate::flash::{Flash, flash_toast, flash_toasts, set_flash, take_flash};
 use crate::layout::page_heading::page_heading;
 use crate::web::{env, redisplay, session};
 
@@ -56,7 +57,8 @@ pub async fn reset_password_page(cx: &Cx) -> Result<impl View> {
     let email = failed.map(|failed| failed.email.clone());
     let problem = failed.map(|failed| failed.problem);
     let is_submitting = signal(cx, || false);
-    let toast = signal(cx, || toast_name(flash).to_string());
+    let toast = flash_toast(cx, flash);
+    let login_href = href!(login_page).resolve(cx);
 
     Ok(view! {
         <section class="l-contain l-skinny">
@@ -94,12 +96,11 @@ pub async fn reset_password_page(cx: &Cx) -> Result<impl View> {
                     )
                 )
             )
-            <p class="p-auth__switch">
-                "Do you remember? "
-                <a class="p-auth__switch-link" href=(href!(login_page).resolve(cx))>
-                    "Sign in instead"
-                </a>
-            </p>
+            switch_link(
+                prompt: "Do you remember? ",
+                href: &login_href,
+                label: "Sign in instead"
+            )
         </section>
     })
 }

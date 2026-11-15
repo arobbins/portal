@@ -1,6 +1,13 @@
 use std::net::{IpAddr, Ipv4Addr};
 
-use sqlx::{PgExecutor, PgPool};
+use sqlx::PgPool;
+
+mod queries;
+
+use queries::{
+    query_count_rate_limit_hits, query_delete_old_rate_limit_hits, query_delete_rate_limit_hits,
+    query_insert_rate_limit_hit, query_take_rate_limit_slot,
+};
 
 const UNKNOWN_IP: IpAddr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
 const RELAXED_SCALE: u32 = 1000;
@@ -87,6 +94,10 @@ fn ip_key(ip: Option<IpAddr>) -> String {
     ip.unwrap_or(UNKNOWN_IP).to_string()
 }
 
+fn failed_login_key(email: &str, ip: Option<IpAddr>) -> String {
+    format!("{} {}", account_key(email), ip_key(ip))
+}
+
 fn account_key(email: &str) -> String {
     email
         .trim()
@@ -151,14 +162,15 @@ impl RateLimits {
         email: &str,
         ip: Option<IpAddr>,
     ) -> Result<bool, sqlx::Error> {
-        let account = account_key(email);
         Ok(self
             .blocked(
                 Limit::FailedLoginsByAccountAndIp,
-                &format!("{account} {}", ip_key(ip)),
+                &failed_login_key(email, ip),
             )
             .await?
-            || self.blocked(Limit::FailedLoginsByAccount, &account).await?)
+            || self
+                .blocked(Limit::FailedLoginsByAccount, &account_key(email))
+                .await?)
     }
 
     pub async fn record_failed_login(
@@ -166,13 +178,13 @@ impl RateLimits {
         email: &str,
         ip: Option<IpAddr>,
     ) -> Result<(), sqlx::Error> {
-        let account = account_key(email);
         self.record(
             Limit::FailedLoginsByAccountAndIp,
-            &format!("{account} {}", ip_key(ip)),
+            &failed_login_key(email, ip),
         )
         .await?;
-        self.record(Limit::FailedLoginsByAccount, &account).await
+        self.record(Limit::FailedLoginsByAccount, &account_key(email))
+            .await
     }
 
     pub async fn clear_failed_logins(
@@ -180,7 +192,7 @@ impl RateLimits {
         email: &str,
         ip: Option<IpAddr>,
     ) -> Result<(), sqlx::Error> {
-        let key = format!("{} {}", account_key(email), ip_key(ip));
+        let key = failed_login_key(email, ip);
         query_delete_rate_limit_hits(Limit::FailedLoginsByAccountAndIp.bucket(), &key, &self.db)
             .await
     }
@@ -196,92 +208,6 @@ impl RateLimits {
     pub async fn record_failed_api_auth(&self, ip: Option<IpAddr>) -> Result<(), sqlx::Error> {
         self.record(Limit::FailedApiAuthByIp, &ip_key(ip)).await
     }
-}
-
-async fn query_take_rate_limit_slot(
-    bucket: &str,
-    key: &str,
-    window_seconds: f64,
-    max: i64,
-    db: impl PgExecutor<'_>,
-) -> Result<bool, sqlx::Error> {
-    let taken = sqlx::query_scalar!(
-        r#"WITH recent AS (
-            SELECT count(*) AS hits FROM rate_limit_hits
-            WHERE bucket = $1 AND key = $2 AND at > now() - make_interval(secs => $3)
-        )
-        INSERT INTO rate_limit_hits (bucket, key)
-        SELECT $1, $2 FROM recent WHERE recent.hits < $4
-        RETURNING 1 AS "taken!""#,
-        bucket,
-        key,
-        window_seconds,
-        max,
-    )
-    .fetch_optional(db)
-    .await?;
-
-    Ok(taken.is_some())
-}
-
-async fn query_count_rate_limit_hits(
-    bucket: &str,
-    key: &str,
-    window_seconds: f64,
-    db: impl PgExecutor<'_>,
-) -> Result<i64, sqlx::Error> {
-    sqlx::query_scalar!(
-        r#"SELECT count(*) AS "hits!" FROM rate_limit_hits
-        WHERE bucket = $1 AND key = $2 AND at > now() - make_interval(secs => $3)"#,
-        bucket,
-        key,
-        window_seconds,
-    )
-    .fetch_one(db)
-    .await
-}
-
-async fn query_insert_rate_limit_hit(
-    bucket: &str,
-    key: &str,
-    db: impl PgExecutor<'_>,
-) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        "INSERT INTO rate_limit_hits (bucket, key) VALUES ($1, $2)",
-        bucket,
-        key,
-    )
-    .execute(db)
-    .await?;
-
-    Ok(())
-}
-
-async fn query_delete_rate_limit_hits(
-    bucket: &str,
-    key: &str,
-    db: impl PgExecutor<'_>,
-) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        "DELETE FROM rate_limit_hits WHERE bucket = $1 AND key = $2",
-        bucket,
-        key,
-    )
-    .execute(db)
-    .await?;
-
-    Ok(())
-}
-
-async fn query_delete_old_rate_limit_hits(
-    cutoff: time::OffsetDateTime,
-    db: impl PgExecutor<'_>,
-) -> Result<u64, sqlx::Error> {
-    let result = sqlx::query!("DELETE FROM rate_limit_hits WHERE at < $1", cutoff)
-        .execute(db)
-        .await?;
-
-    Ok(result.rows_affected())
 }
 
 #[cfg(test)]

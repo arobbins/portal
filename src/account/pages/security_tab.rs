@@ -14,13 +14,16 @@ use crate::auth::password::{CONFIRMATION_FIELD, CURRENT_PASSWORD_FIELD, PASSWORD
 use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
 use crate::components::card::{card, card_body, card_header};
 use crate::components::form::{Autocomplete, InputType, form, form_actions, form_field};
-use crate::components::form::{DialogForm, dialog_error_toast, dialog_form_error, dialog_input};
+use crate::components::form::{
+    DialogForm, dialog_error_toast, dialog_form_error, dialog_input, page_toast,
+};
 use crate::components::icon::{IconName, icon};
 use crate::components::modal::modal;
 use crate::components::toaster::NO_TOAST;
-use crate::flash::{Flash, flash_toasts, take_flash, toast_name};
+use crate::flash::{Flash, flash_toasts, take_flash};
 use crate::layout::page_heading::{PageHeadingVariant, page_heading};
-use crate::passkeys::pages::passkeys_card::{passkeys_card, rename_problem};
+use crate::passkeys::pages::passkey_routes::rename_problem;
+use crate::passkeys::pages::passkeys_card::passkeys_card;
 
 const MODAL_ID: &str = "change-password";
 const FLASHES: &[Flash] = &[
@@ -29,7 +32,6 @@ const FLASHES: &[Flash] = &[
     Flash::PasskeyRenamed,
     Flash::PasskeyRemoved,
 ];
-const ERROR_TOAST: &str = "error";
 const UNREACHABLE: &str = "We couldn't change your password. Please try again.";
 
 struct PasswordDrafts {
@@ -61,12 +63,7 @@ pub async fn security_tab(cx: &Cx) -> Result<impl View> {
         failure.and_then(|spec| spec.field).unwrap_or_default(),
         failure.map_or("", |spec| spec.message),
     );
-    let initial_toast = if failure.is_some() {
-        ERROR_TOAST
-    } else {
-        toast_name(flash)
-    };
-    let toast = signal(cx, || initial_toast.to_string());
+    let toast = page_toast(cx, failure.is_some(), flash);
     let drafts = PasswordDrafts::new(cx);
 
     Ok(view! {
@@ -86,7 +83,7 @@ pub async fn security_tab(cx: &Cx) -> Result<impl View> {
             )
             change_password_dialog(form: &form, drafts: &drafts, toast: &toast)
             flash_toasts(toast: &toast, flashes: FLASHES)
-            dialog_error_toast(form: &form, toast: &toast, name: ERROR_TOAST)
+            dialog_error_toast(form: &form, toast: &toast)
         </div>
     })
 }

@@ -11,6 +11,7 @@ use topcoat::{
     view::{View, attributes, view},
 };
 
+use super::switch_link::switch_link;
 use crate::action::{ActionProblem, page_status};
 use crate::app::page_title;
 use crate::auth::actions::{EMAIL_FIELD, SignIn, SignInProblem, sign_in_with_password};
@@ -43,6 +44,7 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
     let is_submitting = signal(cx, || false);
     let invalid_credentials = problem == Some(SignInProblem::InvalidCredentials);
     let reset_href = href!(reset_password_page).resolve(cx);
+    let register_href = href!(register_page).resolve(cx);
 
     Ok(view! {
         <section class="l-contain l-skinny">
@@ -96,12 +98,11 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
                 )
                 form_error(id: Some(PASSKEY_ERROR_ID), hidden: true, "")
             </div>
-            <p class="p-auth__switch">
-                "Don't have an account yet? "
-                <a class="p-auth__switch-link" href=(href!(register_page).resolve(cx))>
-                    "Register"
-                </a>
-            </p>
+            switch_link(
+                prompt: "Don't have an account yet? ",
+                href: &register_href,
+                label: "Register"
+            )
         </section>
     })
 }

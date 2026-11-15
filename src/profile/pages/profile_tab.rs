@@ -1,30 +1,26 @@
 use topcoat::{
     Result,
     context::{Cx, try_context},
-    router::{
-        content::Form,
-        error::{SeeOther, see_other},
-        href, route,
-    },
-    runtime::{Event, Signal, procedure, signal},
+    router::href,
+    runtime::{Event, Signal, signal},
     view::{View, attributes, component, view},
 };
 
-use crate::account::tabs::AccountTab;
-use crate::action::{ActionProblem, FieldError, browser_caller, require_browser_caller};
+use super::profile_routes::{ProfileUpdateFailed, save_profile_name, update_profile_submit};
+use crate::action::{ActionProblem, FieldError};
 use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
 use crate::components::card::{card, card_body, card_header};
 use crate::components::form::{Autocomplete, form, form_actions, form_field};
-use crate::components::form::{DialogForm, dialog_error_toast, dialog_form_error, dialog_input};
+use crate::components::form::{
+    DialogForm, dialog_error_toast, dialog_form_error, dialog_input, page_toast,
+};
 use crate::components::icon::{IconName, icon};
 use crate::components::modal::modal;
 use crate::components::toaster::NO_TOAST;
-use crate::flash::{Flash, flash_toasts, set_flash, take_flash, toast_name};
+use crate::flash::{Flash, flash_toasts, take_flash};
 use crate::layout::page_heading::{PageHeadingVariant, page_heading};
-use crate::profile::actions::{UpdateProfile, update_profile};
 use crate::user::model::User;
-use crate::user::name::{NAME_FIELD, NameProblem};
-use crate::web::{env, redisplay, session};
+use crate::user::name::NAME_FIELD;
 
 const MODAL_ID: &str = "edit-profile";
 const FLASHES: &[Flash] = &[
@@ -32,13 +28,7 @@ const FLASHES: &[Flash] = &[
     Flash::EmailConfirmed,
     Flash::PasswordReset,
 ];
-const ERROR_TOAST: &str = "error";
 const UNREACHABLE: &str = "We couldn't save your profile. Please try again.";
-
-struct ProfileUpdateFailed {
-    name: String,
-    problem: NameProblem,
-}
 
 struct NameDrafts {
     value: Signal<String>,
@@ -51,12 +41,7 @@ pub async fn profile_tab(cx: &Cx, user: &User, display_name: &Signal<String>) ->
     let failed = try_context::<ProfileUpdateFailed>(cx);
     let name = failed.map_or_else(|| user.name.clone(), |failed| failed.name.clone());
     let form = DialogForm::new(cx, "", failed.map_or("", |failed| failed.problem.message()));
-    let initial_toast = if failed.is_some() {
-        ERROR_TOAST
-    } else {
-        toast_name(flash)
-    };
-    let toast = signal(cx, || initial_toast.to_string());
+    let toast = page_toast(cx, failed.is_some(), flash);
     let drafts = NameDrafts {
         value: signal(cx, || name.clone()),
         draft: signal(cx, || name.clone()),
@@ -78,7 +63,7 @@ pub async fn profile_tab(cx: &Cx, user: &User, display_name: &Signal<String>) ->
                 toast: &toast
             )
             flash_toasts(toast: &toast, flashes: FLASHES)
-            dialog_error_toast(form: &form, toast: &toast, name: ERROR_TOAST)
+            dialog_error_toast(form: &form, toast: &toast)
         </div>
     })
 }
@@ -200,36 +185,4 @@ async fn edit_profile_dialog(
             )
         )
     })
-}
-
-#[procedure]
-async fn save_profile_name(cx: &Cx, name: String) -> Result<Result<String, FieldError>> {
-    let Some(caller) = browser_caller(cx) else {
-        return Ok(Err(FieldError::session_expired()));
-    };
-
-    match update_profile(&env(cx), &caller, &UpdateProfile { name }).await? {
-        Ok(profile) => Ok(Ok(profile.name)),
-        Err(error) => Ok(Err(FieldError::of(error.for_browser()?))),
-    }
-}
-
-#[route(POST "/account/profile/update")]
-pub async fn update_profile_submit(cx: &Cx, Form(input): Form<UpdateProfile>) -> Result<SeeOther> {
-    let caller = require_browser_caller(cx)?;
-
-    match update_profile(&env(cx), &caller, &input).await? {
-        Ok(_) => {
-            set_flash(&session(cx)?, Flash::ProfileSaved).await?;
-            Ok(see_other(AccountTab::Profile.path()))
-        }
-        Err(error) => {
-            let problem = error.for_browser()?;
-            let failed = ProfileUpdateFailed {
-                name: input.name,
-                problem,
-            };
-            Err(redisplay(AccountTab::Profile.path(), failed))
-        }
-    }
 }

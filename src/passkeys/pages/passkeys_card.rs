@@ -1,16 +1,14 @@
 use topcoat::{
     Result,
-    context::{Cx, try_context},
-    router::{
-        content::Form,
-        error::{SeeOther, not_found, see_other},
-        href, route,
-    },
+    context::Cx,
+    router::href,
     runtime::signal,
     view::{View, attributes, component, view},
 };
 
-use crate::account::tabs::{AccountSection, AccountTab};
+use super::passkey_routes::{remove_passkey_submit, rename_passkey_submit};
+use super::passkey_view::PasskeyRow;
+use crate::account::tabs::AccountSection;
 use crate::action::{ID_FIELD, require_browser_caller};
 use crate::auth::password::CURRENT_PASSWORD_FIELD;
 use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
@@ -23,47 +21,14 @@ use crate::components::modal::modal;
 use crate::components::notice::notice;
 use crate::components::property_list::{PropertyTag, property, property_list};
 use crate::components::tone::Tone;
-use crate::flash::{Flash, set_flash};
-use crate::passkeys::actions::{
-    RemovePasskey, RenamePasskey, RenamePasskeyProblem, list_passkeys, remove_passkey,
-    rename_passkey,
-};
-use crate::passkeys::queries::Passkey;
+use crate::passkeys::actions::list_passkeys;
 use crate::user::name::{MAX_NAME_LENGTH, NAME_FIELD};
-use crate::utils::format_date;
-use crate::web::{env, redisplay, session};
+use crate::web::env;
 
 const ADD_MODAL: &str = "add-passkey";
 const RENAME_MODAL: &str = "rename-passkey";
 const REMOVE_MODAL: &str = "remove-passkey";
 pub const ADD_ERROR_ID: &str = "add-passkey-error";
-
-pub struct PasskeyRenameFailed {
-    pub problem: RenamePasskeyProblem,
-}
-
-struct PasskeyRow {
-    id: String,
-    name: String,
-    synced: bool,
-    summary: String,
-}
-
-impl PasskeyRow {
-    fn from_passkey(passkey: &Passkey) -> Self {
-        let last_used = passkey.last_used_at.map_or_else(
-            || "never used".to_string(),
-            |at| format!("last used {}", format_date(at)),
-        );
-
-        Self {
-            id: passkey.public_id.clone(),
-            name: passkey.name.clone(),
-            synced: passkey.backed_up,
-            summary: format!("Added {} · {last_used}", format_date(passkey.created_at)),
-        }
-    }
-}
 
 #[component]
 pub async fn passkeys_card(cx: &Cx) -> Result<impl View> {
@@ -239,40 +204,4 @@ async fn passkey_dialogs(cx: &Cx, row: &PasskeyRow, only_one: bool) -> Result<im
             )
         )
     })
-}
-
-#[route(POST "/account/passkeys/rename")]
-pub async fn rename_passkey_submit(cx: &Cx, Form(input): Form<RenamePasskey>) -> Result<SeeOther> {
-    let caller = require_browser_caller(cx)?;
-
-    match rename_passkey(&env(cx), &caller, &input).await? {
-        Ok(()) => {
-            set_flash(&session(cx)?, Flash::PasskeyRenamed).await?;
-            Ok(see_other(AccountSection::Passkeys.path()))
-        }
-        Err(error) => match error.for_browser()? {
-            RenamePasskeyProblem::NotFound => Err(not_found().into()),
-            problem => Err(redisplay(
-                AccountTab::Security.path(),
-                PasskeyRenameFailed { problem },
-            )),
-        },
-    }
-}
-
-#[route(POST "/account/passkeys/remove")]
-pub async fn remove_passkey_submit(cx: &Cx, Form(input): Form<RemovePasskey>) -> Result<SeeOther> {
-    let caller = require_browser_caller(cx)?;
-
-    if let Err(error) = remove_passkey(&env(cx), &caller, &input).await? {
-        error.for_browser()?;
-        return Err(not_found().into());
-    }
-    set_flash(&session(cx)?, Flash::PasskeyRemoved).await?;
-
-    Ok(see_other(AccountSection::Passkeys.path()))
-}
-
-pub fn rename_problem(cx: &Cx) -> Option<RenamePasskeyProblem> {
-    try_context::<PasskeyRenameFailed>(cx).map(|failed| failed.problem)
 }

@@ -2,17 +2,14 @@ use topcoat::{
     Result,
     context::Cx,
     router::href,
-    runtime::{Event, Signal, procedure},
+    runtime::{Event, Signal},
     view::{View, attributes, component, view},
 };
 
 use super::token_fields::{TokenDrafts, choice_fields};
-use super::token_routes::create_api_token_submit;
+use super::token_routes::{create_api_token_js, create_api_token_submit};
 use crate::account::tabs::AccountTab;
-use crate::action::{FieldError, browser_caller};
-use crate::api::scope::{ApiScope, TokenAudience};
-use crate::api_tokens::actions::{CreateToken, CreateTokenProblem, create_api_token};
-use crate::api_tokens::lifetime::TokenLifetime;
+use crate::action::FieldError;
 use crate::auth::password::CURRENT_PASSWORD_FIELD;
 use crate::components::button::{ButtonType, button};
 use crate::components::copy_field::copy_field;
@@ -23,7 +20,6 @@ use crate::components::notice::notice;
 use crate::components::toaster::NO_TOAST;
 use crate::components::tone::Tone;
 use crate::user::name::{MAX_NAME_LENGTH, NAME_FIELD};
-use crate::web::env;
 
 pub(super) const CREATE_MODAL: &str = "create-api-token";
 const UNREACHABLE: &str = "We couldn't create the token. Please try again.";
@@ -192,37 +188,4 @@ async fn new_token_reveal(cx: &Cx, created: &Signal<String>) -> Result<impl View
             form_actions(button(button_type: ButtonType::Submit, "Done"))
         )
     })
-}
-
-#[procedure]
-async fn create_api_token_js(
-    cx: &Cx,
-    name: String,
-    access: String,
-    lifetime: String,
-    audience: String,
-    current_password: String,
-) -> Result<Result<String, FieldError>> {
-    let Some(caller) = browser_caller(cx) else {
-        return Ok(Err(FieldError::session_expired()));
-    };
-    let (Ok(access), Ok(lifetime), Some(audience)) = (
-        serde_json::from_value::<ApiScope>(access.into()),
-        serde_json::from_value::<TokenLifetime>(lifetime.into()),
-        TokenAudience::from_str(&audience),
-    ) else {
-        return Ok(Err(FieldError::of(CreateTokenProblem::UnknownAccess)));
-    };
-    let input = CreateToken {
-        name,
-        access,
-        lifetime,
-        audience,
-        current_password,
-    };
-
-    match create_api_token(&env(cx), &caller, &input).await? {
-        Ok(token) => Ok(Ok(token)),
-        Err(error) => Ok(Err(FieldError::of(error.for_browser()?))),
-    }
 }

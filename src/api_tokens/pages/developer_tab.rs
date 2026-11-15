@@ -1,7 +1,6 @@
 use topcoat::{
     Result,
     context::{Cx, try_context},
-    runtime::signal,
     view::{View, component, view},
 };
 
@@ -12,13 +11,12 @@ use super::token_routes::{CreateTokenFailed, TokenCreated};
 use super::token_view::TokenRow;
 use crate::action::{ActionProblem, require_browser_caller};
 use crate::api_tokens::actions::list_api_tokens;
-use crate::components::form::{DialogForm, dialog_error_toast};
-use crate::flash::{Flash, flash_toasts, take_flash, toast_name};
+use crate::components::form::{DialogForm, dialog_error_toast, page_toast};
+use crate::flash::{Flash, flash_toasts, take_flash};
 use crate::layout::page_heading::{PageHeadingVariant, page_heading};
 use crate::web::env;
 
 const FLASHES: &[Flash] = &[Flash::ApiTokenRevoked];
-const ERROR_TOAST: &str = "error";
 
 #[component]
 pub async fn developer_tab(cx: &Cx) -> Result<impl View> {
@@ -27,12 +25,7 @@ pub async fn developer_tab(cx: &Cx) -> Result<impl View> {
     let failed = try_context::<CreateTokenFailed>(cx).map(|failed| failed.problem);
     let created = try_context::<TokenCreated>(cx).map(|created| created.token.clone());
     let form = DialogForm::new(cx, "", failed.map_or("", ActionProblem::message));
-    let initial_toast = if failed.is_some() {
-        ERROR_TOAST
-    } else {
-        toast_name(flash)
-    };
-    let toast = signal(cx, || initial_toast.to_string());
+    let toast = page_toast(cx, failed.is_some(), flash);
     let drafts = TokenDrafts::new(cx);
 
     Ok(view! {
@@ -44,7 +37,7 @@ pub async fn developer_tab(cx: &Cx) -> Result<impl View> {
             tokens_card(rows: &rows, form: &form, drafts: &drafts)
             create_token_dialog(form: &form, drafts: &drafts, toast: &toast)
             flash_toasts(toast: &toast, flashes: FLASHES)
-            dialog_error_toast(form: &form, toast: &toast, name: ERROR_TOAST)
+            dialog_error_toast(form: &form, toast: &toast)
         </div>
     })
 }

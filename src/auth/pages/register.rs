@@ -20,7 +20,7 @@ use crate::components::button::{ButtonType, button};
 use crate::components::form::{
     Autocomplete, FormVariant, InputType, form, form_actions, form_error, form_field,
 };
-use crate::flash::{Flash, flash_toasts, set_flash, take_flash, toast_name};
+use crate::flash::{Flash, flash_toast, flash_toasts, set_flash, take_flash};
 use crate::layout::page_heading::page_heading;
 use crate::user::name::NAME_FIELD;
 use crate::web::{env, redisplay, session};
@@ -51,7 +51,7 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
     let email = failed.map(|failed| failed.email.clone());
     let problem = failed.map(|failed| failed.problem);
     let is_submitting = signal(cx, || false);
-    let toast = signal(cx, || toast_name(flash).to_string());
+    let toast = flash_toast(cx, flash);
 
     Ok(view! {
         <section class="l-contain l-skinny">

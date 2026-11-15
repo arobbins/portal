@@ -1,7 +1,7 @@
 ---
 name: convention-reviewer
 description: Read-only reviewer that checks a finished change in this repo against the project's own rules in CLAUDE.md (security invariants, state, Topcoat, CSS, forms, tests). Use after a non-trivial change and before reporting it done; pass it what changed and why.
-model: opus
+model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -49,7 +49,7 @@ Actions and API
   integer id, and are always filtered by `caller.owner_id()`.
 
 State and structure
-- States with more than two values are enums; new state appears in the CLAUDE.md table.
+- States with more than two values are enums; new state appears in `.claude/state-machines.md`.
 - Failure reasons are `*Problem` enums with `message()`/`status()`; no comparing message text.
 - Feature code lives in its feature module (`auth`, `passkeys`, `profile`, `api_tokens`,
   `account`); `user/` is only the user model, its queries, names and events; `api/` is only

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use topcoat::{
     Result,
     context::Cx,
-    runtime::Signal,
+    runtime::{Signal, signal},
     view::{View, component, view},
 };
 use tower_sessions::Session;
@@ -63,8 +63,9 @@ impl Flash {
     }
 }
 
-pub fn toast_name(flash: Option<Flash>) -> &'static str {
-    flash.map_or(NO_TOAST, Flash::name)
+pub fn flash_toast(cx: &Cx, flash: Option<Flash>) -> Signal<String> {
+    let name = flash.map_or(NO_TOAST, Flash::name);
+    signal(cx, move || name.to_string())
 }
 
 #[component]

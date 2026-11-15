@@ -7,14 +7,15 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 
 MAX_FUNCTION_LINES = 40
-MAX_VIEW_LINES = 80
-MAX_FILE_LINES = 300
+MAX_VIEW_LINES = 75
+MAX_FILE_LINES = 275
 
 VIEW_ATTRIBUTES = ("#[component", "#[page", "#[layout")
 FEATURES = ("auth", "passkeys", "profile", "api_tokens", "account")
 INFRASTRUCTURE = ("action", "env", "jobs", "mail", "rate_limit", "web", "secret", "flash", "permission")
 FN = re.compile(r"^\s*(?:pub(?:\([\w:]+\))? )?(?:async )?fn (\w+)")
 COMPOSITION = {"src/web/middleware.rs"}
+VIEW_FILE = re.compile(r"_(tab|card|dialog)\.rs$")
 TEST_MODULE = re.compile(r"^#\[cfg\(test\)\]\n(?:pub )?mod tests", re.M)
 
 
@@ -105,6 +106,8 @@ def boundary_problems(path, lines):
         yield f"{name}: delete dead code (or gate it with `#[cfg(test)]`) instead of `#[allow(dead_code)]`"
     if re.search(r"^pub mod queries;", code, re.M) and name != "src/user.rs":
         yield f"{name}: keep `mod queries` private; other features call a function the feature exposes"
+    if VIEW_FILE.search(name) and re.search(r"^#\[(route|procedure)\b", code, re.M):
+        yield f"{name}: tabs, cards and dialogs only render; move routes and procedures to a `*_routes.rs` file"
     if module_of(path) in INFRASTRUCTURE and name not in COMPOSITION:
         for feature in FEATURES:
             if re.search(rf"\bcrate::{feature}\b", code):

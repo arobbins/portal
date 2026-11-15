@@ -6,13 +6,16 @@ use topcoat::{
         error::{SeeOther, not_found, see_other},
         route,
     },
+    runtime::procedure,
 };
 
 use crate::account::tabs::{AccountSection, AccountTab};
-use crate::action::require_browser_caller;
+use crate::action::{FieldError, browser_caller, require_browser_caller};
+use crate::api::scope::{ApiScope, TokenAudience};
 use crate::api_tokens::actions::{
     CreateToken, CreateTokenProblem, RevokeToken, create_api_token, revoke_api_token,
 };
+use crate::api_tokens::lifetime::TokenLifetime;
 use crate::flash::{Flash, set_flash};
 use crate::web::{env, redisplay, session};
 
@@ -49,4 +52,37 @@ pub async fn revoke_api_token_submit(cx: &Cx, Form(input): Form<RevokeToken>) ->
     set_flash(&session(cx)?, Flash::ApiTokenRevoked).await?;
 
     Ok(see_other(AccountSection::ApiTokens.path()))
+}
+
+#[procedure]
+pub(super) async fn create_api_token_js(
+    cx: &Cx,
+    name: String,
+    access: String,
+    lifetime: String,
+    audience: String,
+    current_password: String,
+) -> Result<Result<String, FieldError>> {
+    let Some(caller) = browser_caller(cx) else {
+        return Ok(Err(FieldError::session_expired()));
+    };
+    let (Ok(access), Ok(lifetime), Some(audience)) = (
+        serde_json::from_value::<ApiScope>(access.into()),
+        serde_json::from_value::<TokenLifetime>(lifetime.into()),
+        TokenAudience::from_str(&audience),
+    ) else {
+        return Ok(Err(FieldError::of(CreateTokenProblem::UnknownAccess)));
+    };
+    let input = CreateToken {
+        name,
+        access,
+        lifetime,
+        audience,
+        current_password,
+    };
+
+    match create_api_token(&env(cx), &caller, &input).await? {
+        Ok(token) => Ok(Ok(token)),
+        Err(error) => Ok(Err(FieldError::of(error.for_browser()?))),
+    }
 }

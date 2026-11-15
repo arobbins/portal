@@ -45,6 +45,7 @@ paths:
   field, message)` holds the error field, error message and busy signals;
   inputs spread `dialog_input(cx, &form, FIELD, &value, &draft)`, the error
   is `dialog_form_error(form: &form)` and the no-JS fallback's error toast is
-  `dialog_error_toast(form: &form, toast: &toast, name: ERROR_TOAST)`.
+  `dialog_error_toast(form: &form, toast: &toast)`, with the page's toast
+  signal from `page_toast(cx, failed.is_some(), flash)`.
 - The full recipe for a new form (page, POST route, problem enum, modal +
   procedure) is the `new-form-flow` skill.

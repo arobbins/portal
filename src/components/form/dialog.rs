@@ -9,6 +9,9 @@ use super::layout::form_error;
 use super::types::FORM_ERROR_ID;
 use crate::components::toaster::toaster;
 use crate::components::tone::Tone;
+use crate::flash::{Flash, flash_toast};
+
+const DIALOG_ERROR_TOAST: &str = "error";
 
 pub struct DialogForm {
     pub error_field: Signal<String>,
@@ -24,6 +27,14 @@ impl DialogForm {
             error_message: signal(cx, move || message),
             is_submitting: signal(cx, || false),
         }
+    }
+}
+
+pub fn page_toast(cx: &Cx, form_failed: bool, flash: Option<Flash>) -> Signal<String> {
+    if form_failed {
+        signal(cx, || DIALOG_ERROR_TOAST.to_string())
+    } else {
+        flash_toast(cx, flash)
     }
 }
 
@@ -59,11 +70,15 @@ pub async fn dialog_error_toast(
     cx: &Cx,
     form: &DialogForm,
     toast: &Signal<String>,
-    name: &str,
 ) -> Result<impl View> {
     let error_message = &form.error_message;
 
     Ok(view! {
-        toaster(toast: toast, name: name, tone: Tone::Error, $(error_message.get()))
+        toaster(
+            toast: toast,
+            name: DIALOG_ERROR_TOAST,
+            tone: Tone::Error,
+            $(error_message.get())
+        )
     })
 }
