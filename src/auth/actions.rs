@@ -1,10 +1,16 @@
+mod change_email;
 mod change_password;
+mod confirm_email;
 mod link_password;
 mod password_reset;
 mod register;
 mod sign_in;
 
+pub use change_email::{
+    ChangeEmail, ChangeEmailProblem, EmailChangeJob, NEW_EMAIL_FIELD, request_email_change,
+};
 pub use change_password::{ChangePassword, ChangePasswordProblem, change_password};
+pub use confirm_email::{ConfirmEmailProblem, confirm_email_change, pending_email_change};
 pub use link_password::{LinkPasswordProblem, NewPassword, link_is_valid, set_password_from_link};
 pub use password_reset::{
     PasswordResetJob, RequestPasswordReset, ResetRequestProblem, request_password_reset,

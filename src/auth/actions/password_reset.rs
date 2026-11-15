@@ -72,6 +72,7 @@ impl Job for PasswordResetJob {
                 let link = NewLink {
                     user_id: user.id,
                     purpose: TokenPurpose::PasswordReset,
+                    payload: None,
                     email: &|url| password_reset_email(&user.email, url),
                 };
                 Ok(email_user_link(app, link).await?)

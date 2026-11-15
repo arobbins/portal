@@ -29,6 +29,24 @@ Passkeys card in `passkeys/pages/passkeys_card.rs`, built on `webauthn-rs`:
   `revoke_passkey_prompt`): issued for one user, for 5 minutes, only when a
   password sign-in shows the prompt; cleared by `sign_in`, by answering the
   prompt and by adding a passkey.
+- **Confirming it's you** (`passkeys/actions/verify.rs`, browser-only
+  `Permission::ConfirmIdentity`): `POST /passkeys/verify/{start,finish}` run
+  a non-discoverable, user-verified request for the signed-in user's own
+  passkeys (start uses the passkey challenge limit, finish the password
+  limiter and account lockout). Success stores a `PasskeyReauth` grant in
+  the session (`auth/reauth.rs`: user, `session_version`, 5 minutes). Routes
+  `take_passkey_proof` (removes it, so two requests can't both use it) and
+  pass the `PasskeyProof` to the action, which calls `check_reauth(env,
+  user, password, proof)`; if the action fails, `return_passkey_proof` puts
+  it back so the user can fix the form without another tap. A proof isn't
+  tied to one action: one tap covers whichever confirmed action runs next.
+  Removing a passkey `forget_passkey_proof`s, and a valid proof wins over
+  whatever was typed in the password field. Dialogs
+  render the password through `auth::pages::reauth_field`, which adds "Use a
+  passkey instead" when the user has a passkey; `passkeys.js` runs the
+  request, hides and disables the password, then `requestSubmit`s the form,
+  and puts the password back when the dialog closes. Used by Change email
+  and Create API token; Change password and Add passkey keep the password.
 - Registration overrides the library's options to `residentKey: required`
   (passkeys must be discoverable). Sign-in is discoverable (no email typed):
   the login page starts conditional mediation (autofill on the

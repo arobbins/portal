@@ -6,6 +6,7 @@ pub struct NewUserToken<'a> {
     pub user_id: i32,
     pub purpose: TokenPurpose,
     pub token_hash: &'a str,
+    pub payload: Option<&'a str>,
     pub expires_at: time::OffsetDateTime,
 }
 
@@ -14,10 +15,11 @@ pub async fn query_insert_user_token(
     db: impl PgExecutor<'_>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "INSERT INTO user_tokens (user_id, purpose, token_hash, expires_at) VALUES ($1, $2, $3, $4)",
+        "INSERT INTO user_tokens (user_id, purpose, token_hash, payload, expires_at) VALUES ($1, $2, $3, $4, $5)",
         token.user_id,
         token.purpose.as_str(),
         token.token_hash,
+        token.payload,
         token.expires_at,
     )
     .execute(db)
@@ -33,6 +35,41 @@ pub async fn query_get_valid_user_token(
 ) -> Result<Option<i32>, sqlx::Error> {
     sqlx::query_scalar!(
         "SELECT user_id FROM user_tokens WHERE purpose = $1 AND token_hash = $2 AND expires_at > now()",
+        purpose.as_str(),
+        token_hash,
+    )
+    .fetch_optional(db)
+    .await
+}
+
+pub struct LinkPayload {
+    pub user_id: i32,
+    pub payload: String,
+}
+
+pub async fn query_get_valid_user_token_payload(
+    purpose: TokenPurpose,
+    token_hash: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<Option<LinkPayload>, sqlx::Error> {
+    sqlx::query_as!(
+        LinkPayload,
+        r#"SELECT user_id, payload AS "payload!" FROM user_tokens WHERE purpose = $1 AND token_hash = $2 AND expires_at > now() AND payload IS NOT NULL"#,
+        purpose.as_str(),
+        token_hash,
+    )
+    .fetch_optional(db)
+    .await
+}
+
+pub async fn query_consume_user_token_payload(
+    purpose: TokenPurpose,
+    token_hash: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<Option<LinkPayload>, sqlx::Error> {
+    sqlx::query_as!(
+        LinkPayload,
+        r#"DELETE FROM user_tokens WHERE purpose = $1 AND token_hash = $2 AND expires_at > now() AND payload IS NOT NULL RETURNING user_id, payload AS "payload!""#,
         purpose.as_str(),
         token_hash,
     )

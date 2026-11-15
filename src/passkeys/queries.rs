@@ -38,6 +38,18 @@ pub async fn query_list_passkeys(
     .await
 }
 
+pub async fn query_user_has_passkey(
+    user_id: i32,
+    db: impl PgExecutor<'_>,
+) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar!(
+        r#"SELECT EXISTS (SELECT 1 FROM user_passkeys WHERE user_id = $1) AS "exists!""#,
+        user_id,
+    )
+    .fetch_one(db)
+    .await
+}
+
 pub async fn query_get_passkey_by_credential(
     user_id: i32,
     credential_id: &[u8],

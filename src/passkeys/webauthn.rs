@@ -17,6 +17,7 @@ use crate::user::model::User;
 const CEREMONY_LIFETIME: Duration = Duration::from_secs(10 * 60);
 pub const REGISTRATION_STATE: &str = "passkey_registration";
 pub const AUTHENTICATION_STATE: &str = "passkey_authentication";
+pub const VERIFICATION_STATE: &str = "passkey_verification";
 const AAGUID_START: usize = 37;
 const AAGUID_END: usize = 53;
 pub const DEFAULT_PASSKEY_NAME: &str = "Passkey";

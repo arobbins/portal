@@ -63,3 +63,9 @@ export function resetLink(email: Email): string {
   if (!match) throw new Error(`No reset link in email: ${email.text}`);
   return match[0];
 }
+
+export function confirmEmailLink(email: Email): string {
+  const match = email.text.match(/https?:\/\/\S+\/confirm-email\/[A-Za-z0-9]+/);
+  if (!match) throw new Error(`No confirm-email link in email: ${email.text}`);
+  return match[0];
+}

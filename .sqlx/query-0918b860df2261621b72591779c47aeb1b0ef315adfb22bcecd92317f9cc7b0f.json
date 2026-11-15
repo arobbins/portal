@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO user_tokens (user_id, purpose, token_hash, expires_at) VALUES ($1, $2, $3, $4)",
+  "query": "INSERT INTO user_tokens (user_id, purpose, token_hash, payload, expires_at) VALUES ($1, $2, $3, $4, $5)",
   "describe": {
     "columns": [],
     "parameters": {
@@ -8,10 +8,11 @@
         "Int4",
         "Text",
         "Text",
+        "Text",
         "Timestamptz"
       ]
     },
     "nullable": []
   },
-  "hash": "efaa2e9a8c652a51462b9141106e4fe2ab3b368a2823951129c5145ce893b0e0"
+  "hash": "0918b860df2261621b72591779c47aeb1b0ef315adfb22bcecd92317f9cc7b0f"
 }

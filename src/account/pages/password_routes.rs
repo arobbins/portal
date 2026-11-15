@@ -26,7 +26,7 @@ pub(super) async fn save_new_password(
     current_password: String,
     password: String,
     confirm_password: String,
-) -> Result<Result<bool, FieldError>> {
+) -> Result<Result<String, FieldError>> {
     let Some(caller) = browser_caller(cx) else {
         return Ok(Err(FieldError::session_expired()));
     };
@@ -39,7 +39,7 @@ pub(super) async fn save_new_password(
     match change_password(&env(cx), &caller, &input).await? {
         Ok(user) => {
             sign_in(&session(cx)?, &user).await?;
-            Ok(Ok(true))
+            Ok(Ok(String::new()))
         }
         Err(error) => Ok(Err(FieldError::of(error.for_browser()?))),
     }

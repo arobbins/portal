@@ -46,6 +46,10 @@ paths:
   inputs spread `dialog_input(cx, &form, FIELD, &value, &draft)`, the error
   is `dialog_form_error(form: &form)` and the no-JS fallback's error toast is
   `dialog_error_toast(form: &form, toast: &toast)`, with the page's toast
-  signal from `page_toast(cx, failed.is_some(), flash)`.
+  signal from `page_toast(cx, failed.is_some(), flash)`. The dialog itself is
+  `modal_form(…, submit: ModalSubmit { … }, args: $((…)))`
+  (`form/submit.rs`), which owns the procedure call, busy state, catch,
+  success toast and closing; dialogs that don't close on success (Create
+  API token) still write their own `@submit`.
 - The full recipe for a new form (page, POST route, problem enum, modal +
   procedure) is the `new-form-flow` skill.

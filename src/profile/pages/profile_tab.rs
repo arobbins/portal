@@ -6,29 +6,31 @@ use topcoat::{
     view::{View, attributes, component, view},
 };
 
+use super::email_card::{EmailDrafts, change_email_dialog, email_card};
+use super::email_routes::email_change_problem;
 use super::profile_routes::{ProfileUpdateFailed, save_profile_name, update_profile_submit};
-use crate::action::{ActionProblem, FieldError};
-use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
+use crate::action::ActionProblem;
+use crate::components::button::{ButtonSize, ButtonVariant, button};
 use crate::components::card::{card, card_body, card_header};
-use crate::components::form::{Autocomplete, form, form_actions, form_field};
+use crate::components::form::{Autocomplete, form_field};
 use crate::components::form::{
-    DialogForm, dialog_error_toast, dialog_form_error, dialog_input, page_toast,
+    DialogForm, ModalSubmit, dialog_error_toast, dialog_input, modal_form, page_toast,
 };
 use crate::components::icon::{IconName, icon};
-use crate::components::modal::modal;
-use crate::components::toaster::NO_TOAST;
 use crate::flash::{Flash, flash_toasts, take_flash};
 use crate::layout::page_heading::{PageHeadingVariant, page_heading};
 use crate::user::model::User;
 use crate::user::name::NAME_FIELD;
 
 const MODAL_ID: &str = "edit-profile";
+const UNREACHABLE: &str = "We couldn't save your profile. Please try again.";
 const FLASHES: &[Flash] = &[
     Flash::ProfileSaved,
     Flash::EmailConfirmed,
+    Flash::EmailChangeSent,
+    Flash::EmailChanged,
     Flash::PasswordReset,
 ];
-const UNREACHABLE: &str = "We couldn't save your profile. Please try again.";
 
 struct NameDrafts {
     value: Signal<String>,
@@ -40,8 +42,16 @@ pub async fn profile_tab(cx: &Cx, user: &User, display_name: &Signal<String>) ->
     let flash = take_flash(cx, FLASHES).await?;
     let failed = try_context::<ProfileUpdateFailed>(cx);
     let name = failed.map_or_else(|| user.name.clone(), |failed| failed.name.clone());
-    let form = DialogForm::new(cx, "", failed.map_or("", |failed| failed.problem.message()));
-    let toast = page_toast(cx, failed.is_some(), flash);
+    let failure = failed
+        .map(|failed| failed.problem.spec())
+        .or_else(|| email_change_problem(cx).map(ActionProblem::spec));
+    let form = DialogForm::new(
+        cx,
+        failure.and_then(|spec| spec.field).unwrap_or_default(),
+        failure.map_or("", |spec| spec.message),
+    );
+    let toast = page_toast(cx, failure.is_some(), flash);
+    let email_drafts = EmailDrafts::new(cx);
     let drafts = NameDrafts {
         value: signal(cx, || name.clone()),
         draft: signal(cx, || name.clone()),
@@ -50,16 +60,18 @@ pub async fn profile_tab(cx: &Cx, user: &User, display_name: &Signal<String>) ->
     Ok(view! {
         <div class="p-account__sub-page-content">
             page_heading(text: "Profile", variant: PageHeadingVariant::Compact)
-            profile_card(
-                user: user,
-                display_name: display_name,
-                form: &form,
-                drafts: &drafts
-            )
+            profile_card(display_name: display_name, form: &form, drafts: &drafts)
+            email_card(email: &user.email, form: &form, drafts: &email_drafts)
             edit_profile_dialog(
                 form: &form,
                 drafts: &drafts,
                 display_name: display_name,
+                toast: &toast
+            )
+            change_email_dialog(
+                form: &form,
+                email: &user.email,
+                drafts: &email_drafts,
                 toast: &toast
             )
             flash_toasts(toast: &toast, flashes: FLASHES)
@@ -71,7 +83,6 @@ pub async fn profile_tab(cx: &Cx, user: &User, display_name: &Signal<String>) ->
 #[component]
 async fn profile_card(
     cx: &Cx,
-    user: &User,
     display_name: &Signal<String>,
     form: &DialogForm,
     drafts: &NameDrafts,
@@ -105,10 +116,6 @@ async fn profile_card(
                     "Name: "
                     $(display_name.get())
                 </p>
-                <p>
-                    "Email: "
-                    (&user.email)
-                </p>
             )
         )
     })
@@ -122,66 +129,31 @@ async fn edit_profile_dialog(
     display_name: &Signal<String>,
     toast: &Signal<String>,
 ) -> Result<impl View> {
-    let DialogForm {
-        error_message,
-        is_submitting,
-        ..
-    } = form;
     let NameDrafts { value, draft } = drafts;
-    let saved_toast = Flash::ProfileSaved.name().to_string();
-    let modal_id = MODAL_ID;
-    let save_failed: std::result::Result<String, FieldError> =
-        Err(FieldError::general(UNREACHABLE));
+    let submit = ModalSubmit {
+        procedure: save_profile_name,
+        action: href!(update_profile_submit).resolve(cx),
+        label: "Save profile",
+        success_toast: Flash::ProfileSaved.name(),
+        unreachable: UNREACHABLE,
+    };
 
     Ok(view! {
-        modal(
+        modal_form(
             id: MODAL_ID,
             heading: "Edit profile",
-            form(
-                attrs: attributes! {
-                    method="post"
-                    action=(href!(update_profile_submit))
-                    @submit=$(async |e: Event| {
-                        e.prevent_default();
-                        is_submitting.set(true);
-                        error_message.set("".to_owned());
-                        toast.set(NO_TOAST.to_owned());
-                        let _pending = save_profile_name(draft.get());
-                        let result = raw!(
-                            "await Promise.resolve(${_pending}).catch(() => ${save_failed})",
-                            save_failed.clone(),
-                        );
-                        is_submitting.set(false);
-                        if result.is_ok() {
-                            display_name.set(result.unwrap());
-                            toast.set(saved_toast.clone());
-                            raw!(
-                                "document.getElementById(String(${modal_id})).close()",
-                                {
-                                    let _ = modal_id;
-                                },
-                            );
-                        } else {
-                            error_message.set(result.unwrap_err().message);
-                        }
-                    })
-                },
-                form_field(
-                    label: "Name",
-                    id: "edit-profile-name",
-                    autocomplete: Some(Autocomplete::Name),
-                    name: NAME_FIELD,
-                    required: true,
-                    attrs: dialog_input(cx, form, NAME_FIELD, value, draft)
-                )
-                dialog_form_error(form: form)
-                form_actions(
-                    button(
-                        button_type: ButtonType::Submit,
-                        busy: $(is_submitting.get()),
-                        "Save profile"
-                    )
-                )
+            form: form,
+            toast: toast,
+            submit: submit,
+            args: $((draft.get(),)),
+            saved: Some(display_name),
+            form_field(
+                label: "Name",
+                id: "edit-profile-name",
+                autocomplete: Some(Autocomplete::Name),
+                name: NAME_FIELD,
+                required: true,
+                attrs: dialog_input(cx, form, NAME_FIELD, value, draft)
             )
         )
     })

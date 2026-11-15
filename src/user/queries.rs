@@ -75,6 +75,26 @@ pub async fn query_update_user_name(
     Ok(())
 }
 
+pub async fn query_update_user_email(
+    user_id: i32,
+    email: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<Option<User>, sqlx::Error> {
+    let updated = sqlx::query_as!(
+        User,
+        "UPDATE users SET email = $1, session_version = session_version + 1, updated_at = now() WHERE id = $2 AND verified_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users WHERE email = $1) RETURNING id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id",
+        email,
+        user_id,
+    )
+    .fetch_optional(db)
+    .await;
+
+    match updated {
+        Err(sqlx::Error::Database(error)) if error.is_unique_violation() => Ok(None),
+        other => other,
+    }
+}
+
 pub async fn query_set_password_and_verify_user(
     user_id: i32,
     password_hash: &str,

@@ -43,7 +43,8 @@ paths:
   `let save_failed: std::result::Result<String, FieldError> = Err(FieldError::general(UNREACHABLE));` before
   `view!`, then inside the handler
   `let result = raw!("await Promise.resolve(${_pending}).catch(() => ${save_failed})", save_failed.clone());`
-  (see `profile/pages/profile_tab.rs`).
+  (modal forms get this from `modal_form` in `components/form/submit.rs`;
+  `api_tokens/pages/create_token_dialog.rs` shows it standalone).
 - Don't bind an input's `:value` to the same signal its `@input` writes: the
   binding rewrites the field whenever the signal changes. Keep a separate
   signal for `:value` that only changes when you deliberately reset the field

@@ -20,29 +20,35 @@ const ABANDONED_SIGN_UP_AGE: Duration = Duration::days(7);
 pub enum TokenPurpose {
     EmailVerification,
     PasswordReset,
+    EmailChange,
 }
 
 impl TokenPurpose {
     #[cfg(test)]
-    pub const ALL: [Self; 2] = [Self::EmailVerification, Self::PasswordReset];
+    pub const ALL: [Self; 3] = [
+        Self::EmailVerification,
+        Self::PasswordReset,
+        Self::EmailChange,
+    ];
 
     pub fn as_str(self) -> &'static str {
         match self {
             Self::EmailVerification => "email_verification",
             Self::PasswordReset => "password_reset",
+            Self::EmailChange => "email_change",
         }
     }
 
     pub fn lifetime(self) -> Duration {
         match self {
-            Self::EmailVerification => Duration::hours(24),
+            Self::EmailVerification | Self::EmailChange => Duration::hours(24),
             Self::PasswordReset => Duration::hours(1),
         }
     }
 
     pub fn lifetime_text(self) -> &'static str {
         match self {
-            Self::EmailVerification => "24 hours",
+            Self::EmailVerification | Self::EmailChange => "24 hours",
             Self::PasswordReset => "1 hour",
         }
     }
@@ -51,6 +57,7 @@ impl TokenPurpose {
         match self {
             Self::EmailVerification => format!("/verify-email/{token}"),
             Self::PasswordReset => format!("/reset-password/{token}"),
+            Self::EmailChange => format!("/confirm-email/{token}"),
         }
     }
 
@@ -62,12 +69,13 @@ impl TokenPurpose {
 pub struct NewLink<'a> {
     pub user_id: i32,
     pub purpose: TokenPurpose,
+    pub payload: Option<&'a str>,
     pub email: &'a (dyn Fn(&str) -> Email + Sync),
 }
 
 pub async fn email_user_link(app: &App, link: NewLink<'_>) -> Result<(), sqlx::Error> {
     let mut tx = app.db.begin().await?;
-    let token = replace_user_token(app.clock.now(), link.user_id, link.purpose, &mut tx).await?;
+    let token = replace_user_token(app.clock.now(), &link, &mut tx).await?;
     let url = link.purpose.url(&app.config, &token);
     enqueue(&SendEmail((link.email)(&url)), &mut *tx).await?;
     tx.commit().await
@@ -83,6 +91,7 @@ pub async fn send_verification_link(
         NewLink {
             user_id,
             purpose: TokenPurpose::EmailVerification,
+            payload: None,
             email: &|url| register_verification_email(email, url),
         },
     )
@@ -98,19 +107,19 @@ pub async fn delete_stale_sign_ups(app: &App) -> Result<(u64, u64), sqlx::Error>
 
 async fn replace_user_token(
     now: OffsetDateTime,
-    user_id: i32,
-    purpose: TokenPurpose,
+    link: &NewLink<'_>,
     db: &mut PgConnection,
 ) -> Result<String, sqlx::Error> {
-    query_delete_user_tokens(user_id, purpose, &mut *db).await?;
+    query_delete_user_tokens(link.user_id, link.purpose, &mut *db).await?;
     let raw = random_base62(LINK_TOKEN_LENGTH);
-    let link = NewUserToken {
-        user_id,
-        purpose,
+    let token = NewUserToken {
+        user_id: link.user_id,
+        purpose: link.purpose,
         token_hash: &hash_secret(&raw),
-        expires_at: now + purpose.lifetime(),
+        payload: link.payload,
+        expires_at: now + link.purpose.lifetime(),
     };
-    query_insert_user_token(&link, &mut *db).await?;
+    query_insert_user_token(&token, &mut *db).await?;
 
     Ok(raw)
 }
@@ -146,6 +155,7 @@ mod tests {
             user_id,
             purpose: TokenPurpose::EmailVerification,
             token_hash: hash,
+            payload: None,
             expires_at: time::OffsetDateTime::now_utc() + time::Duration::hours(1),
         };
         query_insert_user_token(&token, db).await.unwrap();
@@ -208,6 +218,7 @@ mod tests {
             TokenPurpose::PasswordReset.path("abc"),
             "/reset-password/abc"
         );
+        assert_eq!(TokenPurpose::EmailChange.path("abc"), "/confirm-email/abc");
     }
 
     #[test]

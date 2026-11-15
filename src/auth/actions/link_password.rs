@@ -129,7 +129,7 @@ async fn apply_password(
             let Some(user) = query_update_password(user_id, password_hash, &mut *tx).await? else {
                 return Ok(None);
             };
-            let revoked = revoke_all_for_user(user_id, &mut *tx).await?;
+            let revoked = revoke_access(user_id, &mut *tx).await?;
             let detail = json!({ "api_tokens_revoked": revoked });
             record_event(
                 env,
@@ -141,5 +141,11 @@ async fn apply_password(
             .await?;
             Ok(Some(user))
         }
+        TokenPurpose::EmailChange => Ok(None),
     }
+}
+
+async fn revoke_access(user_id: i32, tx: &mut PgConnection) -> Result<u64, sqlx::Error> {
+    query_delete_user_tokens(user_id, TokenPurpose::EmailChange, &mut *tx).await?;
+    revoke_all_for_user(user_id, &mut *tx).await
 }

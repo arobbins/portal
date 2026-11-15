@@ -9,7 +9,7 @@ use crate::api_tokens::emails::api_token_created_email;
 use crate::api_tokens::lifetime::TokenLifetime;
 use crate::api_tokens::queries::{NewApiTokenRow, query_insert_api_token};
 use crate::api_tokens::token::{NewApiToken, generate_api_token};
-use crate::auth::password::{CurrentPasswordProblem, check_current_password};
+use crate::auth::reauth::{PasskeyProof, ReauthProblem, check_reauth};
 use crate::env::Env;
 use crate::jobs::enqueue;
 use crate::mail::SendEmail;
@@ -22,7 +22,7 @@ const MAX_TOKENS_PER_USER: i64 = 50;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CreateTokenProblem {
-    CurrentPassword(CurrentPasswordProblem),
+    Reauth(ReauthProblem),
     Name(NameProblem),
     UnknownAccess,
     TooManyTokens,
@@ -31,7 +31,7 @@ pub enum CreateTokenProblem {
 impl ActionProblem for CreateTokenProblem {
     fn spec(self) -> ProblemSpec {
         match self {
-            Self::CurrentPassword(problem) => problem.spec(),
+            Self::Reauth(problem) => problem.spec(),
             Self::Name(problem) => problem.spec(),
             Self::UnknownAccess => {
                 ProblemSpec::new("unknown_access", "Choose what the token can access.")
@@ -57,7 +57,10 @@ pub struct CreateToken {
     #[serde(default = "default_audience")]
     #[schemars(description = "What will use the token: the JSON API (default) or an MCP client.")]
     pub audience: TokenAudience,
-    #[schemars(description = "The account's current password.")]
+    #[serde(default)]
+    #[schemars(
+        description = "The account's current password; leave it empty right after confirming with a passkey."
+    )]
     pub current_password: String,
 }
 
@@ -69,9 +72,10 @@ pub async fn create_api_token(
     env: &Env<'_>,
     caller: &Caller,
     input: &CreateToken,
+    passkey: Option<PasskeyProof>,
 ) -> ActionResult<String, CreateTokenProblem> {
     authorize!(caller.require(Permission::ManageApiTokens));
-    let name = match check_request(env, caller, input).await? {
+    let name = match check_request(env, caller, input, passkey).await? {
         Ok(name) => name,
         Err(problem) => return fail(problem),
     };
@@ -105,10 +109,11 @@ async fn check_request<'a>(
     env: &Env<'_>,
     caller: &Caller,
     input: &'a CreateToken,
+    passkey: Option<PasskeyProof>,
 ) -> Outcome<&'a str, CreateTokenProblem> {
-    let password = check_current_password(env, &caller.user, &input.current_password).await?;
-    if let Err(problem) = password {
-        return Ok(Err(CreateTokenProblem::CurrentPassword(problem)));
+    let password = &input.current_password;
+    if let Err(problem) = check_reauth(env, &caller.user, password, passkey).await? {
+        return Ok(Err(CreateTokenProblem::Reauth(problem)));
     }
     let name = match check_name(&input.name) {
         Ok(name) => name,

@@ -46,3 +46,35 @@ pub fn password_reset_email(recipient: &str, reset_url: &str) -> Email {
         .text(&expiry)
         .to(recipient)
 }
+
+pub fn email_change_email(recipient: &str, confirm_url: &str) -> Email {
+    let expiry = format!(
+        "This link expires in {}. If you didn't ask for this, you can ignore this email and nothing will change.",
+        TokenPurpose::EmailChange.lifetime_text()
+    );
+    EmailTemplate::new("Confirm your new email")
+        .paragraph(vec![
+            Part::Text("You asked to sign in with this email address from now on. "),
+            Part::Link {
+                text: "Confirm your new email",
+                url: confirm_url,
+            },
+        ])
+        .text(&expiry)
+        .to(recipient)
+}
+
+pub fn email_in_use_email(recipient: &str) -> Email {
+    EmailTemplate::new("This email already has an account")
+        .text("Someone asked to move their account to this email address, but it already belongs to an account, so nothing was changed.")
+        .text("If this wasn't you, you can ignore this email.")
+        .to(recipient)
+}
+
+pub fn email_changed_email(recipient: &str, new_email: &str) -> Email {
+    let notice = format!("Your account now signs in with {new_email} instead of this address.");
+    EmailTemplate::new("Your email was changed")
+        .text(&notice)
+        .text("If you didn't make this change, someone else may know your password. Contact support right away so we can help you get your account back.")
+        .to(recipient)
+}

@@ -12,6 +12,8 @@ pub enum AccountEventKind {
     AccountCreated,
     ApiTokenCreated,
     ApiTokenRevoked,
+    EmailChangeRequested,
+    EmailChanged,
     EmailVerified,
     PasskeyAdded,
     PasskeyPromptDeclined,
@@ -25,10 +27,12 @@ pub enum AccountEventKind {
 
 impl AccountEventKind {
     #[cfg(test)]
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 14] = [
         Self::AccountCreated,
         Self::ApiTokenCreated,
         Self::ApiTokenRevoked,
+        Self::EmailChangeRequested,
+        Self::EmailChanged,
         Self::EmailVerified,
         Self::PasskeyAdded,
         Self::PasskeyPromptDeclined,
@@ -45,6 +49,8 @@ impl AccountEventKind {
             Self::AccountCreated => "account_created",
             Self::ApiTokenCreated => "api_token_created",
             Self::ApiTokenRevoked => "api_token_revoked",
+            Self::EmailChangeRequested => "email_change_requested",
+            Self::EmailChanged => "email_changed",
             Self::EmailVerified => "email_verified",
             Self::PasskeyAdded => "passkey_added",
             Self::PasskeyPromptDeclined => "passkey_prompt_declined",

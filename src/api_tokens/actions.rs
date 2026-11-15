@@ -50,6 +50,7 @@ mod tests {
                 audience: TokenAudience::Api,
                 current_password: "a-strong-test-password".to_string(),
             },
+            None,
         )
         .await
         .unwrap();
@@ -78,5 +79,51 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(events, 0);
+    }
+
+    #[sqlx::test]
+    async fn a_passkey_confirmation_can_stand_in_for_the_password(db: PgPool) {
+        use crate::auth::reauth::{PasskeyProof, ReauthProblem};
+
+        let user_id = query_insert_user(
+            &NewUser {
+                name: "Passkey Holder",
+                email: "holder@example.test",
+            },
+            &db,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let hash = hash_password("a-strong-test-password").unwrap();
+        let user = Arc::new(
+            query_set_password_and_verify_user(user_id, &hash, &db)
+                .await
+                .unwrap(),
+        );
+        let app = App::for_tests(db.clone());
+        let env = app.env(None);
+        let caller = Caller::browser(user);
+        let input = CreateToken {
+            name: "Deploy".to_string(),
+            access: ApiScope::ProfileRead,
+            lifetime: TokenLifetime::Year,
+            audience: TokenAudience::Api,
+            current_password: String::new(),
+        };
+
+        let refused = create_api_token(&env, &caller, &input, None).await.unwrap();
+        let proof = Some(PasskeyProof::for_tests(user_id));
+        let created = create_api_token(&env, &caller, &input, proof)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            refused,
+            Err(ActionError::Problem(CreateTokenProblem::Reauth(
+                ReauthProblem::Missing
+            )))
+        );
+        assert!(created.is_ok());
     }
 }

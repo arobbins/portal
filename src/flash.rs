@@ -18,6 +18,8 @@ pub enum Flash {
     RegistrationSent,
     ProfileSaved,
     EmailConfirmed,
+    EmailChangeSent,
+    EmailChanged,
     ResetLinkSent,
     PasswordReset,
     PasswordChanged,
@@ -33,6 +35,8 @@ impl Flash {
             Self::RegistrationSent => "registration-sent",
             Self::ProfileSaved => "profile-saved",
             Self::EmailConfirmed => "email-confirmed",
+            Self::EmailChangeSent => "email-change-sent",
+            Self::EmailChanged => "email-changed",
             Self::ResetLinkSent => "reset-link-sent",
             Self::PasswordReset => "password-reset",
             Self::PasswordChanged => "password-changed",
@@ -48,6 +52,10 @@ impl Flash {
             Self::RegistrationSent => "Check your email to confirm your registration.",
             Self::ProfileSaved => "Profile saved.",
             Self::EmailConfirmed => "Your email is confirmed. Welcome!",
+            Self::EmailChangeSent => {
+                "Check your new inbox for a link to confirm the change. Your email stays the same until you do."
+            }
+            Self::EmailChanged => "Your email has been changed.",
             Self::ResetLinkSent => {
                 "If an account exists for that email, we've sent a link to reset your password."
             }

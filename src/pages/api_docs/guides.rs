@@ -140,7 +140,7 @@ pub(super) async fn scopes_section(cx: &Cx) -> Result<impl View> {
                 <p>"A token can only do what its scopes allow."</p>
                 notice(
                     tone: Tone::Info,
-                    "Changing your password, email, passkeys or API tokens is never possible with a token."
+                    "Changing your password, email, or passkeys is never possible with a token."
                 )
                 property_list(
                     #[key(scope.as_str())]

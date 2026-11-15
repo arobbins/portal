@@ -40,10 +40,9 @@ variant to it; there's only one `toast` signal per page.
 
 ## 4. JS path (procedure inside a modal)
 
-When a `#[procedure]` succeeds without a redirect, show the same toast from the handler.
-Precompute the name before `view!` (`let sent_toast = Flash::InvoiceSent.name().to_string();`),
-then in the success branch `toast.set(sent_toast.clone())` and close the dialog (see lines
-around `saved_toast` in `profile/pages/profile_tab.rs`).
+When a `#[procedure]` succeeds without a redirect, show the same toast: pass
+`success_toast: Flash::InvoiceSent.name()` in the dialog's `ModalSubmit` (`modal_form`
+shows it and closes the dialog; see `profile/pages/email_card.rs`).
 Errors from the procedure render inside the dialog, not as a toast.
 
 ## 5. Finish

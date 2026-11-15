@@ -5,15 +5,19 @@ pub enum Permission {
     ViewProfile,
     EditProfile,
     ManagePassword,
+    ManageEmail,
+    ConfirmIdentity,
     ManagePasskeys,
     ManageApiTokens,
 }
 
 impl Permission {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 7] = [
         Self::ViewProfile,
         Self::EditProfile,
         Self::ManagePassword,
+        Self::ManageEmail,
+        Self::ConfirmIdentity,
         Self::ManagePasskeys,
         Self::ManageApiTokens,
     ];
@@ -22,7 +26,11 @@ impl Permission {
         match self {
             Self::ViewProfile => Some(ApiScope::ProfileRead),
             Self::EditProfile => Some(ApiScope::ProfileWrite),
-            Self::ManagePassword | Self::ManagePasskeys | Self::ManageApiTokens => None,
+            Self::ManagePassword
+            | Self::ManageEmail
+            | Self::ConfirmIdentity
+            | Self::ManagePasskeys
+            | Self::ManageApiTokens => None,
         }
     }
 }
@@ -48,6 +56,8 @@ mod tests {
     fn security_settings_never_have_an_api_scope() {
         for permission in [
             Permission::ManagePassword,
+            Permission::ManageEmail,
+            Permission::ConfirmIdentity,
             Permission::ManagePasskeys,
             Permission::ManageApiTokens,
         ] {

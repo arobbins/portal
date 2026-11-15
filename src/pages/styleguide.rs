@@ -1,3 +1,4 @@
+mod avatars;
 mod badges;
 mod buttons;
 mod cards;
@@ -32,7 +33,7 @@ const GROUPS: &[(&str, &[&str])] = &[
         &["Text", "Labels", "Icons and layout", "Theme switcher"],
     ),
     ("Actions", &["Buttons", "Toggles", "Modals"]),
-    ("Feedback", &["Notices", "Toaster", "Badges and avatars"]),
+    ("Feedback", &["Notices", "Toaster", "Badges", "Avatars"]),
     ("Forms", &["Forms"]),
     ("Content", &["Cards and tables", "Property lists", "Code"]),
     ("Navigation", &["Navigation"]),
@@ -92,6 +93,7 @@ pub async fn styleguide_page(cx: &Cx) -> Result<impl View> {
                 notices::notices_section()
                 toaster::toaster_section()
                 badges::badges_section()
+                avatars::avatars_section()
                 forms::forms_section()
                 cards::cards_section()
                 property_list::property_list_section()
@@ -129,7 +131,7 @@ mod tests {
 
     #[test]
     fn section_ids_are_slugs_of_their_titles() {
-        assert_eq!(section_id("Badges and avatars"), "badges-and-avatars");
+        assert_eq!(section_id("Icons and layout"), "icons-and-layout");
         assert_eq!(section_id("Code"), "code");
     }
 }

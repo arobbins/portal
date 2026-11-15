@@ -163,6 +163,69 @@ async function register(form) {
   }
 }
 
+function reauthParts(box) {
+  return {
+    password: box.querySelector("[data-reauth-password]"),
+    input: box.querySelector("[data-reauth-password] input"),
+    done: box.querySelector("[data-reauth-done]"),
+    button: box.querySelector("[data-passkey-confirm]"),
+    errorId: box.querySelector(".a-form-error")?.id,
+  };
+}
+
+function showPasswordAgain(box) {
+  const parts = reauthParts(box);
+  if (!parts.done || parts.done.hidden) return;
+  parts.input.disabled = false;
+  parts.password.hidden = false;
+  parts.done.hidden = true;
+  parts.button.hidden = false;
+  hideError(parts.errorId);
+}
+
+function useConfirmedPasskey(box) {
+  const parts = reauthParts(box);
+  parts.input.value = "";
+  parts.input.dispatchEvent(new Event("input", { bubbles: true }));
+  parts.input.disabled = true;
+  parts.password.hidden = true;
+  parts.done.hidden = false;
+  parts.button.hidden = true;
+}
+
+async function confirmWithPasskey(button) {
+  const box = button.closest("[data-reauth]");
+  const { errorId } = reauthParts(box);
+  hideError(errorId);
+  button.disabled = true;
+
+  try {
+    const start = await post("/passkeys/verify/start", {});
+    if (!start.ok) {
+      showError(errorId, start.data.detail ?? GENERIC_ERROR);
+      return;
+    }
+    let credential;
+    try {
+      credential = await navigator.credentials.get({
+        publicKey: requestOptions(start.data.options.publicKey),
+      });
+    } catch (error) {
+      showError(errorId, promptError(error, start.data.origin));
+      return;
+    }
+    const finish = await post("/passkeys/verify/finish", credentialJSON(credential));
+    if (!finish.ok) {
+      showError(errorId, finish.data.detail ?? GENERIC_ERROR);
+      return;
+    }
+    useConfirmedPasskey(box);
+    box.closest("form")?.requestSubmit();
+  } finally {
+    button.disabled = false;
+  }
+}
+
 let pendingLogin = null;
 
 async function finishLogin(credential) {
@@ -255,6 +318,23 @@ document.addEventListener("submit", (event) => {
   event.preventDefault();
   register(form);
 });
+
+document.addEventListener("click", (event) => {
+  const confirm = event.target.closest("[data-passkey-confirm]");
+  if (!confirm) return;
+  event.preventDefault();
+  confirmWithPasskey(confirm);
+});
+
+document.addEventListener(
+  "close",
+  (event) => {
+    for (const box of event.target.querySelectorAll?.("[data-reauth]") ?? []) {
+      showPasswordAgain(box);
+    }
+  },
+  true,
+);
 
 document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-passkey-login]");

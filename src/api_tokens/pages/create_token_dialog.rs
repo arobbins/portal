@@ -10,11 +10,12 @@ use super::token_fields::{TokenDrafts, choice_fields};
 use super::token_routes::{create_api_token_js, create_api_token_submit};
 use crate::account::tabs::AccountTab;
 use crate::action::FieldError;
+use crate::auth::pages::reauth_field::reauth_field;
 use crate::auth::password::CURRENT_PASSWORD_FIELD;
 use crate::components::button::{ButtonType, button};
 use crate::components::copy_field::copy_field;
-use crate::components::form::{Autocomplete, InputType, form, form_actions, form_field};
 use crate::components::form::{DialogForm, dialog_form_error, dialog_input};
+use crate::components::form::{form, form_actions, form_field};
 use crate::components::modal::modal;
 use crate::components::notice::notice;
 use crate::components::toaster::NO_TOAST;
@@ -161,13 +162,8 @@ async fn password_field(cx: &Cx, form: &DialogForm, drafts: &TokenDrafts) -> Res
     } = drafts;
 
     Ok(view! {
-        form_field(
-            label: "Current password",
+        reauth_field(
             id: "api-token-password",
-            autocomplete: Some(Autocomplete::CurrentPassword),
-            name: CURRENT_PASSWORD_FIELD,
-            input_type: InputType::Password,
-            required: true,
             attrs: dialog_input(cx, form, CURRENT_PASSWORD_FIELD, blank, password)
         )
     })

@@ -47,8 +47,14 @@
 }
 
 .a-form-label-row__link {
+  padding: 0;
+  font: inherit;
   font-size: 0.875em;
   color: var(--color-text-muted);
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  cursor: pointer;
 }
 
 .a-form-input {
@@ -160,6 +166,10 @@
 }
 
 .a-form-error {
+  margin-bottom: var(--form-gap);
+}
+
+.a-form-reauth-option {
   margin-bottom: var(--form-gap);
 }
 

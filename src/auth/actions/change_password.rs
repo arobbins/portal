@@ -3,10 +3,12 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::action::{ActionProblem, ActionResult, Caller, ProblemSpec, authorize, fail};
+use crate::auth::links::TokenPurpose;
 use crate::auth::password::{
     CurrentPasswordProblem, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, PasswordProblem,
     check_current_password, check_new_password, hash_password,
 };
+use crate::auth::queries::query_delete_user_tokens;
 use crate::env::Env;
 use crate::permission::Permission;
 use crate::user::events::{AccountEventKind, EventSource, record_event};
@@ -62,6 +64,7 @@ pub async fn change_password(
     let updated = query_update_password(caller.user.id, &password_hash, &mut *tx)
         .await?
         .ok_or_else(|| topcoat::Error::msg("signed-in user is not active"))?;
+    query_delete_user_tokens(caller.user.id, TokenPurpose::EmailChange, &mut *tx).await?;
     let source = EventSource::of(caller);
     record_event(
         env,

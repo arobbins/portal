@@ -17,7 +17,7 @@ use tower_sessions::cookie::{SameSite, time::Duration};
 use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::PostgresStore;
 
-use crate::auth::actions::PasswordResetJob;
+use crate::auth::actions::{EmailChangeJob, PasswordResetJob};
 use crate::cleanup::CleanupJob;
 use crate::config::Config;
 use crate::env::{App, Clock};
@@ -64,6 +64,7 @@ fn job_handlers() -> Vec<Handler> {
     vec![
         Handler::of::<SendEmail>(),
         Handler::of::<PasswordResetJob>(),
+        Handler::of::<EmailChangeJob>(),
         Handler::of::<CleanupJob>(),
     ]
 }

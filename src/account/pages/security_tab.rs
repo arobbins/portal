@@ -8,31 +8,29 @@ use topcoat::{
 
 use super::password_routes::{ChangePasswordFailed, change_password_submit, save_new_password};
 use crate::account::tabs::AccountSection;
-use crate::action::{ActionProblem, FieldError};
+use crate::action::ActionProblem;
 use crate::auth::pages::new_password_form::new_password_fields;
 use crate::auth::password::{CONFIRMATION_FIELD, CURRENT_PASSWORD_FIELD, PASSWORD_FIELD};
-use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
+use crate::components::button::{ButtonSize, ButtonVariant, button};
 use crate::components::card::{card, card_body, card_header};
-use crate::components::form::{Autocomplete, InputType, form, form_actions, form_field};
+use crate::components::form::{Autocomplete, InputType, form_field};
 use crate::components::form::{
-    DialogForm, dialog_error_toast, dialog_form_error, dialog_input, page_toast,
+    DialogForm, ModalSubmit, dialog_error_toast, dialog_input, modal_form, page_toast,
 };
 use crate::components::icon::{IconName, icon};
-use crate::components::modal::modal;
-use crate::components::toaster::NO_TOAST;
 use crate::flash::{Flash, flash_toasts, take_flash};
 use crate::layout::page_heading::{PageHeadingVariant, page_heading};
 use crate::passkeys::pages::passkey_routes::rename_problem;
 use crate::passkeys::pages::passkeys_card::passkeys_card;
 
 const MODAL_ID: &str = "change-password";
+const UNREACHABLE: &str = "We couldn't change your password. Please try again.";
 const FLASHES: &[Flash] = &[
     Flash::PasswordChanged,
     Flash::PasskeyAdded,
     Flash::PasskeyRenamed,
     Flash::PasskeyRemoved,
 ];
-const UNREACHABLE: &str = "We couldn't change your password. Please try again.";
 
 struct PasswordDrafts {
     blank: Signal<String>,
@@ -166,71 +164,29 @@ async fn change_password_dialog(
     drafts: &PasswordDrafts,
     toast: &Signal<String>,
 ) -> Result<impl View> {
-    let DialogForm {
-        error_field,
-        error_message,
-        is_submitting,
-    } = form;
     let PasswordDrafts {
         current,
         password,
         confirmation,
         ..
     } = drafts;
-    let changed_toast = Flash::PasswordChanged.name().to_string();
-    let modal_id = MODAL_ID;
-    let change_failed: std::result::Result<bool, FieldError> =
-        Err(FieldError::general(UNREACHABLE));
+    let submit = ModalSubmit {
+        procedure: save_new_password,
+        action: href!(change_password_submit).resolve(cx),
+        label: "Change password",
+        success_toast: Flash::PasswordChanged.name(),
+        unreachable: UNREACHABLE,
+    };
 
     Ok(view! {
-        modal(
+        modal_form(
             id: MODAL_ID,
             heading: "Change password",
-            form(
-                attrs: attributes! {
-                    method="post"
-                    action=(href!(change_password_submit))
-                    @submit=$(async |e: Event| {
-                        e.prevent_default();
-                        is_submitting.set(true);
-                        error_field.set("".to_owned());
-                        error_message.set("".to_owned());
-                        toast.set(NO_TOAST.to_owned());
-                        let _pending = save_new_password(
-                            current.get(),
-                            password.get(),
-                            confirmation.get(),
-                        );
-                        let result = raw!(
-                            "await Promise.resolve(${_pending}).catch(() => ${change_failed})",
-                            change_failed.clone(),
-                        );
-                        is_submitting.set(false);
-                        if result.is_ok() {
-                            toast.set(changed_toast.clone());
-                            raw!(
-                                "document.getElementById(String(${modal_id})).close()",
-                                {
-                                    let _ = modal_id;
-                                },
-                            );
-                        } else {
-                            let failure = result.unwrap_err();
-                            error_field.set(failure.field);
-                            error_message.set(failure.message);
-                        }
-                    })
-                },
-                password_fields(form: form, drafts: drafts)
-                dialog_form_error(form: form)
-                form_actions(
-                    button(
-                        button_type: ButtonType::Submit,
-                        busy: $(is_submitting.get()),
-                        "Change password"
-                    )
-                )
-            )
+            form: form,
+            toast: toast,
+            submit: submit,
+            args: $((current.get(), password.get(), confirmation.get())),
+            password_fields(form: form, drafts: drafts)
         )
     })
 }

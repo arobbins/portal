@@ -63,7 +63,10 @@ paths:
   and logins take the same time whether or not the email exists. A signed-in
   user re-entering their password goes through `check_current_password(env,
   user, password)`, which applies the password limiter and the per-account
-  lockout and returns `CurrentPasswordProblem`.
+  lockout and returns `CurrentPasswordProblem`. Actions that also accept a
+  passkey confirmation take `Option<PasskeyProof>` and call `check_reauth`
+  (`auth/reauth.rs`, returns `ReauthProblem`: `Missing` or the password
+  problem); see `passkeys.md`.
 - **Rate limits** (`src/rate_limit.rs`, sliding windows in the
   `rate_limit_hits` table, so they hold across instances and restarts; read
   with `env.limits()`, every check is `async` and returns
@@ -121,3 +124,22 @@ paths:
   with `query_update_password` (bumps `session_version`, so other devices
   are signed out), deletes every API token and records one `password_reset`
   event in the same transaction, signs in and shows a toast on `/account`.
+- **Change email** (`auth::actions::request_email_change`, browser-only
+  `Permission::ManageEmail`; Email card on the Profile tab, procedure
+  `send_email_change_link`, fallback `POST /account/email/change`): needs the
+  current password or a passkey confirmation (`check_reauth`), a valid address that isn't the current one, and the
+  email-request limit; it only enqueues an `EmailChangeJob` and records
+  `email_change_requested`, so the answer is the same whether or not the new
+  address has an account. The job sends a 24-hour `TokenPurpose::EmailChange`
+  link to the new address (the address is the token's `payload`; the DB
+  requires a payload exactly for `email_change`), or, if the address already
+  has an account, only an "already has an account" notice. `GET
+  /confirm-email/{token}` shows the new address; `POST` consumes the token,
+  switches the email (`query_update_user_email`, which refuses an address
+  taken in the meantime), deletes pending email-change and password-reset
+  links, bumps `session_version` (every device is signed out; the confirming
+  browser is signed back in if it was signed in as that user), emails a
+  notice to the old address and records `email_changed`. The email doesn't
+  change until the link is used.
+  A password change or reset deletes pending email-change links (someone who
+  knew the old password can't finish a change afterwards).

@@ -17,7 +17,8 @@ paths:
   Secondary / Danger; pass `href` to render it as a link, which ignores
   `busy`, `disabled` and `button_type`), `form` controls (incl. `code_field`; `form_field` / `form_input` take
   `max_length`; modal forms use `DialogForm` + `dialog_input`,
-  `dialog_form_error`, `dialog_error_toast` from `form/dialog.rs`), `card` +
+  `dialog_form_error`, `dialog_error_toast` from `form/dialog.rs`, and render
+  through `modal_form` + `ModalSubmit` from `form/submit.rs`), `card` +
   `card_header` + `card_body` (every settings block), `badge`, `avatar`,
   `tone` (`Tone`: the `tone` prop of `notice`, `badge`, `toaster` and
   property tags),

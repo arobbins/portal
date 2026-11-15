@@ -91,15 +91,16 @@ Follow `profile/pages/profile_tab.rs` exactly (and `account/pages/security_tab.r
   "Change password", "Add passkey", "Create API token").
 - Two signals for the input: `field_value` (bound to `:value`) and `draft_name` (written by
   `@input`). Never bind `:value` to the signal `@input` writes.
-- The procedure returns `Result<Result<T, FieldError>>` (see `new-action`): `FieldError` is
-  a `#[record]` with `field` and `message`, so the handler reads `failure.field` /
-  `failure.message`.
-- `@submit=$(async |e: Event| { e.prevent_default(); ... })` sets busy, calls the procedure,
-  turns a rejected call into `Err(FieldError::general(UNREACHABLE))` with the
-  `raw!(... .catch(() => ${save_failed}))` pattern, then on success sets the toast to the
-  flash name and closes the dialog with `raw!`; on failure writes the message into the
-  dialog's `form_error` (`hidden: $(error.get().is_empty())`) and sets `:aria-invalid` on
-  the field whose name matches `failure.field`.
+- The procedure returns `Result<Result<String, FieldError>>` (see `new-action`): `FieldError`
+  is a `#[record]` with `field` and `message`; the `String` is the saved value (or empty).
+- Render the dialog with `modal_form` (`components/form/submit.rs`), never a hand-written
+  `@submit`: it owns the busy state, the `raw!` catch that turns a rejected call into
+  `Err(FieldError::general(unreachable))`, the success toast, closing the dialog, and
+  writing `failure.field` / `failure.message` into the `DialogForm`. Pass
+  `submit: ModalSubmit { procedure, action: href!(fallback_route).resolve(cx), label,
+  success_toast: Flash::X.name(), unreachable: UNREACHABLE }`, the procedure's arguments as
+  a tuple `args: $((a.get(), b.get()))` (one argument: `$((a.get(),))`), optionally
+  `saved: Some(&signal)` to receive the returned value, and the fields as children.
 - Keep the POST route as the no-JS fallback; its error comes back as an error toast.
 
 ## 6. Tests and finish

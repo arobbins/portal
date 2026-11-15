@@ -5,12 +5,14 @@ import {
   setPassword,
 } from "../support/flows";
 import {
+  TOKEN_SHAPE,
   createToken,
   createTokenDialog as createDialog,
   getMe as callMe,
   startCreatingToken,
 } from "../support/api";
 import { resetLink, waitForEmails } from "../support/mail";
+import { addPasskeyToAccount, addVirtualAuthenticator } from "../support/passkeys";
 import { expect, test } from "../support/test";
 
 test("a token can be created once, used with the API, and is announced by email", async ({
@@ -190,4 +192,24 @@ test("a token can be revoked without JavaScript", async ({
   await expect(plainPage.getByText("No API tokens yet")).toBeVisible();
   expect((await callMe(request, `Bearer ${token}`)).status()).toBe(401);
   await plain.close();
+});
+
+test.describe("with a passkey", () => {
+  test.skip(
+    ({ browserName }) => browserName !== "chromium",
+    "virtual authenticators are Chromium-only",
+  );
+
+  test("a passkey can confirm creating a token", async ({ page }, testInfo) => {
+    await addVirtualAuthenticator(page);
+    await createAccount(page, testInfo, "Passkey Token");
+    await addPasskeyToAccount(page);
+
+    await page.goto("/account/developer");
+    await page.getByRole("button", { name: "Create API token" }).click();
+    await createDialog(page).getByLabel("Name").fill("Passkey script");
+    await createDialog(page).getByRole("button", { name: "Use a passkey instead" }).click();
+
+    await expect(createDialog(page).getByLabel("API token")).toHaveValue(TOKEN_SHAPE);
+  });
 });

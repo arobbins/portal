@@ -1,7 +1,9 @@
+mod confirm_email;
 pub mod expired_link;
 pub mod login;
 pub mod logout;
 pub mod new_password_form;
+pub mod reauth_field;
 pub mod register;
 pub mod reset_password;
 mod switch_link;

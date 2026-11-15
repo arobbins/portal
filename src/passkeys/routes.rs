@@ -14,7 +14,8 @@ use crate::auth::session::sign_in;
 use crate::flash::{Flash, set_flash};
 use crate::passkeys::actions::{
     PasskeySignInProblem, StartRegistration, StartSignIn, finish_passkey_registration,
-    finish_passkey_sign_in, start_passkey_registration, start_passkey_sign_in,
+    finish_passkey_sign_in, finish_passkey_verification, start_passkey_registration,
+    start_passkey_sign_in, start_passkey_verification,
 };
 use crate::passkeys::webauthn::{accepted_credentials, encode_binary};
 use crate::web::{app, env, session};
@@ -100,4 +101,32 @@ pub async fn finish_authentication(cx: &Cx, body: Body) -> Result<ApiResponse> {
     let mut body = accepted_credentials(app(cx), &user).await?;
     body["redirect"] = json!(ACCOUNT_PATH);
     Ok(ok(&body))
+}
+
+#[route(POST "/passkeys/verify/start", with(BodyLimit::max(MAX_JSON_BODY)))]
+pub async fn start_verification(cx: &Cx) -> Result<ApiResponse> {
+    let Some(caller) = browser_caller(cx) else {
+        return Ok(session_expired());
+    };
+
+    match start_passkey_verification(&env(cx), &session(cx)?, &caller).await? {
+        Ok(options) => Ok(ok(&options)),
+        Err(error) => browser_problem(error),
+    }
+}
+
+#[route(POST "/passkeys/verify/finish", with(BodyLimit::max(MAX_JSON_BODY)))]
+pub async fn finish_verification(cx: &Cx, body: Body) -> Result<ApiResponse> {
+    let Some(caller) = browser_caller(cx) else {
+        return Ok(session_expired());
+    };
+    let credential: PublicKeyCredential = match read_json(cx, body).await? {
+        Ok(credential) => credential,
+        Err(response) => return Ok(response),
+    };
+
+    match finish_passkey_verification(&env(cx), &session(cx)?, &caller, &credential).await? {
+        Ok(()) => Ok(ok(&json!({ "ok": true }))),
+        Err(error) => browser_problem(error),
+    }
 }
