@@ -216,6 +216,17 @@ async fn special_fields_demo(cx: &Cx) -> Result<impl View> {
                 attrs: attributes! { disabled=(true) }
             )
         )
+        <h3 class="p-styleguide__subheading">"Read-only"</h3>
+        form(
+            form_field(
+                label: "Current email",
+                id: "styleguide-readonly-email",
+                name: "current_email",
+                input_type: InputType::Email,
+                value: Some("hello@andrewrobbins.dev"),
+                attrs: attributes! { readonly="" }
+            )
+        )
         <h3 class="p-styleguide__subheading">"Label link"</h3>
         form(
             form_field(

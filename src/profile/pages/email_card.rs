@@ -147,7 +147,7 @@ async fn email_fields(
             name: "current_email",
             input_type: InputType::Email,
             value: Some(email),
-            attrs: attributes! { disabled="" }
+            attrs: attributes! { readonly="" }
         )
         form_field(
             label: "New email",
@@ -156,7 +156,10 @@ async fn email_fields(
             name: NEW_EMAIL_FIELD,
             input_type: InputType::Email,
             required: true,
-            attrs: dialog_input(cx, form, NEW_EMAIL_FIELD, blank, new_email)
+            attrs: attributes! {
+                autofocus=""
+                (dialog_input(cx, form, NEW_EMAIL_FIELD, blank, new_email))
+            }
         )
         reauth_field(
             id: "change-email-password",

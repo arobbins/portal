@@ -32,7 +32,8 @@ test("a user changes their email after confirming the new address", async ({
 
   await page.goto("/account/profile");
   await page.getByRole("button", { name: "Change email" }).click();
-  await expect(dialog(page).getByLabel("Current email")).toBeDisabled();
+  await expect(dialog(page).getByLabel("Current email")).toHaveAttribute("readonly", "");
+  await expect(dialog(page).getByLabel("Current email")).not.toBeEditable();
   await expect(dialog(page).getByLabel("Current email")).toHaveValue(oldEmail);
   await dialog(page).getByRole("button", { name: "Close" }).click();
 
@@ -126,13 +127,18 @@ test("confirming a new email signs out every other device", async ({ browser, pa
   await other.close();
 });
 
-test("without a passkey, only the password confirms the change", async ({ page }, testInfo) => {
+test("without a passkey, the password is asked for and adding one is suggested", async ({
+  page,
+}, testInfo) => {
   await createAccount(page, testInfo, "No Passkey");
   await page.goto("/account/profile");
   await page.getByRole("button", { name: "Change email" }).click();
 
   await expect(dialog(page).getByLabel("Current password")).toBeVisible();
   await expect(dialog(page).getByRole("button", { name: "Use a passkey instead" })).toHaveCount(0);
+  await expect(
+    dialog(page).getByRole("link", { name: "Add a passkey for faster authentication" }),
+  ).toHaveAttribute("href", "/account/security#passkeys");
 });
 
 test.describe("with a passkey", () => {
@@ -141,7 +147,9 @@ test.describe("with a passkey", () => {
     "virtual authenticators are Chromium-only",
   );
 
-  test("a passkey confirms the change instead of the password", async ({ page }, testInfo) => {
+  test("the passkey is asked for by default when changing the email", async ({
+    page,
+  }, testInfo) => {
     await addVirtualAuthenticator(page);
     await createAccount(page, testInfo, "Passkey Mover");
     await addPasskeyToAccount(page);
@@ -149,22 +157,35 @@ test.describe("with a passkey", () => {
 
     await page.goto("/account/profile");
     await page.getByRole("button", { name: "Change email" }).click();
+    await expect(dialog(page).getByLabel("Current password")).toBeHidden();
     await dialog(page).getByLabel("New email").fill(newEmail);
-    await dialog(page).getByRole("button", { name: "Use a passkey instead" }).click();
+    await dialog(page).getByLabel("New email").press("Enter");
 
     await expect(page.getByText(SENT)).toHaveCSS("opacity", "1");
     await expect(dialog(page)).toBeHidden();
     await waitForEmails(newEmail);
+  });
+
+  test("the password can still be used instead of the passkey", async ({ page }, testInfo) => {
+    await addVirtualAuthenticator(page);
+    await createAccount(page, testInfo, "Password Mover");
+    await addPasskeyToAccount(page);
+    const newEmail = newAddress(testInfo);
+
+    await page.goto("/account/profile");
+    await page.getByRole("button", { name: "Change email" }).click();
+    await dialog(page).getByRole("button", { name: "Use your password instead" }).click();
+    await dialog(page).getByLabel("New email").fill(newEmail);
+    await dialog(page).getByLabel("Current password").fill("not-my-password");
+    await dialog(page).getByLabel("Current password").press("Enter");
+    await expect(dialog(page).getByRole("alert")).toHaveText("Your current password is incorrect.");
+
+    await dialog(page).getByLabel("Current password").fill(ACCOUNT_PASSWORD);
+    await dialog(page).getByLabel("Current password").press("Enter");
+    await expect(page.getByText(SENT)).toHaveCSS("opacity", "1");
 
     await page.getByRole("button", { name: "Change email" }).click();
-    await expect(dialog(page).getByLabel("Current password")).toBeEnabled();
-    await dialog(page)
-      .getByLabel("Current password")
-      .evaluate((input) => input.removeAttribute("required"));
-    await dialog(page).getByLabel("New email").fill(newAddress(testInfo));
-    await dialog(page).getByLabel("New email").press("Enter");
-    await expect(dialog(page).getByRole("alert")).toHaveText(
-      "Enter your current password or confirm with a passkey.",
-    );
+    await expect(dialog(page).getByLabel("Current password")).toBeHidden();
+    await expect(dialog(page).getByRole("button", { name: "Use your password instead" })).toBeVisible();
   });
 });

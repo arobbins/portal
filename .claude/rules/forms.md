@@ -39,6 +39,10 @@ paths:
   `role="alert"` and the id `FORM_ERROR_ID`, which invalid fields reference
   through `aria-describedby`; for JS-driven errors pass
   `hidden: $(message.is_empty())`.
+- Values the user can see but not change (the current email in Change
+  email) are `readonly`, not `disabled`: readable, selectable and announced;
+  `.a-form-input[readonly]` styles them. In a dialog, put `autofocus` on the
+  first editable field so focus skips the read-only one.
 - Form fields take typed `autocomplete: Some(Autocomplete::…)` hints (name,
   email, current/new password) for password managers.
 - **Modal forms** share one scaffold: `let form = DialogForm::new(cx,

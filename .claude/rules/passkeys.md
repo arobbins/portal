@@ -42,10 +42,15 @@ Passkeys card in `passkeys/pages/passkeys_card.rs`, built on `webauthn-rs`:
   tied to one action: one tap covers whichever confirmed action runs next.
   Removing a passkey `forget_passkey_proof`s, and a valid proof wins over
   whatever was typed in the password field. Dialogs
-  render the password through `auth::pages::reauth_field`, which adds "Use a
-  passkey instead" when the user has a passkey; `passkeys.js` runs the
-  request, hides and disables the password, then `requestSubmit`s the form,
-  and puts the password back when the dialog closes. Used by Change email
+  render the password through `auth::pages::reauth_field`. With a passkey
+  (and WebAuthn support) it starts in passkey mode: a "Confirm it's you"
+  panel with "Use your password instead", the password input hidden and
+  disabled; `passkeys.js` catches the form's submit in the capture phase
+  (before Topcoat's handler), runs the request, then `requestSubmit`s once.
+  Every submit in passkey mode asks for the passkey again; closing the
+  dialog returns to passkey mode. Without a passkey it shows the password
+  with an "Add a passkey for faster authentication" link to Security →
+  Passkeys (hidden without WebAuthn). Used by Change email
   and Create API token; Change password and Add passkey keep the password.
 - Registration overrides the library's options to `residentKey: required`
   (passkeys must be discoverable). Sign-in is discoverable (no email typed):

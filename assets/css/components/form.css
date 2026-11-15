@@ -47,7 +47,8 @@
 }
 
 .a-form-label-row__link {
-  padding: 0;
+  margin-block: calc(-1 * var(--space-1));
+  padding: var(--space-1) 0;
   font: inherit;
   font-size: 0.875em;
   color: var(--color-text-muted);
@@ -77,6 +78,12 @@
 
   &[aria-invalid="true"] {
     border-color: var(--color-error);
+  }
+
+  &[readonly] {
+    color: var(--color-text);
+    background-color: var(--color-bg-sunken);
+    border-color: var(--color-border);
   }
 
   &:disabled {
@@ -166,10 +173,6 @@
 }
 
 .a-form-error {
-  margin-bottom: var(--form-gap);
-}
-
-.a-form-reauth-option {
   margin-bottom: var(--form-gap);
 }
 

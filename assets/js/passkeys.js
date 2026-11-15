@@ -165,64 +165,72 @@ async function register(form) {
 
 function reauthParts(box) {
   return {
+    passkey: box.querySelector("[data-reauth-passkey]"),
     password: box.querySelector("[data-reauth-password]"),
     input: box.querySelector("[data-reauth-password] input"),
-    done: box.querySelector("[data-reauth-done]"),
-    button: box.querySelector("[data-passkey-confirm]"),
-    errorId: box.querySelector(".a-form-error")?.id,
+    errorId: box.querySelector("[data-reauth-passkey] .a-form-error")?.id,
   };
 }
 
-function showPasswordAgain(box) {
-  const parts = reauthParts(box);
-  if (!parts.done || parts.done.hidden) return;
-  parts.input.disabled = false;
-  parts.password.hidden = false;
-  parts.done.hidden = true;
-  parts.button.hidden = false;
-  hideError(parts.errorId);
+function usesPasskey(box) {
+  return box.dataset.reauthMode === "passkey";
 }
 
-function useConfirmedPasskey(box) {
+function showPasskeyMode(box) {
   const parts = reauthParts(box);
+  if (!parts.passkey || !window.PublicKeyCredential) return;
+  box.dataset.reauthMode = "passkey";
   parts.input.value = "";
   parts.input.dispatchEvent(new Event("input", { bubbles: true }));
   parts.input.disabled = true;
   parts.password.hidden = true;
-  parts.done.hidden = false;
-  parts.button.hidden = true;
+  parts.passkey.hidden = false;
+  hideError(parts.errorId);
 }
 
-async function confirmWithPasskey(button) {
-  const box = button.closest("[data-reauth]");
+function showPasswordMode(box) {
+  const parts = reauthParts(box);
+  box.dataset.reauthMode = "password";
+  parts.input.disabled = false;
+  parts.password.hidden = false;
+  if (parts.passkey) parts.passkey.hidden = true;
+  hideError(parts.errorId);
+}
+
+async function confirmWithPasskey(box) {
   const { errorId } = reauthParts(box);
   hideError(errorId);
-  button.disabled = true;
-
+  const start = await post("/passkeys/verify/start", {});
+  if (!start.ok) {
+    showError(errorId, start.data.detail ?? GENERIC_ERROR);
+    return false;
+  }
+  let credential;
   try {
-    const start = await post("/passkeys/verify/start", {});
-    if (!start.ok) {
-      showError(errorId, start.data.detail ?? GENERIC_ERROR);
-      return;
-    }
-    let credential;
-    try {
-      credential = await navigator.credentials.get({
-        publicKey: requestOptions(start.data.options.publicKey),
-      });
-    } catch (error) {
-      showError(errorId, promptError(error, start.data.origin));
-      return;
-    }
-    const finish = await post("/passkeys/verify/finish", credentialJSON(credential));
-    if (!finish.ok) {
-      showError(errorId, finish.data.detail ?? GENERIC_ERROR);
-      return;
-    }
-    useConfirmedPasskey(box);
-    box.closest("form")?.requestSubmit();
+    credential = await navigator.credentials.get({
+      publicKey: requestOptions(start.data.options.publicKey),
+    });
+  } catch (error) {
+    showError(errorId, promptError(error, start.data.origin));
+    return false;
+  }
+  const finish = await post("/passkeys/verify/finish", credentialJSON(credential));
+  if (!finish.ok) {
+    showError(errorId, finish.data.detail ?? GENERIC_ERROR);
+    return false;
+  }
+  return true;
+}
+
+async function submitWithPasskey(form, box) {
+  if (form.dataset.reauthPending) return;
+  form.dataset.reauthPending = "true";
+  try {
+    if (!(await confirmWithPasskey(box))) return;
+    form.dataset.reauthConfirmed = "true";
+    form.requestSubmit();
   } finally {
-    button.disabled = false;
+    delete form.dataset.reauthPending;
   }
 }
 
@@ -306,6 +314,8 @@ function setUp() {
     return;
   }
 
+  for (const box of document.querySelectorAll("[data-reauth]")) showPasskeyMode(box);
+
   const signals = document.querySelector("[data-passkey-signals]");
   if (signals) signalAccepted(JSON.parse(signals.dataset.passkeySignals));
 
@@ -319,18 +329,39 @@ document.addEventListener("submit", (event) => {
   register(form);
 });
 
+document.addEventListener(
+  "submit",
+  (event) => {
+    const form = event.target;
+    const box = form.querySelector?.("[data-reauth]");
+    if (!box || !usesPasskey(box)) return;
+    if (form.dataset.reauthConfirmed) {
+      delete form.dataset.reauthConfirmed;
+      return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    submitWithPasskey(form, box);
+  },
+  true,
+);
+
 document.addEventListener("click", (event) => {
-  const confirm = event.target.closest("[data-passkey-confirm]");
-  if (!confirm) return;
-  event.preventDefault();
-  confirmWithPasskey(confirm);
+  const box = event.target.closest("[data-reauth]");
+  if (!box) return;
+  if (event.target.closest("[data-reauth-use-password]")) {
+    showPasswordMode(box);
+    reauthParts(box).input.focus();
+  } else if (event.target.closest("[data-reauth-use-passkey]")) {
+    showPasskeyMode(box);
+  }
 });
 
 document.addEventListener(
   "close",
   (event) => {
     for (const box of event.target.querySelectorAll?.("[data-reauth]") ?? []) {
-      showPasswordAgain(box);
+      showPasskeyMode(box);
     }
   },
   true,

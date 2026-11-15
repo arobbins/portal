@@ -4,6 +4,7 @@ use topcoat::{
     view::{Attributes, View, component, view},
 };
 
+use crate::account::tabs::AccountSection;
 use crate::auth::password::CURRENT_PASSWORD_FIELD;
 use crate::auth::session::current_user;
 use crate::components::form::{
@@ -14,35 +15,47 @@ use crate::components::tone::Tone;
 use crate::passkeys::actions::has_passkey;
 use crate::web::env;
 
-const LABEL: &str = "Current password";
+const PASSWORD_LABEL: &str = "Current password";
 
 #[component]
 pub async fn reauth_field(cx: &Cx, id: &str, #[default] attrs: Attributes) -> Result<impl View> {
-    let error_id = format!("{id}-passkey-error");
     let has_passkey = match current_user(cx) {
         Some(user) => has_passkey(&env(cx), user.id).await?,
         None => false,
     };
+    let add_passkey = AccountSection::Passkeys.path();
 
     Ok(view! {
-        <div data-reauth="">
+        <div
+            data-reauth=""
+            data-reauth-has-passkey=(if has_passkey { "true" } else { "false" })
+        >
+            if has_passkey {
+                passkey_panel(id: id)
+            }
             <div data-reauth-password="">
                 form_group(
-                    if has_passkey {
-                        <div class="a-form-label-row">
-                            form_label(for_id: id, (LABEL))
+                    <div class="a-form-label-row">
+                        form_label(for_id: id, (PASSWORD_LABEL))
+                        if has_passkey {
                             <button
                                 type="button"
                                 class="a-form-label-row__link"
-                                data-passkey-confirm=""
+                                data-reauth-use-passkey=""
                                 data-passkey-only=""
                             >
                                 "Use a passkey instead"
                             </button>
-                        </div>
-                    } else {
-                        form_label(for_id: id, (LABEL))
-                    }
+                        } else {
+                            <a
+                                class="a-form-label-row__link"
+                                href=(&add_passkey)
+                                data-passkey-only=""
+                            >
+                                "Add a passkey for faster authentication"
+                            </a>
+                        }
+                    </div>
                     form_input(
                         id: id,
                         name: CURRENT_PASSWORD_FIELD,
@@ -53,12 +66,35 @@ pub async fn reauth_field(cx: &Cx, id: &str, #[default] attrs: Attributes) -> Re
                     )
                 )
             </div>
-            if has_passkey {
-                <div class="a-form-reauth-option" data-reauth-done="" hidden="">
-                    notice(tone: Tone::Success, "Confirmed with your passkey.")
+        </div>
+    })
+}
+
+#[component]
+async fn passkey_panel(cx: &Cx, id: &str) -> Result<impl View> {
+    let error_id = format!("{id}-passkey-error");
+
+    Ok(view! {
+        <div data-reauth-passkey="" hidden="">
+            form_group(
+                <div class="a-form-label-row">
+                    <span class="a-label a-label--md a-form-label">
+                        "Confirm it's you"
+                    </span>
+                    <button
+                        type="button"
+                        class="a-form-label-row__link"
+                        data-reauth-use-password=""
+                    >
+                        "Use your password instead"
+                    </button>
                 </div>
-                form_error(id: Some(&error_id), hidden: true, "")
-            }
+                notice(
+                    tone: Tone::Info,
+                    "We'll ask for your passkey when you continue."
+                )
+            )
+            form_error(id: Some(&error_id), hidden: true, "")
         </div>
     })
 }

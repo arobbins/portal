@@ -208,7 +208,7 @@ test.describe("with a passkey", () => {
     await page.goto("/account/developer");
     await page.getByRole("button", { name: "Create API token" }).click();
     await createDialog(page).getByLabel("Name").fill("Passkey script");
-    await createDialog(page).getByRole("button", { name: "Use a passkey instead" }).click();
+    await createDialog(page).getByLabel("Name").press("Enter");
 
     await expect(createDialog(page).getByLabel("API token")).toHaveValue(TOKEN_SHAPE);
   });
