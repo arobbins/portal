@@ -63,7 +63,18 @@ spec in `e2e/screenshots/` next to `screenshot.spec.ts`, run it with `npm run sc
 delete it afterwards. Claude in Chrome on `http://localhost:3000` is the fallback when the user
 wants their own signed-in session.
 
-## 3. Finish
+## 3. Check sizes and boundaries of what you touched
+
+```sh
+python3 scripts/clean_code.py --changed
+```
+
+It lists, for the `.rs` files changed since `HEAD`, any clean-code violation and every
+function, component or file past 75% of its limit (40 / 80 / 300 lines). Split a unit that's
+near its limit now, while the change is small (extract a helper, a child component or a
+`*_routes.rs` / `*_fields.rs` file), rather than when `./check.sh` fails on it later.
+
+## 4. Finish
 
 When the targeted checks pass, run `./check.sh` once before calling the work done, and run the
 `convention-reviewer` agent on non-trivial diffs.

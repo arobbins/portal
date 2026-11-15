@@ -13,7 +13,7 @@ paths:
   the page if the browser restores it from the back/forward cache (otherwise
   the button would stay disabled after pressing Back). Give the button
   `busy: $(is_submitting.get())` only: a busy button is always disabled.
-- **Form controls** (`components/form.rs`): `form_field`
+- **Form controls** (`components/form/`, re-exported from `components::form`): `form_field`
   (text/email/password), `textarea_field`, `select_field` (optional
   placeholder option), `radio_group` and `checkbox_group` (a `<fieldset>` +
   `<legend>`; options are `&[Choice { value, label }]`; option ids are
@@ -41,5 +41,10 @@ paths:
   `hidden: $(message.is_empty())`.
 - Form fields take typed `autocomplete: Some(Autocomplete::…)` hints (name,
   email, current/new password) for password managers.
+- **Modal forms** share one scaffold: `let form = DialogForm::new(cx,
+  field, message)` holds the error field, error message and busy signals;
+  inputs spread `dialog_input(cx, &form, FIELD, &value, &draft)`, the error
+  is `dialog_form_error(form: &form)` and the no-JS fallback's error toast is
+  `dialog_error_toast(form: &form, toast: &toast, name: ERROR_TOAST)`.
 - The full recipe for a new form (page, POST route, problem enum, modal +
   procedure) is the `new-form-flow` skill.

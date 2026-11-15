@@ -4,9 +4,8 @@ use topcoat::{
     context::{Cx, try_context},
     metadata::Metadata,
     router::{
-        Body, Method,
         content::Form,
-        error::{SeeOther, rewrite, see_other},
+        error::{SeeOther, see_other},
         href, page, route,
     },
     runtime::signal,
@@ -24,7 +23,7 @@ use crate::components::form::{
 use crate::flash::{Flash, flash_toasts, set_flash, take_flash, toast_name};
 use crate::layout::page_heading::page_heading;
 use crate::user::name::NAME_FIELD;
-use crate::web::session;
+use crate::web::{env, redisplay, session};
 
 const FLASHES: &[Flash] = &[Flash::RegistrationSent];
 
@@ -124,18 +123,18 @@ pub async fn register_submit(cx: &Cx, Form(form): Form<RegisterForm>) -> Result<
         name: form.name,
         email: form.email,
     };
-    match register(cx, &input).await? {
+    match register(&env(cx), &input).await? {
         Ok(()) => {
             set_flash(&session(cx)?, Flash::RegistrationSent).await?;
             Ok(sent)
         }
-        Err(problem) => Err(rewrite(href!(register_page).resolve(cx), Body::empty())
-            .method(Method::GET)
-            .with(RegisterFailed {
+        Err(problem) => Err(redisplay(
+            href!(register_page).resolve(cx),
+            RegisterFailed {
                 name: input.name,
                 email: input.email,
                 problem,
-            })
-            .into()),
+            },
+        )),
     }
 }

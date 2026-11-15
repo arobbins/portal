@@ -50,7 +50,7 @@ paths:
   7 days past expiry, rate-limit hits older than a day, account events older
   than 13 months (`EVENT_RETENTION`) and failed jobs older than 30 days.
 - **Email is always a job** (`src/jobs.rs`): code never calls the mailer;
-  it `enqueue`s `Job::SendEmail(email)` (inside the same transaction as the
+  it `enqueue`s `SendEmail(email)` (a `Job`, built with `EmailTemplate`) (inside the same transaction as the
   change it reports, where there is one) and a worker sends it with retries
   and backoff. A failed send never fails the request.
 - **Untrusted input limits**: parse emails with `utils::parse_email` (trims,
@@ -61,12 +61,12 @@ paths:
   `password_matches(hash, password)`; pass `None` when there's no usable
   account so it still does a full argon2 check (against an unmatchable hash)
   and logins take the same time whether or not the email exists. A signed-in
-  user re-entering their password goes through `check_current_password(cx,
+  user re-entering their password goes through `check_current_password(env,
   user, password)`, which applies the password limiter and the per-account
   lockout and returns `CurrentPasswordProblem`.
 - **Rate limits** (`src/rate_limit.rs`, sliding windows in the
   `rate_limit_hits` table, so they hold across instances and restarts; read
-  with `rate_limits(cx)`, every check is `async` and returns
+  with `env.limits()`, every check is `async` and returns
   `Result<bool, sqlx::Error>`): password submissions (login + both set-password forms)
   10/min per IP, email requests (sign-ups + password resets) 5 per 10 min per
   IP, and at most 3 emails per hour to any one address. Failed logins are
@@ -83,17 +83,17 @@ paths:
 - **Emailed links** use the `user_tokens` table: one row per token with a
   `purpose`, only the SHA-256 hash stored, single use (consumed with
   `DELETE … RETURNING`), expiry per purpose. Send one with
-  `auth::links::email_user_link(db, config, user_id, purpose, |url| email)`: it
-  replaces the user's older links for that purpose, commits *before* sending
-  (never hold a DB connection across a network call), and deletes the new
-  link if the email fails. Postmark calls time out after 10 s. Add a
+  `auth::links::email_user_link(app, NewLink { user_id, purpose, email: &|url| … })`:
+  it replaces the user's older links for that purpose and enqueues the
+  `SendEmail` job in the same transaction (the worker sends it, so no DB
+  connection is held across a network call). Postmark calls time out after 10 s. Add a
   `TokenPurpose` variant for new flows (e.g. email change) with its `path`,
   `lifetime` and `lifetime_text` (emails and pages quote it; a test checks
   each path is a real page). Link pages share `expired_link` (400) and the
   `link_is_valid` / `set_password_from_link` actions; new passwords share
   `new_password_form` + `password::check_new_password`.
 - **Account settings** (`account/`): tabs are `AccountTab`, the anchored
-  cards inside them are `AccountSection` (label, anchor, `href(cx)`); the
+  cards inside them are `AccountSection` (`label()`, `anchor()`, `path()`); the
   nav, card ids and redirects all come from those two enums. Each tab is a
   `<feature>/pages/<name>_tab.rs` component (`profile_tab`, `security_tab`,
   `developer_tab`). Each setting is a card with an action button on the

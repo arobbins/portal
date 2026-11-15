@@ -12,10 +12,12 @@ paths:
 - `src/components/` — reusable UI, one file per component; each has a matching
   CSS file in `assets/css/components/` and a demo in `src/pages/styleguide/`.
   Import components by module path: `components::button::{button, ButtonSize}`
-  (`#[component]` generates a module named after the function, so they can't
-  be re-exported from `components.rs`). Available: `button` (Primary /
+  (`#[component]` generates a module named after the function; a
+  multi-file component such as `form` re-exports its parts with `pub use`). Available: `button` (Primary /
   Secondary / Danger; pass `href` to render it as a link, which ignores
-  `busy`, `disabled` and `button_type`), `form` controls (incl. `code_field`), `card` +
+  `busy`, `disabled` and `button_type`), `form` controls (incl. `code_field`; `form_field` / `form_input` take
+  `max_length`; modal forms use `DialogForm` + `dialog_input`,
+  `dialog_form_error`, `dialog_error_toast` from `form/dialog.rs`), `card` +
   `card_header` + `card_body` (every settings block), `badge`, `avatar`,
   `tone` (`Tone`: the `tone` prop of `notice`, `badge`, `toaster` and
   property tags),

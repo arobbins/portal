@@ -56,26 +56,33 @@ pub async fn thing_page(cx: &Cx) -> Result<impl View> {
 #[route(POST "/account/things/update")]
 pub async fn update_thing_submit(cx: &Cx, Form(input): Form<UpdateThing>) -> Result<SeeOther> {
     let caller = require_browser_caller(cx)?;
-    match update_thing(cx, &caller, &input).await? {
+    match update_thing(&env(cx), &caller, &input).await? {
         Ok(_) => {
             set_flash(&session(cx)?, Flash::ThingSaved).await?;
-            Ok(see_other(AccountSection::Things.href(cx)))
+            Ok(see_other(AccountSection::Things.path()))
         }
-        Err(error) => Err(rewrite(AccountTab::Things.href(cx), Body::empty())
-            .method(Method::GET)
-            .with(ThingFailed { field: input.field, problem: error.for_browser()? })
-            .into()),
+        Err(error) => {
+            let failed = ThingFailed { field: input.field, problem: error.for_browser()? };
+            Err(redisplay(AccountTab::Things.path(), failed))
+        }
     }
 }
 ```
 
 Account routes are `/account/<thing>/<verb>`; signed-out forms post to their page's URL.
-Never type a path: `href!(handler)`, `AccountTab`, `AccountSection`. Add the flash with the
+Never type a path: `href!(handler)`, `AccountTab::X.path()`, `AccountSection::X.path()`,
+`routes.rs` constants. Add the flash with the
 `new-flash` skill.
 
 ## 5. Modal + procedure (settings cards only)
 
-Follow `profile/pages/profile_tab.rs` exactly:
+Follow `profile/pages/profile_tab.rs` exactly (and `account/pages/security_tab.rs` +
+`password_routes.rs` for the file split once a tab grows past 300 lines):
+
+- `let form = DialogForm::new(cx, "", "")` holds the error field, error message and busy
+  signals; inputs take `attrs: dialog_input(cx, &form, FIELD, &value, &draft)`, the
+  dialog's error is `dialog_form_error(form: &form)`, and the fallback's toast is
+  `dialog_error_toast(form: &form, toast: &toast, name: ERROR_TOAST)`.
 
 - `card(id: Some(AccountSection::X.anchor()), …)` with the action button in its header
   (`command="show-modal" commandfor=(MODAL_ID)`; its `@click` resets the field signals).

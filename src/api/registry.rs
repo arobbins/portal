@@ -15,8 +15,10 @@ use crate::api::body::BodyProblem;
 use crate::api::catalog::{Endpoint, ErrorDoc, HttpMethod};
 use crate::api::handler::{api_call, api_call_with_body};
 use crate::api::problem::{ApiFailure, ApiResponse, action_failed, respond};
+use crate::env::Env;
 use crate::permission::Permission;
-use crate::profile::actions::{GetProfileAction, UpdateProfileAction};
+use crate::profile::api::{GetProfileAction, UpdateProfileAction};
+use crate::web::env;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -36,7 +38,7 @@ pub trait ApiAction {
     type Problem: ActionProblem;
 
     fn run<'a>(
-        cx: &'a Cx,
+        env: &'a Env<'a>,
         caller: &'a Caller,
         input: &'a Self::Input,
     ) -> impl Future<Output = ActionResult<Self::Output, Self::Problem>> + Send + 'a;
@@ -65,7 +67,7 @@ type ToolFuture<'a> = Pin<Box<dyn Future<Output = Result<ToolOutcome>> + Send + 
 pub struct Tool {
     pub endpoint: Endpoint,
     pub permission: Permission,
-    pub run: for<'a> fn(&'a Cx, &'a Caller, Value) -> ToolFuture<'a>,
+    pub run: for<'a> fn(&'a Env<'a>, &'a Caller, Value) -> ToolFuture<'a>,
 }
 
 impl Tool {
@@ -82,13 +84,17 @@ fn tool<A: ApiAction>() -> Tool {
     }
 }
 
-fn run_tool<'a, A: ApiAction>(cx: &'a Cx, caller: &'a Caller, arguments: Value) -> ToolFuture<'a> {
+fn run_tool<'a, A: ApiAction>(
+    env: &'a Env<'a>,
+    caller: &'a Caller,
+    arguments: Value,
+) -> ToolFuture<'a> {
     Box::pin(async move {
         let input: A::Input = match serde_json::from_value(arguments) {
             Ok(input) => input,
             Err(e) => return Ok(ToolOutcome::InvalidArguments(e.to_string())),
         };
-        Ok(match A::run(cx, caller, &input).await? {
+        Ok(match A::run(env, caller, &input).await? {
             Ok(output) => ToolOutcome::Success(to_value(&output)),
             Err(error) => {
                 let (_, _, Json(body)) = action_failed(error);
@@ -137,14 +143,14 @@ fn to_value<T: Serialize>(value: &T) -> Value {
 
 pub async fn serve<A: ApiAction<Input = NoInput>>(cx: &Cx) -> Result<ApiResponse> {
     api_call(cx, async |caller| {
-        Ok(respond(A::run(cx, &caller, &NoInput {}).await?))
+        Ok(respond(A::run(&env(cx), &caller, &NoInput {}).await?))
     })
     .await
 }
 
 pub async fn serve_with_body<A: ApiAction>(cx: &Cx, body: Body) -> Result<ApiResponse> {
     api_call_with_body(cx, body, async |caller, input: A::Input| {
-        Ok(respond(A::run(cx, &caller, &input).await?))
+        Ok(respond(A::run(&env(cx), &caller, &input).await?))
     })
     .await
 }

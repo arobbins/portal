@@ -7,7 +7,7 @@ use topcoat::{
 use crate::api::body::MAX_JSON_BODY;
 use crate::api::problem::ApiResponse;
 use crate::api::registry::{serve, serve_with_body};
-use crate::profile::actions::{GetProfileAction, UpdateProfileAction};
+use crate::profile::api::{GetProfileAction, UpdateProfileAction};
 
 #[route(GET "/api/v1/me")]
 pub async fn get_profile_route(cx: &Cx) -> Result<ApiResponse> {

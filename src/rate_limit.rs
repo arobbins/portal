@@ -189,6 +189,10 @@ impl RateLimits {
         self.blocked(Limit::FailedApiAuthByIp, &ip_key(ip)).await
     }
 
+    pub async fn forget_old_hits(&self, now: time::OffsetDateTime) -> Result<u64, sqlx::Error> {
+        query_delete_old_rate_limit_hits(now - KEEP_HITS_FOR, &self.db).await
+    }
+
     pub async fn record_failed_api_auth(&self, ip: Option<IpAddr>) -> Result<(), sqlx::Error> {
         self.record(Limit::FailedApiAuthByIp, &ip_key(ip)).await
     }
@@ -269,8 +273,10 @@ async fn query_delete_rate_limit_hits(
     Ok(())
 }
 
-pub async fn query_delete_old_rate_limit_hits(db: impl PgExecutor<'_>) -> Result<u64, sqlx::Error> {
-    let cutoff = time::OffsetDateTime::now_utc() - KEEP_HITS_FOR;
+async fn query_delete_old_rate_limit_hits(
+    cutoff: time::OffsetDateTime,
+    db: impl PgExecutor<'_>,
+) -> Result<u64, sqlx::Error> {
     let result = sqlx::query!("DELETE FROM rate_limit_hits WHERE at < $1", cutoff)
         .execute(db)
         .await?;
@@ -502,6 +508,13 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(query_delete_old_rate_limit_hits(&db).await.unwrap(), 1);
+        let limits = RateLimits::new(db.clone(), RateLimitMode::Strict);
+        assert_eq!(
+            limits
+                .forget_old_hits(time::OffsetDateTime::now_utc())
+                .await
+                .unwrap(),
+            1
+        );
     }
 }

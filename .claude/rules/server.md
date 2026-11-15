@@ -1,10 +1,16 @@
 ---
 paths:
   - "src/main.rs"
+  - "src/server.rs"
+  - "src/server/**"
+  - "src/env.rs"
   - "src/web.rs"
+  - "src/web/**"
+  - "src/health.rs"
   - "src/config.rs"
   - "src/app.rs"
   - "src/mail.rs"
+  - "src/mail/**"
   - "src/*/emails.rs"
   - ".env.example"
   - "e2e/tests/security.spec.ts"
@@ -15,11 +21,11 @@ paths:
 - **Configuration is parsed once** (`src/config.rs`): `Config::from_env()`
   turns env vars into typed values (`Mailer`, `RateLimitMode`, …) at startup
   and lists every problem at once; nothing else reads env vars (except
-  `DATABASE_URL`, read in `main.rs` so `webserver seed` needs nothing else).
-  Read it with `config(cx)` / `app_url(cx, path)`. Cookies are `Secure`
+  `DATABASE_URL`, read by `server::database_url()` so `webserver seed` needs nothing else).
+  Read it with `web::config(cx)` / `app.config`; build absolute URLs with `app.url(path)`. Cookies are `Secure`
   automatically when `APP_BASE_URL` is `https://`. Settings are listed in
   `.env.example`.
-- **Security headers** (`main.rs`): every response gets `X-Frame-Options:
+- **Security headers** (`server/router.rs`): every response gets `X-Frame-Options:
   DENY`, `frame-ancestors 'none'`, `nosniff` and a strict referrer policy;
   HSTS is added when `APP_BASE_URL` is https. `inject_globals` adds
   `Cache-Control: no-store` to every response for a signed-in user. `/assets`
@@ -42,7 +48,7 @@ paths:
   `POSTMARK_SERVER_TOKEN`, `POSTMARK_BASE_URL`, `POSTMARK_FROM_EMAIL`),
   `log` (prints emails, including links), or `file` (writes JSON to
   `MAIL_DIR`). Unknown values stop the server at startup.
-- **Health and tracing** (`src/health.rs`, `main.rs`): `/healthz` (the
+- **Health and tracing** (`src/health.rs`, `server/router.rs`; `init_tracing` in `main.rs`): `/healthz` (the
   process is up) and `/readyz` (the database answers) sit outside sessions
   and the canonical-host redirect, so load balancers can call them by IP.
   Every request gets an `x-request-id` (kept if the client sent one), echoed

@@ -1,7 +1,7 @@
 use topcoat::{Result, context::Cx, router::route};
 
-use crate::api::catalog::openapi;
 use crate::api::handler::public_api_call;
+use crate::api::openapi::openapi;
 use crate::api::problem::{ApiResponse, ok};
 use crate::web::config;
 

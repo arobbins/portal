@@ -1,4 +1,4 @@
-use crate::action::ActionProblem;
+use crate::action::{ActionProblem, ProblemSpec};
 
 pub const MAX_NAME_LENGTH: usize = 100;
 pub const NAME_FIELD: &str = "name";
@@ -14,22 +14,14 @@ impl NameProblem {
 }
 
 impl ActionProblem for NameProblem {
-    fn code(self) -> &'static str {
-        match self {
-            Self::Missing => "name_missing",
-            Self::TooLong => "name_too_long",
-        }
-    }
-
-    fn message(self) -> &'static str {
-        match self {
-            Self::Missing => "Name is required.",
-            Self::TooLong => "Name must be 100 characters or fewer.",
-        }
-    }
-
-    fn field(self) -> Option<&'static str> {
-        Some(NAME_FIELD)
+    fn spec(self) -> ProblemSpec {
+        let spec = match self {
+            Self::Missing => ProblemSpec::new("name_missing", "Name is required."),
+            Self::TooLong => {
+                ProblemSpec::new("name_too_long", "Name must be 100 characters or fewer.")
+            }
+        };
+        spec.on_field(NAME_FIELD)
     }
 }
 

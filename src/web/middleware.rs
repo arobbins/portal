@@ -1,0 +1,105 @@
+use std::net::SocketAddr;
+
+use axum::{
+    extract::{ConnectInfo, Request, State},
+    http::{
+        HeaderValue, Method, StatusCode,
+        header::{CACHE_CONTROL, HOST},
+    },
+    middleware::Next,
+    response::{IntoResponse, Redirect, Response},
+};
+use topcoat::router::RemoteAddr;
+use tower_sessions::Session;
+
+use super::context::GlobalState;
+use crate::auth::session::load_signed_in_user;
+use crate::env::App;
+use crate::theme::Theme;
+
+#[derive(Debug, Clone)]
+pub struct CanonicalHost {
+    authority: String,
+    base_url: String,
+}
+
+impl CanonicalHost {
+    pub fn from_base_url(base_url: &str) -> Option<Self> {
+        let url = url::Url::parse(base_url).ok()?;
+        let host = url.host_str()?;
+        let authority = match url.port() {
+            Some(port) => format!("{host}:{port}"),
+            None => host.to_string(),
+        };
+
+        Some(Self {
+            authority,
+            base_url: base_url.trim_end_matches('/').to_string(),
+        })
+    }
+}
+
+pub async fn redirect_to_canonical_host(
+    State(canonical): State<CanonicalHost>,
+    req: Request,
+    next: Next,
+) -> Response {
+    let is_page_request = matches!(*req.method(), Method::GET | Method::HEAD);
+    let host = req.headers().get(HOST).and_then(|host| host.to_str().ok());
+
+    if is_page_request
+        && let Some(host) = host
+        && !host.eq_ignore_ascii_case(&canonical.authority)
+    {
+        let path = req.uri().path_and_query().map_or("/", |path| path.as_str());
+        return Redirect::permanent(&format!("{}{path}", canonical.base_url)).into_response();
+    }
+
+    next.run(req).await
+}
+
+pub async fn run_to_completion(req: Request, next: Next) -> Response {
+    tokio::spawn(next.run(req))
+        .await
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
+pub async fn attach_remote_addr(mut req: Request, next: Next) -> Response {
+    if let Some(ConnectInfo(addr)) = req.extensions().get::<ConnectInfo<SocketAddr>>().copied() {
+        req.extensions_mut().insert(RemoteAddr(addr));
+    }
+
+    next.run(req).await
+}
+
+pub async fn inject_globals(
+    State(app): State<App>,
+    session: Session,
+    mut req: Request,
+    next: Next,
+) -> Response {
+    let current_user = match load_signed_in_user(&session, &app.db).await {
+        Ok(user) => user,
+        Err(e) => {
+            tracing::error!("Failed to load signed-in user: {e}");
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+
+    let theme = Theme::from_headers(req.headers());
+    let is_signed_in = current_user.is_some();
+
+    req.extensions_mut().insert(GlobalState {
+        year: app.clock.now().year(),
+        current_user,
+        theme,
+    });
+
+    let mut response = next.run(req).await;
+    if is_signed_in {
+        response
+            .headers_mut()
+            .insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    }
+    response
+}

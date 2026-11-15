@@ -42,7 +42,6 @@ impl ButtonSize {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[allow(dead_code)]
 pub enum ButtonType {
     #[default]
     Button,

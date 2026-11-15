@@ -1,6 +1,9 @@
 pub mod actions;
 pub mod emails;
+pub mod lifecycle;
+pub mod lifetime;
 pub mod pages;
-pub mod queries;
+mod queries;
+#[cfg(test)]
+pub mod testing;
 pub mod token;
-pub mod verify;

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO jobs (kind, run_at) SELECT $1, $2 WHERE NOT EXISTS (SELECT 1 FROM jobs WHERE kind = $1 AND status = 'queued') ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "185204a57c8ace9599dafaeb7c0c4e79de86c71ee4e4940b6549dd3f3da26813"
+}

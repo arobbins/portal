@@ -3,5 +3,5 @@ pub mod emails;
 pub mod links;
 pub mod pages;
 pub mod password;
-pub mod queries;
+mod queries;
 pub mod session;

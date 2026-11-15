@@ -1,5 +1,5 @@
-use crate::routes::login_url;
-use crate::routes::register_url;
+use crate::routes::LOGIN_PATH;
+use crate::routes::REGISTER_PATH;
 use topcoat::{
     Result,
     context::Cx,
@@ -14,8 +14,8 @@ use crate::pages::api_docs::api_docs_page;
 
 #[page("/", with(Metadata::new().title(page_title("Home"))))]
 pub async fn home_page(cx: &Cx) -> Result<impl View> {
-    let register_href = register_url(cx);
-    let login_href = login_url(cx);
+    let register_href = REGISTER_PATH.to_string();
+    let login_href = LOGIN_PATH.to_string();
     let docs_href = href!(api_docs_page).resolve(cx);
 
     Ok(view! {

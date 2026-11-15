@@ -9,11 +9,13 @@ use topcoat::{
 use crate::action::Caller;
 use crate::api::auth::authenticate;
 use crate::api::body::{MAX_JSON_BODY, read_json};
-use crate::api::catalog::without_meta;
+use crate::api::openapi::without_meta;
 use crate::api::problem::{ApiResponse, no_store, or_internal_error};
 use crate::api::registry::{Tool, ToolOutcome, tools};
 use crate::api::scope::TokenAudience;
 use crate::app::SITE_NAME;
+use crate::env::Env;
+use crate::web::env;
 
 pub const PROTOCOL_VERSION: &str = "2025-06-18";
 const SUPPORTED_VERSIONS: &[&str] = &["2025-06-18", "2025-03-26"];
@@ -37,10 +39,10 @@ pub async fn mcp_endpoint(cx: &Cx, body: Body) -> Result<McpResponse> {
         Err(response) => return Ok(from_api(response)),
     };
 
-    handle(cx, &caller, message).await
+    handle(&env(cx), &caller, message).await
 }
 
-async fn handle(cx: &Cx, caller: &Caller, message: Value) -> Result<McpResponse> {
+async fn handle(env: &Env<'_>, caller: &Caller, message: Value) -> Result<McpResponse> {
     let Some(request) = message.as_object() else {
         return Ok(rpc_error(
             Value::Null,
@@ -67,7 +69,7 @@ async fn handle(cx: &Cx, caller: &Caller, message: Value) -> Result<McpResponse>
         "initialize" => Ok(rpc_result(id, initialize(&params))),
         "ping" => Ok(rpc_result(id, json!({}))),
         "tools/list" => Ok(rpc_result(id, list_tools(caller))),
-        "tools/call" => call_tool(cx, caller, id, &params).await,
+        "tools/call" => call_tool(env, caller, id, &params).await,
         other => Ok(rpc_error(
             id,
             METHOD_NOT_FOUND,
@@ -125,7 +127,12 @@ fn list_tools(caller: &Caller) -> Value {
     json!({ "tools": tools })
 }
 
-async fn call_tool(cx: &Cx, caller: &Caller, id: Value, params: &Value) -> Result<McpResponse> {
+async fn call_tool(
+    env: &Env<'_>,
+    caller: &Caller,
+    id: Value,
+    params: &Value,
+) -> Result<McpResponse> {
     let Some(name) = params["name"].as_str() else {
         return Ok(rpc_error(
             id,
@@ -146,7 +153,12 @@ async fn call_tool(cx: &Cx, caller: &Caller, id: Value, params: &Value) -> Resul
         .cloned()
         .unwrap_or_else(|| json!({}));
 
-    let result = match (tool.run)(cx, caller, arguments).await? {
+    let outcome = (tool.run)(env, caller, arguments).await?;
+    Ok(tool_response(id, outcome))
+}
+
+fn tool_response(id: Value, outcome: ToolOutcome) -> McpResponse {
+    let result = match outcome {
         ToolOutcome::Success(output) => json!({
             "content": [{ "type": "text", "text": pretty(&output) }],
             "structuredContent": output,
@@ -157,15 +169,11 @@ async fn call_tool(cx: &Cx, caller: &Caller, id: Value, params: &Value) -> Resul
             "isError": true,
         }),
         ToolOutcome::InvalidArguments(reason) => {
-            return Ok(rpc_error(
-                id,
-                INVALID_PARAMS,
-                &format!("The arguments don't match the tool's inputSchema: {reason}"),
-            ));
+            let message = format!("The arguments don't match the tool's inputSchema: {reason}");
+            return rpc_error(id, INVALID_PARAMS, &message);
         }
     };
-
-    Ok(rpc_result(id, result))
+    rpc_result(id, result)
 }
 
 fn pretty(value: &Value) -> String {
@@ -261,11 +269,15 @@ mod tests {
 
     #[tokio::test]
     async fn requests_are_validated_and_notifications_get_no_reply() {
-        let cx = Cx::new();
+        let db = sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgres://localhost/unused")
+            .unwrap();
+        let app = crate::env::App::for_tests(db);
+        let env = app.env(None);
         let reader = caller(vec![ApiScope::ProfileRead]);
 
         let notification = handle(
-            &cx,
+            &env,
             &reader,
             json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }),
         )
@@ -274,7 +286,7 @@ mod tests {
         assert_eq!(notification.0, StatusCode::ACCEPTED);
 
         let unknown = handle(
-            &cx,
+            &env,
             &reader,
             json!({ "jsonrpc": "2.0", "id": 1, "method": "nope" }),
         )
@@ -282,11 +294,11 @@ mod tests {
         .unwrap();
         assert_eq!(body(&unknown)["error"]["code"], METHOD_NOT_FOUND);
 
-        let not_rpc = handle(&cx, &reader, json!({ "id": 2 })).await.unwrap();
+        let not_rpc = handle(&env, &reader, json!({ "id": 2 })).await.unwrap();
         assert_eq!(not_rpc.0, StatusCode::BAD_REQUEST);
 
         let call = handle(
-            &cx,
+            &env,
             &reader,
             json!({ "jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": { "name": "get_profile" } }),
         )

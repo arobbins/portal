@@ -2,9 +2,10 @@ use std::net::IpAddr;
 
 use serde_json::Value;
 use sqlx::PgExecutor;
-use topcoat::{Result, context::Cx, router::request::client_ip};
+use topcoat::Result;
 
 use crate::action::{Caller, Channel};
+use crate::env::Env;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AccountEventKind {
@@ -86,7 +87,7 @@ pub struct NewAccountEvent<'a> {
 }
 
 pub async fn record_event(
-    cx: &Cx,
+    env: &Env<'_>,
     source: &EventSource,
     kind: AccountEventKind,
     detail: Value,
@@ -97,7 +98,7 @@ pub async fn record_event(
             source,
             kind,
             detail: &detail,
-            ip: client_ip(cx),
+            ip: env.ip,
         },
         db,
     )
@@ -125,11 +126,16 @@ pub async fn query_insert_account_event(
     Ok(())
 }
 
-pub async fn query_delete_old_account_events(
-    older_than: time::Duration,
+pub const EVENT_RETENTION: time::Duration = time::Duration::days(395);
+
+pub async fn delete_old_events(app: &crate::env::App) -> Result<u64, sqlx::Error> {
+    query_delete_old_account_events(app.clock.now() - EVENT_RETENTION, &app.db).await
+}
+
+async fn query_delete_old_account_events(
+    cutoff: time::OffsetDateTime,
     db: impl PgExecutor<'_>,
 ) -> Result<u64, sqlx::Error> {
-    let cutoff = time::OffsetDateTime::now_utc() - older_than;
     let result = sqlx::query!("DELETE FROM account_events WHERE created_at < $1", cutoff)
         .execute(db)
         .await?;

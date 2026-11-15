@@ -1,12 +1,11 @@
-use crate::routes::account_url;
+use crate::routes::ACCOUNT_PATH;
 use topcoat::{
     Result,
     context::{Cx, try_context},
     metadata::Metadata,
     router::{
-        Body, Method,
         content::Form,
-        error::{SeeOther, rewrite, see_other, too_many_requests},
+        error::{SeeOther, see_other, too_many_requests},
         href, page, path_param, request, route,
     },
     runtime::signal,
@@ -31,7 +30,7 @@ use crate::components::form::{
 };
 use crate::flash::{Flash, flash_toasts, set_flash, take_flash, toast_name};
 use crate::layout::page_heading::page_heading;
-use crate::web::session;
+use crate::web::{env, redisplay, session};
 
 pub const RETRY_AFTER_SECS: u64 = 10;
 const PURPOSE: TokenPurpose = TokenPurpose::PasswordReset;
@@ -110,20 +109,18 @@ pub async fn reset_password_submit(
     cx: &Cx,
     Form(input): Form<RequestPasswordReset>,
 ) -> Result<SeeOther> {
-    match request_password_reset(cx, &input).await? {
+    match request_password_reset(&env(cx), &input).await? {
         Ok(()) => {
             set_flash(&session(cx)?, Flash::ResetLinkSent).await?;
             Ok(see_other(href!(reset_password_page).resolve(cx)))
         }
-        Err(problem) => Err(
-            rewrite(href!(reset_password_page).resolve(cx), Body::empty())
-                .method(Method::GET)
-                .with(ResetRequestFailed {
-                    email: input.email,
-                    problem,
-                })
-                .into(),
-        ),
+        Err(problem) => {
+            let failed = ResetRequestFailed {
+                email: input.email,
+                problem,
+            };
+            Err(redisplay(href!(reset_password_page).resolve(cx), failed))
+        }
     }
 }
 
@@ -132,7 +129,7 @@ pub async fn reset_password_submit(
     with(Metadata::new().title(page_title("Choose a new password")))
 )]
 pub async fn choose_password_page(cx: &Cx) -> Result<impl View> {
-    if !link_is_valid(cx, PURPOSE, token(cx)).await? {
+    if !link_is_valid(&env(cx), PURPOSE, token(cx)).await? {
         return Ok(view! {
             expired_link(
                 <p>
@@ -166,24 +163,24 @@ pub async fn choose_password_page(cx: &Cx) -> Result<impl View> {
 
 #[route(POST "/reset-password/{token}")]
 pub async fn choose_password_submit(cx: &Cx, Form(input): Form<NewPassword>) -> Result<SeeOther> {
-    match set_password_from_link(cx, PURPOSE, token(cx), &input).await? {
+    match set_password_from_link(&env(cx), PURPOSE, token(cx), &input).await? {
         Ok(user) => {
             let session = session(cx)?;
             sign_in(&session, &user).await?;
             set_flash(&session, Flash::PasswordReset).await?;
-            Ok(see_other(account_url(cx)))
+            Ok(see_other(ACCOUNT_PATH))
         }
         Err(problem) => Err(link_password_failed(cx, problem)),
     }
 }
 
 pub fn link_password_failed(cx: &Cx, problem: LinkPasswordProblem) -> topcoat::Error {
-    let back_to_form = rewrite(request::uri(cx).path(), Body::empty()).method(Method::GET);
+    let form_path = request::uri(cx).path();
     match problem {
         LinkPasswordProblem::TooManyAttempts => too_many_requests(RETRY_AFTER_SECS).into(),
-        LinkPasswordProblem::ExpiredLink => back_to_form.into(),
+        LinkPasswordProblem::ExpiredLink => redisplay(form_path, ()),
         LinkPasswordProblem::Password(problem) => {
-            back_to_form.with(LinkPasswordFailed { problem }).into()
+            redisplay(form_path, LinkPasswordFailed { problem })
         }
     }
 }

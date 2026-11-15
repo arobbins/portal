@@ -1,7 +1,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::routes::account_url;
+use time::OffsetDateTime;
+
+use crate::routes::ACCOUNT_PATH;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use topcoat::{
@@ -56,7 +58,7 @@ pub fn require_user(cx: &Cx) -> Result<Arc<User>> {
 
 pub fn redirect_signed_in_users(cx: &Cx) -> Result<()> {
     if current_user(cx).is_some() {
-        return Err(see_other(account_url(cx)).into());
+        return Err(see_other(ACCOUNT_PATH).into());
     }
 
     Ok(())
@@ -78,13 +80,17 @@ pub async fn sign_in(session: &Session, user: &User) -> Result<()> {
     Ok(())
 }
 
-pub async fn grant_passkey_prompt(session: &Session, user: &User) -> Result<()> {
+pub async fn grant_passkey_prompt(
+    session: &Session,
+    user: &User,
+    now: OffsetDateTime,
+) -> Result<()> {
     session
         .insert(
             PASSKEY_PROMPT_GRANT,
             PasskeyPromptGrant {
                 user_id: user.id,
-                granted_at: time::OffsetDateTime::now_utc().unix_timestamp(),
+                granted_at: now.unix_timestamp(),
             },
         )
         .await?;
@@ -92,14 +98,17 @@ pub async fn grant_passkey_prompt(session: &Session, user: &User) -> Result<()> 
     Ok(())
 }
 
-pub async fn passkey_prompt_granted(session: &Session, user: &User) -> Result<bool> {
+pub async fn passkey_prompt_granted(
+    session: &Session,
+    user: &User,
+    now: OffsetDateTime,
+) -> Result<bool> {
     let grant = session
         .get::<PasskeyPromptGrant>(PASSKEY_PROMPT_GRANT)
         .await?;
-    let now = time::OffsetDateTime::now_utc().unix_timestamp();
 
     Ok(grant.is_some_and(|grant| {
-        grant.user_id == user.id && within_prompt_window(grant.granted_at, now)
+        grant.user_id == user.id && within_prompt_window(grant.granted_at, now.unix_timestamp())
     }))
 }
 
@@ -157,14 +166,32 @@ mod tests {
         .unwrap();
         let other = query_get_user_by_id(other_id, &db).await.unwrap().unwrap();
         let session = Session::new(None, Arc::new(MemoryStore::default()), None);
-        assert!(!passkey_prompt_granted(&session, &user).await.unwrap());
+        assert!(
+            !passkey_prompt_granted(&session, &user, OffsetDateTime::now_utc())
+                .await
+                .unwrap()
+        );
 
-        grant_passkey_prompt(&session, &user).await.unwrap();
-        assert!(passkey_prompt_granted(&session, &user).await.unwrap());
-        assert!(!passkey_prompt_granted(&session, &other).await.unwrap());
+        grant_passkey_prompt(&session, &user, OffsetDateTime::now_utc())
+            .await
+            .unwrap();
+        assert!(
+            passkey_prompt_granted(&session, &user, OffsetDateTime::now_utc())
+                .await
+                .unwrap()
+        );
+        assert!(
+            !passkey_prompt_granted(&session, &other, OffsetDateTime::now_utc())
+                .await
+                .unwrap()
+        );
 
         sign_in(&session, &other).await.unwrap();
-        assert!(!passkey_prompt_granted(&session, &user).await.unwrap());
+        assert!(
+            !passkey_prompt_granted(&session, &user, OffsetDateTime::now_utc())
+                .await
+                .unwrap()
+        );
     }
 
     #[sqlx::test]

@@ -59,7 +59,12 @@ State and structure
 - Success after redirect uses `set_flash`/`take_flash` with a page `FLASHES` const; no message
   flags in URLs; toast names are consts or `Flash::name()`, never literals.
 - Each sqlx query is its own `query_*` fn with `db` last; no inline sqlx in handlers.
-- Config only via `config(cx)`; no new `std::env::var` reads.
+- Config only via `web::config(cx)` / `app.config`; no new `std::env::var` reads.
+- Clean code (`scripts/clean_code.py` catches sizes and imports; you catch the rest):
+  actions take `&Env` + `Caller`, never `cx`/session; no global time; no feature imported
+  by infrastructure; a pattern written twice is a must-fix (reuse `DialogForm`,
+  `EmailTemplate`, `ProblemSpec`, `redisplay`, `NewLink`, `Handler::of`); stringly-typed
+  state or `String` errors where an enum/named type fits; widest-needed visibility only.
 
 Topcoat
 - `cx: &Cx` first and named `cx` on every component/page/route/layout/procedure.

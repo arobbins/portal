@@ -1,4 +1,4 @@
-use crate::routes::api_docs_url;
+use crate::routes::API_DOCS_PATH;
 use topcoat::{
     Result,
     context::Cx,
@@ -20,17 +20,17 @@ pub async fn account_nav(cx: &Cx, active: AccountTab) -> Result<impl View> {
         .into_iter()
         .map(|tab| NavTab {
             tab,
-            href: tab.href(cx),
+            href: tab.path(),
             links: tab
                 .sections()
                 .iter()
-                .map(|section| (section.label(), section.href(cx)))
+                .map(|section| (section.label(), section.path()))
                 .collect(),
         })
         .collect();
     let external_links = [
         ("Support", "/support".to_string()),
-        ("Documentation", api_docs_url(cx)),
+        ("Documentation", API_DOCS_PATH.to_string()),
         ("System status", "/status".to_string()),
     ];
 

@@ -56,23 +56,25 @@ pub struct ThingView { /* only what a caller should see, never a DB model */ }
   `pk_…`): add a variant, a `public_id` column with a format CHECK, and use it in forms,
   URLs, events and the API. Integer ids stay internal.
 
-Problems: an enum implementing `ActionProblem` (`code` snake_case, never renamed once
-shipped; `message`; `field` naming the input field; `status` if not 422). Wrap shared
+Problems: an enum implementing `ActionProblem` with one `spec()` per variant:
+`ProblemSpec::new("snake_case_code", "Message.").on_field(FIELD).with_status(…)` (code
+never renamed once shipped; field names the input; status only if not 422). Wrapped
+problems return `problem.spec()`. Wrap shared
 problems instead of copying them: `NameProblem`, `PasswordProblem`,
 `CurrentPasswordProblem` (via `check_current_password`), `TooManyAttempts`.
 
 ## 4. The action
 
 ```rust
-pub async fn do_thing(cx: &Cx, caller: &Caller, input: &DoThing) -> ActionResult<ThingView, ThingProblem> {
+pub async fn do_thing(env: &Env<'_>, caller: &Caller, input: &DoThing) -> ActionResult<ThingView, ThingProblem> {
     authorize!(caller.require(Permission::EditThings));
     let name = match check_name(&input.name) {
         Ok(name) => name,
         Err(problem) => return fail(ThingProblem::Name(problem)),
     };
-    let mut tx = db(cx).begin().await?;
+    let mut tx = env.db().begin().await?;
     // query_* functions only (new-query skill) on &mut *tx, scoped by caller.owner_id()
-    record_event(cx, &EventSource::of(caller), AccountEventKind::ThingCreated,
+    record_event(env, &EventSource::of(caller), AccountEventKind::ThingCreated,
         json!({ "thing": public_id, "name": name }), &mut *tx).await?;
     tx.commit().await?;
     Ok(Ok(view))
@@ -83,7 +85,13 @@ pub async fn do_thing(cx: &Cx, caller: &Caller, input: &DoThing) -> ActionResult
   (ids and names, never secrets). Add the `AccountEventKind` (+ `ALL`) and a migration
   extending the `kind` CHECK.
 - Owned rows are scoped by `caller.owner_id()` (the workspace; today the user).
-- Send emails or call other services only after `commit`.
+- Emails are jobs: `enqueue(&SendEmail(template.to(&email)), &mut *tx)` inside the
+  transaction, with the email built by `mail::EmailTemplate`. Other network calls only
+  after `commit`.
+- Time is `env.now()`; the action never takes `cx` or the session. Keep it ≤ 40 lines:
+  validation goes in a `check_request(...) -> Outcome<…>` helper, writes in a
+  `store_*` helper (`api_tokens/actions/create.rs`). One use case per file under
+  `<feature>/actions/`.
 
 ## 5. Page wiring
 
@@ -93,7 +101,7 @@ async fn do_thing_js(cx: &Cx, name: String) -> Result<Result<String, FieldError>
     let Some(caller) = browser_caller(cx) else {
         return Ok(Err(FieldError::session_expired()));
     };
-    match do_thing(cx, &caller, &DoThing { name }).await? {
+    match do_thing(&env(cx), &caller, &DoThing { name }).await? {
         Ok(view) => Ok(Ok(view.name)),
         Err(error) => Ok(Err(FieldError::of(error.for_browser()?))),
     }
@@ -102,17 +110,18 @@ async fn do_thing_js(cx: &Cx, name: String) -> Result<Result<String, FieldError>
 #[route(POST "/account/things/create")]
 pub async fn create_thing_submit(cx: &Cx, Form(input): Form<DoThing>) -> Result<SeeOther> {
     let caller = require_browser_caller(cx)?;
-    match do_thing(cx, &caller, &input).await? { … }
+    match do_thing(&env(cx), &caller, &input).await? { … }
 }
 ```
 
 POST routes under `/account` are `/account/<thing>/<verb>`; forms for signed-out pages post
-to the page's own URL. Redirect targets come from `href!(…)`, `AccountTab::X.href(cx)` or
-`AccountSection::X.href(cx)`. The rest follows `new-form-flow`.
+to the page's own URL. Redirect targets come from `href!(…)`, `AccountTab::X.path()`,
+`AccountSection::X.path()` or a `routes.rs` constant. The procedure and POST route go in
+`<feature>/pages/<thing>_routes.rs`. The rest follows `new-form-flow`.
 
 ## 6. Expose it to the API (scoped actions only)
 
-Implement `ApiAction` next to the action (`profile/actions.rs` is the reference): one
+Implement `ApiAction` in `<feature>/api.rs` (`profile/api.rs` is the reference): one
 declaration drives the route handler, the `/docs/api` page, the OpenAPI document,
 `/llms.txt` and the MCP tool list.
 
@@ -132,8 +141,8 @@ impl ApiAction for CreateThingAction {
     type Output = ThingView;
     type Problem = ThingProblem;   // `Infallible` if it can't fail
 
-    async fn run(cx: &Cx, caller: &Caller, input: &DoThing) -> ActionResult<ThingView, ThingProblem> {
-        do_thing(cx, caller, input).await
+    async fn run(env: &Env<'_>, caller: &Caller, input: &DoThing) -> ActionResult<ThingView, ThingProblem> {
+        do_thing(env, caller, input).await
     }
 
     fn example_input() -> Option<DoThing> { Some(/* real-looking values */) }
@@ -154,7 +163,7 @@ pub async fn create_thing_route(cx: &Cx, body: Body) -> Result<ApiResponse> {
 
 Add `pub mod <feature>;` to `src/api/v1.rs`. The scope, body and problem errors are
 documented automatically; `scripts/check_conventions.py` fails if a `/api/v1` route has no
-registered `ApiAction`, and `main.rs` tests that every registered endpoint exists and needs
+registered `ApiAction`, and `server/tests.rs` tests that every registered endpoint exists and needs
 a token.
 
 Lists: cursor pagination. Creates: accept `Idempotency-Key` (build the shared mechanism
@@ -162,8 +171,8 @@ the first time it's needed).
 
 ## 7. Tests
 
-- Rust (`#[sqlx::test]`, `let cx = Cx::new().with(db.clone())` calls the action
-  directly): the scope matrix (browser ok, token without the scope →
+- Rust (`#[sqlx::test]`, `let app = App::for_tests(db.clone()); let env = app.env(None);`
+  calls the action directly; set `app.clock = Clock::Fixed(at)` for time-dependent logic): the scope matrix (browser ok, token without the scope →
   `Denied::MissingScope`, token with it ok, browser-only actions → `Denied::BrowserOnly`
   with nothing written and no event), a schema test (`schemars::schema_for!`: required
   fields, limits, `additionalProperties: false`), and a `*_matches_the_limit` test for any

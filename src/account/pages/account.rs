@@ -19,6 +19,7 @@ use crate::components::theme_switcher::theme_switcher;
 use crate::passkeys::webauthn::accepted_credentials;
 use crate::profile::pages::profile_tab::profile_tab;
 use crate::user::model::User;
+use crate::web::app;
 
 path_param!(pub tab);
 
@@ -53,7 +54,7 @@ pub async fn account_tab_page(cx: &Cx) -> Result<impl View> {
 #[component]
 async fn account_layout(cx: &Cx, user: &User, tab: AccountTab) -> Result<impl View> {
     let display_name = signal(cx, || user.name.clone());
-    let passkey_signals = accepted_credentials(user, cx).await?.to_string();
+    let passkey_signals = accepted_credentials(app(cx), user).await?.to_string();
 
     Ok(view! {
         <section class="p-account">

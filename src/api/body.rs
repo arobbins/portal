@@ -9,7 +9,7 @@ use topcoat::{
     },
 };
 
-use crate::action::ActionProblem;
+use crate::action::{ActionProblem, ProblemSpec};
 use crate::api::problem::{ApiProblem, ApiResponse};
 
 pub const MAX_JSON_BODY_KB: usize = 64;
@@ -27,29 +27,23 @@ impl BodyProblem {
 }
 
 impl ActionProblem for BodyProblem {
-    fn code(self) -> &'static str {
+    fn spec(self) -> ProblemSpec {
         match self {
-            Self::NotJson => "unsupported_media_type",
-            Self::TooLarge => "body_too_large",
-            Self::InvalidJson => "invalid_json",
-        }
-    }
-
-    fn message(self) -> &'static str {
-        match self {
-            Self::NotJson => "Send the request body as JSON with Content-Type: application/json.",
-            Self::TooLarge => "The request body is too large. JSON bodies can be at most 64 KB.",
-            Self::InvalidJson => {
-                "The request body isn't valid for this endpoint: it must be JSON with only the documented fields."
-            }
-        }
-    }
-
-    fn status(self) -> StatusCode {
-        match self {
-            Self::NotJson => StatusCode::UNSUPPORTED_MEDIA_TYPE,
-            Self::TooLarge => StatusCode::PAYLOAD_TOO_LARGE,
-            Self::InvalidJson => StatusCode::BAD_REQUEST,
+            Self::NotJson => ProblemSpec::new(
+                "unsupported_media_type",
+                "Send the request body as JSON with Content-Type: application/json.",
+            )
+            .with_status(StatusCode::UNSUPPORTED_MEDIA_TYPE),
+            Self::TooLarge => ProblemSpec::new(
+                "body_too_large",
+                "The request body is too large. JSON bodies can be at most 64 KB.",
+            )
+            .with_status(StatusCode::PAYLOAD_TOO_LARGE),
+            Self::InvalidJson => ProblemSpec::new(
+                "invalid_json",
+                "The request body isn't valid for this endpoint: it must be JSON with only the documented fields.",
+            )
+            .with_status(StatusCode::BAD_REQUEST),
         }
     }
 }

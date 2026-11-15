@@ -11,13 +11,14 @@ use topcoat::{
     router::{StatusCode, request},
 };
 
-use crate::action::{ActionProblem, Caller};
+use crate::action::{ActionProblem, Caller, ProblemSpec};
 use crate::api::problem::{ApiProblem, ApiResponse, REALM};
 use crate::api::scope::{ApiScope, TokenAudience, parse_scopes};
-use crate::api_tokens::verify::{find_grant, record_use};
+use crate::api_tokens::lifecycle::{find_grant, record_use};
+use crate::env::Env;
 use crate::user::model::AccountStatus;
 use crate::user::queries::query_get_user_by_id;
-use crate::web::{db, rate_limits};
+use crate::web::env;
 
 const BAD_TOKEN_RETRY_SECS: &str = "600";
 const RATE_LIMIT_RETRY_SECS: &str = "1";
@@ -60,32 +61,28 @@ impl ApiAuthProblem {
 }
 
 impl ActionProblem for ApiAuthProblem {
-    fn status(self) -> StatusCode {
+    fn spec(self) -> ProblemSpec {
         match self {
-            Self::MissingToken | Self::InvalidToken => StatusCode::UNAUTHORIZED,
-            Self::TooManyInvalidTokens | Self::RateLimited => StatusCode::TOO_MANY_REQUESTS,
-        }
-    }
-
-    fn code(self) -> &'static str {
-        match self {
-            Self::MissingToken => "unauthorized",
-            Self::InvalidToken => "invalid_token",
-            Self::TooManyInvalidTokens => "too_many_invalid_tokens",
-            Self::RateLimited => "rate_limited",
-        }
-    }
-
-    fn message(self) -> &'static str {
-        match self {
-            Self::MissingToken => "Send an API token in the Authorization header: Bearer <token>.",
-            Self::InvalidToken => "The API token is invalid, expired or revoked.",
-            Self::TooManyInvalidTokens => {
-                "Too many invalid API tokens from this address. Wait 10 minutes and try again."
-            }
-            Self::RateLimited => {
-                "This API token is sending requests too quickly. Slow down and retry after the Retry-After delay."
-            }
+            Self::MissingToken => ProblemSpec::new(
+                "unauthorized",
+                "Send an API token in the Authorization header: Bearer <token>.",
+            )
+            .with_status(StatusCode::UNAUTHORIZED),
+            Self::InvalidToken => ProblemSpec::new(
+                "invalid_token",
+                "The API token is invalid, expired or revoked.",
+            )
+            .with_status(StatusCode::UNAUTHORIZED),
+            Self::TooManyInvalidTokens => ProblemSpec::new(
+                "too_many_invalid_tokens",
+                "Too many invalid API tokens from this address. Wait 10 minutes and try again.",
+            )
+            .with_status(StatusCode::TOO_MANY_REQUESTS),
+            Self::RateLimited => ProblemSpec::new(
+                "rate_limited",
+                "This API token is sending requests too quickly. Slow down and retry after the Retry-After delay.",
+            )
+            .with_status(StatusCode::TOO_MANY_REQUESTS),
         }
     }
 }
@@ -94,18 +91,24 @@ pub async fn authenticate(
     cx: &Cx,
     audience: TokenAudience,
 ) -> Result<std::result::Result<Caller, ApiAuthProblem>> {
-    let limits = rate_limits(cx);
-    let ip = request::client_ip(cx);
-    if limits.api_auth_blocked(ip).await? {
+    let header = request::headers(cx).get(AUTHORIZATION);
+    authenticate_header(&env(cx), header, audience).await
+}
+
+async fn authenticate_header(
+    env: &Env<'_>,
+    header: Option<&HeaderValue>,
+    audience: TokenAudience,
+) -> Result<std::result::Result<Caller, ApiAuthProblem>> {
+    let limits = env.limits();
+    if limits.api_auth_blocked(env.ip).await? {
         return Ok(Err(ApiAuthProblem::TooManyInvalidTokens));
     }
-
-    let header = request::headers(cx).get(AUTHORIZATION);
-    let caller = match check_bearer(header, audience, db(cx)).await? {
+    let caller = match check_bearer(header, audience, env.db()).await? {
         Ok(caller) => caller,
         Err(problem) => {
             if problem == ApiAuthProblem::InvalidToken {
-                limits.record_failed_api_auth(ip).await?;
+                limits.record_failed_api_auth(env.ip).await?;
             }
             return Ok(Err(problem));
         }
@@ -114,7 +117,7 @@ pub async fn authenticate(
     if !limits.allow_api_call(token_id).await? {
         return Ok(Err(ApiAuthProblem::RateLimited));
     }
-    record_use(token_id, db(cx)).await?;
+    record_use(token_id, env.db()).await?;
 
     Ok(Ok(caller))
 }
@@ -172,13 +175,10 @@ fn bearer_token(header: Option<&HeaderValue>) -> Bearer<'_> {
 mod tests {
     use super::*;
     use crate::action::{Channel, Denied};
-    use crate::api_tokens::queries::{
-        NewApiTokenRow, query_delete_api_token, query_insert_api_token,
-    };
-    use crate::api_tokens::token::generate_api_token;
+    use crate::api_tokens::testing::{delete_token, issue_token};
     use crate::auth::password::hash_password;
     use crate::rate_limit::BAD_API_TOKEN_WINDOW_MINUTES;
-    use crate::secret::PublicIdKind;
+
     use crate::user::model::User;
     use crate::user::queries::{NewUser, query_insert_user, query_set_password_and_verify_user};
 
@@ -205,27 +205,8 @@ mod tests {
         expires_in: time::Duration,
         db: &PgPool,
     ) -> (String, i32, String) {
-        let token = generate_api_token();
-        let public_id = PublicIdKind::ApiToken.generate();
-        let scopes: Vec<String> = scopes.iter().map(|scope| scope.to_string()).collect();
-        let id = query_insert_api_token(
-            &NewApiTokenRow {
-                user_id: user.id,
-                public_id: &public_id,
-                name: "Test token",
-                token_hash: &token.hash,
-                last_four: &token.last_four,
-                scopes: &scopes,
-                audience: TokenAudience::Api.as_str(),
-                expires_at: time::OffsetDateTime::now_utc() + expires_in,
-                max_per_user: 50,
-            },
-            db,
-        )
-        .await
-        .unwrap()
-        .unwrap();
-        (token.raw, id, public_id)
+        let token = issue_token(user.id, scopes, expires_in, db).await;
+        (token.raw, token.id, token.public_id)
     }
 
     async fn check(raw: &str, db: &PgPool) -> std::result::Result<Caller, ApiAuthProblem> {
@@ -300,10 +281,8 @@ mod tests {
         .unwrap();
         let (revoked, _, revoked_id) =
             issue(&user, &["profile:read"], time::Duration::days(1), &db).await;
-        query_delete_api_token(&revoked_id, user.id, &db)
-            .await
-            .unwrap();
-        let unknown = generate_api_token().raw;
+        delete_token(&revoked_id, user.id, &db).await;
+        let unknown = crate::api_tokens::token::generate_api_token().raw;
 
         for raw in [
             expired,
@@ -316,47 +295,5 @@ mod tests {
                 Some(ApiAuthProblem::InvalidToken)
             );
         }
-    }
-
-    #[sqlx::test]
-    async fn a_token_cannot_be_revoked_by_another_user(db: PgPool) {
-        let user = active_user(&db).await;
-        let (raw, _, id) = issue(&user, &["profile:read"], time::Duration::days(1), &db).await;
-
-        assert_eq!(
-            query_delete_api_token(&id, user.id + 1, &db).await.unwrap(),
-            None
-        );
-        assert!(check(&raw, &db).await.is_ok());
-    }
-
-    #[sqlx::test]
-    async fn each_user_has_a_token_limit(db: PgPool) {
-        let user = active_user(&db).await;
-        let token = generate_api_token();
-        let scopes = vec!["profile:read".to_string()];
-        let first_id = PublicIdKind::ApiToken.generate();
-        let row = NewApiTokenRow {
-            user_id: user.id,
-            public_id: &first_id,
-            name: "Limited",
-            token_hash: &token.hash,
-            last_four: &token.last_four,
-            scopes: &scopes,
-            audience: TokenAudience::Api.as_str(),
-            expires_at: time::OffsetDateTime::now_utc() + time::Duration::days(1),
-            max_per_user: 1,
-        };
-        assert!(query_insert_api_token(&row, &db).await.unwrap().is_some());
-
-        let second = generate_api_token();
-        let second_id = PublicIdKind::ApiToken.generate();
-        let row = NewApiTokenRow {
-            public_id: &second_id,
-            token_hash: &second.hash,
-            last_four: &second.last_four,
-            ..row
-        };
-        assert_eq!(query_insert_api_token(&row, &db).await.unwrap(), None);
     }
 }

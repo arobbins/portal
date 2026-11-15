@@ -31,10 +31,11 @@ bodies, problems, scopes, catalog, `v1` routes).
 
 ## Actions (`src/action.rs`, `<feature>/actions.rs`)
 
-- Signed-in actions: `async fn verb_thing(cx, caller: &Caller, input: &Input)
+- Signed-in actions: `async fn verb_thing(env: &Env<'_>, caller: &Caller, input: &Input)
   -> ActionResult<Output, Problem>` (`Result<Result<Output,
   ActionError<Problem>>>`: outer = server error, inner = denied or a user
-  problem). Sync actions without I/O drop `cx` and the outer `Result`.
+  problem). Sync actions without I/O drop `env` and the outer `Result`.
+  Actions never take `cx` or the session; pages pass `&env(cx)`.
 - Public actions (before sign-in: `sign_in_with_password`, `register`,
   `request_password_reset`, `set_password_from_link`, passkey sign-in) take no
   `Caller` and return `Outcome<Output, Problem>`; they rate-limit themselves.
@@ -57,7 +58,7 @@ bodies, problems, scopes, catalog, `v1` routes).
   `list_api_tokens`), so an API or MCP tool can expose them later.
 - Pages build callers with `browser_caller(cx)` (procedures; `None` → return
   `FieldError::session_expired()`) or `require_browser_caller(cx)?` (POST
-  routes; redirects to sign-in). `authenticate(cx, audience)` builds
+  routes; redirects to sign-in). `authenticate(cx, audience)` (→ `authenticate_header(env, header, audience)`) builds
   `Caller::api_token(..)` for the API. Pages turn errors into their problem
   with `error.for_browser()?` (a browser caller is never denied).
 - Input structs derive `Deserialize` + `JsonSchema` with
@@ -70,8 +71,10 @@ bodies, problems, scopes, catalog, `v1` routes).
   MCP arguments. Output structs derive `Serialize` + `JsonSchema` and are
   never a DB model; browser-only actions may hand the model back to the page
   (`change_password` returns the `User` to sign in again).
-- Problems implement `ActionProblem` (`code()` snake_case and stable,
-  `message()`, `field()` naming the input field, `status()` default 422).
+- Problems implement `ActionProblem` with one `spec()`:
+  `ProblemSpec::new("snake_case_code", "Message.").on_field(FIELD)
+  .with_status(StatusCode::X)` (code stable, field names the input, status
+  default 422); wrapped problems return the inner `problem.spec()`.
   Shared problems are wrapped, never copied: `NameProblem`,
   `PasswordProblem`, `CurrentPasswordProblem` (from
   `check_current_password`, which also rate-limits and counts failures), and
@@ -81,7 +84,7 @@ bodies, problems, scopes, catalog, `v1` routes).
   HTML pages render `page_status(problem)` (200 for fixable problems, 429
   for rate limits); JSON keeps `problem.status()`.
 - Every account change (including sign-up, email verification and
-  answering the passkey prompt) records an `account_events` row with `record_event(cx,
+  answering the passkey prompt) records an `account_events` row with `record_event(env,
   &EventSource::of(caller) /* or ::browser(user_id) */, kind, json!({…}), &mut
   *tx)` in the same transaction. `detail` is a JSON object of public ids and
   names (never secrets). The caller's channel and token id are stored, which
@@ -151,7 +154,7 @@ the integer `id` never leaves the server. Actions check the format with
   descriptions and length limits, so write good `#[schemars(description)]`s.
   Never hand-write an error code or field list on the page.
 - Adding an endpoint means an `ApiAction` impl plus a line in
-  `registry::endpoints()`; `main.rs` tests that every catalog entry exists and needs a token, and
+  `registry::endpoints()`; `server/tests.rs` tests that every catalog entry exists and needs a token, and
   `api-docs.spec.ts` checks the page and the OpenAPI document.
 - Error enums the docs list need `pub const ALL` (`ApiAuthProblem`,
   `BodyProblem`, `NameProblem`); shared API errors are `ApiFailure`.
@@ -177,7 +180,7 @@ the integer `id` never leaves the server. Actions check the format with
   invalid tokens per IP per 10 min, and 600 calls per rolling minute per token,
   both 429 with `Retry-After`. `last_used_at` is written at most every 5
   minutes.
-- **Creating/revoking** are browser-only actions (`api_tokens/actions.rs`):
+- **Creating/revoking** are browser-only actions (`api_tokens/actions/create.rs`, `manage.rs`):
   current password (a wrong one counts as a failed login), an email (subject
   to the per-address limit), an event, shown once. **Never put a token in a
   flash or the session** (sessions are stored in Postgres). Max 50 per user,
@@ -186,5 +189,6 @@ the integer `id` never leaves the server. Actions check the format with
   `cleanup` deletes them 7 days after expiry.
 - Tests: `api-tokens.spec.ts`, `api-profile.spec.ts` (`support/api.ts`
   helpers: `createToken(page, name, access)`, `bearer`, `getMe`), Rust tests
-  in `action.rs`, `api/auth.rs`, `profile/actions.rs`,
-  `api_tokens/actions.rs`.
+  in `action/`, `api/auth.rs`, `profile/actions.rs`,
+  `api_tokens/actions/`, `api_tokens/queries.rs`; `api_tokens/testing.rs`
+  has `issue_token` / `delete_token` for other features' tests.

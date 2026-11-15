@@ -1,6 +1,4 @@
-use topcoat::{context::Cx, router::href};
-
-use crate::account::pages::account::account_tab_page;
+use crate::routes::ACCOUNT_PATH;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AccountTab {
@@ -44,8 +42,8 @@ impl AccountTab {
         }
     }
 
-    pub fn href(self, cx: &Cx) -> String {
-        href!(account_tab_page, crate::account::pages::account::tab: self.slug()).resolve(cx)
+    pub fn path(self) -> String {
+        format!("{ACCOUNT_PATH}/{}", self.slug())
     }
 
     pub fn sections(self) -> &'static [AccountSection] {
@@ -82,6 +80,19 @@ pub enum AccountSection {
 }
 
 impl AccountSection {
+    #[cfg(test)]
+    pub const ALL: [Self; 9] = [
+        Self::Password,
+        Self::Passkeys,
+        Self::TwoFactor,
+        Self::SingleSignOn,
+        Self::Subscriptions,
+        Self::Invoices,
+        Self::PaymentMethods,
+        Self::Notifications,
+        Self::ApiTokens,
+    ];
+
     pub fn tab(self) -> AccountTab {
         AccountTab::ALL
             .into_iter()
@@ -117,8 +128,8 @@ impl AccountSection {
         }
     }
 
-    pub fn href(self, cx: &Cx) -> String {
-        format!("{}#{}", self.tab().href(cx), self.anchor())
+    pub fn path(self) -> String {
+        format!("{}#{}", self.tab().path(), self.anchor())
     }
 }
 

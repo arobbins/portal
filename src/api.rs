@@ -2,6 +2,7 @@ pub mod auth;
 pub mod body;
 pub mod catalog;
 pub mod handler;
+pub mod openapi;
 pub mod problem;
 pub mod registry;
 pub mod scope;

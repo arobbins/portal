@@ -21,7 +21,7 @@ use crate::auth::session::sign_in;
 use crate::flash::{Flash, set_flash};
 use crate::layout::page_heading::page_heading;
 use crate::passkeys::pages::passkey_setup::after_password_sign_in;
-use crate::web::session;
+use crate::web::{env, session};
 
 const PURPOSE: TokenPurpose = TokenPurpose::EmailVerification;
 
@@ -32,7 +32,7 @@ path_param!(token);
     with(Metadata::new().title(page_title("Set your password")))
 )]
 pub async fn verify_email_page(cx: &Cx) -> Result<impl View> {
-    if !link_is_valid(cx, PURPOSE, token(cx)).await? {
+    if !link_is_valid(&env(cx), PURPOSE, token(cx)).await? {
         return Ok(view! {
             expired_link(
                 <p>
@@ -66,7 +66,7 @@ pub async fn verify_email_page(cx: &Cx) -> Result<impl View> {
 
 #[route(POST "/verify-email/{token}")]
 pub async fn set_password_submit(cx: &Cx, Form(input): Form<NewPassword>) -> Result<SeeOther> {
-    match set_password_from_link(cx, PURPOSE, token(cx), &input).await? {
+    match set_password_from_link(&env(cx), PURPOSE, token(cx), &input).await? {
         Ok(user) => {
             let session = session(cx)?;
             sign_in(&session, &user).await?;

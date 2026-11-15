@@ -106,10 +106,9 @@ pub async fn query_update_password(
 }
 
 pub async fn query_delete_abandoned_signups(
-    older_than: time::Duration,
+    cutoff: time::OffsetDateTime,
     db: impl PgExecutor<'_>,
 ) -> Result<u64, sqlx::Error> {
-    let cutoff = time::OffsetDateTime::now_utc() - older_than;
     let result = sqlx::query!(
         "DELETE FROM users WHERE password IS NULL AND created_at < $1 AND NOT EXISTS (SELECT 1 FROM user_tokens WHERE user_tokens.user_id = users.id AND user_tokens.expires_at > now())",
         cutoff,

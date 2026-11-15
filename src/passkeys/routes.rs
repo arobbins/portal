@@ -1,4 +1,4 @@
-use crate::routes::account_url;
+use crate::routes::ACCOUNT_PATH;
 use serde_json::json;
 use topcoat::{
     Result,
@@ -17,7 +17,7 @@ use crate::passkeys::actions::{
     finish_passkey_sign_in, start_passkey_registration, start_passkey_sign_in,
 };
 use crate::passkeys::webauthn::{accepted_credentials, encode_binary};
-use crate::web::session;
+use crate::web::{app, env, session};
 
 fn session_expired() -> ApiResponse {
     ApiProblem::new(StatusCode::UNAUTHORIZED, "session_expired", SESSION_EXPIRED).response()
@@ -37,7 +37,7 @@ pub async fn start_registration(cx: &Cx, body: Body) -> Result<ApiResponse> {
         Err(response) => return Ok(response),
     };
 
-    match start_passkey_registration(cx, &caller, &input).await? {
+    match start_passkey_registration(&env(cx), &session(cx)?, &caller, &input).await? {
         Ok(options) => Ok(ok(&options)),
         Err(error) => browser_problem(error),
     }
@@ -53,7 +53,7 @@ pub async fn finish_registration(cx: &Cx, body: Body) -> Result<ApiResponse> {
         Err(response) => return Ok(response),
     };
 
-    match finish_passkey_registration(cx, &caller, &credential).await? {
+    match finish_passkey_registration(&env(cx), &session(cx)?, &caller, &credential).await? {
         Ok(()) => {
             set_flash(&session(cx)?, Flash::PasskeyAdded).await?;
             Ok(ok(&json!({ "ok": true })))
@@ -69,10 +69,12 @@ pub async fn start_authentication(cx: &Cx, body: Body) -> Result<ApiResponse> {
         Err(response) => return Ok(response),
     };
 
-    Ok(match start_passkey_sign_in(cx, &input).await? {
-        Ok(options) => ok(&options),
-        Err(problem) => ApiProblem::of(problem).response(),
-    })
+    Ok(
+        match start_passkey_sign_in(&env(cx), &session(cx)?, &input).await? {
+            Ok(options) => ok(&options),
+            Err(problem) => ApiProblem::of(problem).response(),
+        },
+    )
 }
 
 #[route(POST "/passkeys/login/finish", with(BodyLimit::max(MAX_JSON_BODY)))]
@@ -81,7 +83,7 @@ pub async fn finish_authentication(cx: &Cx, body: Body) -> Result<ApiResponse> {
         Ok(credential) => credential,
         Err(response) => return Ok(response),
     };
-    let user = match finish_passkey_sign_in(cx, &credential).await? {
+    let user = match finish_passkey_sign_in(&env(cx), &session(cx)?, &credential).await? {
         Ok(user) => user,
         Err(problem @ PasskeySignInProblem::UnknownPasskey) => {
             return Ok(ApiProblem::of(problem)
@@ -95,7 +97,7 @@ pub async fn finish_authentication(cx: &Cx, body: Body) -> Result<ApiResponse> {
     };
     sign_in(&session(cx)?, &user).await?;
 
-    let mut body = accepted_credentials(&user, cx).await?;
-    body["redirect"] = json!(account_url(cx));
+    let mut body = accepted_credentials(app(cx), &user).await?;
+    body["redirect"] = json!(ACCOUNT_PATH);
     Ok(ok(&body))
 }

@@ -1,4 +1,4 @@
-use crate::routes::account_url;
+use crate::routes::ACCOUNT_PATH;
 use topcoat::{
     Result,
     context::Cx,
@@ -21,37 +21,39 @@ use crate::components::form::{FormVariant, form, form_error};
 use crate::components::icon::{IconName, icon};
 use crate::flash::{Flash, flash_toasts, take_flash, toast_name};
 use crate::layout::page_heading::page_heading;
+use crate::passkeys::actions::passkey_prompt_due;
 use crate::passkeys::actions::{PromptAnswer, answer_passkey_prompt};
 use crate::passkeys::pages::passkeys_card::ADD_ERROR_ID;
-use crate::passkeys::queries::query_get_passkey_prompt_due;
 use crate::user::model::User;
-use crate::web::{db, session};
+use crate::web::{app, env, session};
 
 const FLASHES: &[Flash] = &[Flash::EmailConfirmed];
 
 pub async fn after_password_sign_in(cx: &Cx, session: &Session, user: &User) -> Result<String> {
-    if query_get_passkey_prompt_due(user.id, db(cx)).await? {
-        grant_passkey_prompt(session, user).await?;
+    let app = app(cx);
+    if passkey_prompt_due(&env(cx), user.id).await? {
+        grant_passkey_prompt(session, user, app.clock.now()).await?;
         Ok(href!(passkey_setup_page).resolve(cx))
     } else {
-        Ok(account_url(cx))
+        Ok(ACCOUNT_PATH.to_string())
     }
 }
 
 #[page("/passkey-setup", with(Metadata::new().title(page_title("Add passkey"))))]
 pub async fn passkey_setup_page(cx: &Cx) -> Result<impl View> {
     let user = require_user(cx)?;
-    let prompt_ready = passkey_prompt_granted(&session(cx)?, &user).await?
-        && query_get_passkey_prompt_due(user.id, db(cx)).await?;
+    let app = app(cx);
+    let prompt_ready = passkey_prompt_granted(&session(cx)?, &user, app.clock.now()).await?
+        && passkey_prompt_due(&env(cx), user.id).await?;
     if !prompt_ready {
-        return Err(redirect(account_url(cx)).into());
+        return Err(redirect(ACCOUNT_PATH).into());
     }
 
     let flash = take_flash(cx, FLASHES).await?;
     let toast = signal(cx, || toast_name(flash).to_string());
     let is_skipping = signal(cx, || false);
     let is_declining = signal(cx, || false);
-    let passkeys_href = AccountSection::Passkeys.href(cx);
+    let passkeys_href = AccountSection::Passkeys.path();
 
     Ok(view! {
         <section class="l-contain l-skinny p-passkey-setup">
@@ -120,9 +122,9 @@ pub async fn decline_passkey_prompt(cx: &Cx) -> Result<SeeOther> {
 
 async fn answer_prompt(cx: &Cx, answer: PromptAnswer) -> Result<SeeOther> {
     let caller = require_browser_caller(cx)?;
-    if let Err(error) = answer_passkey_prompt(cx, &caller, answer).await? {
+    if let Err(error) = answer_passkey_prompt(&env(cx), &session(cx)?, &caller, answer).await? {
         match error.for_browser()? {}
     }
 
-    Ok(see_other(account_url(cx)))
+    Ok(see_other(ACCOUNT_PATH))
 }

@@ -35,15 +35,16 @@ conventions and gotchas), `layout.md` (file map), `components.md`
   JSON (API and the browser's passkey routes) returns problem+json, HTML
   pages render the message with `page_status(problem)`.
 - **No typed app paths**: links and redirects use `href!(handler)`,
-  `AccountTab::X.href(cx)` / `AccountSection::X.href(cx)`, or
+  `AccountTab::X.path()` / `AccountSection::X.path()`, the path constants in
+  `src/routes.rs` (`LOGIN_PATH`, `ACCOUNT_PATH`, …), or
   `TokenPurpose::path` for emailed links; `scripts/check_conventions.py`
   (in `./check.sh`) fails on a hard-coded path or a limit written into a
   message without a `*_matches_the_limit` test. Account POST routes are
   `/account/<thing>/<verb>`; signed-out forms post to their page's URL.
 - **Features own their tables**: only a feature's own module calls its
   `query_*` functions; other features call a function it exposes
-  (`api_tokens::verify::revoke_all_for_user`). Links across features go
-  through `src/routes.rs` (`login_url(cx)`, `account_url(cx)`, …), so core
+  (`api_tokens::lifecycle::revoke_all_for_user`). Links across features go
+  through `src/routes.rs` (`LOGIN_PATH`, `ACCOUNT_PATH`, …), so core
   code never imports a page.
 - **Slow or fallible work is a job** (`src/jobs.rs`): emails and cleanup
   are rows in `jobs`, run by workers in the web process (`JOB_WORKERS`,
@@ -53,7 +54,9 @@ conventions and gotchas), `layout.md` (file map), `components.md`
   (`tok_…`, `pk_…`, `secret::PublicIdKind`); integer ids stay internal.
 - **Compile-time safety first**: components, props, routes (`href!`), and sqlx
   queries are all checked by the compiler. Component variants are Rust enums
-  (`ButtonSize::Sm`), never strings.
+  (`ButtonSize::Sm`), never strings. Path constants (`routes.rs`,
+  `AccountTab::path()`) are plain strings, so `server/tests.rs`
+  (`every_named_path_is_a_real_page`) checks each one is a real route.
 - **Native platform over JS**: use native HTML/CSS features where they exist —
   `<dialog>` + `command`/`commandfor` for modals, `popover`, CSS transitions and
   animations (the toaster auto-hides via a CSS animation + `@animationend`).
@@ -71,7 +74,8 @@ conventions and gotchas), `layout.md` (file map), `components.md`
   `const`s, never literals. Errors inside a `<dialog>` go in the dialog, not
   a toast (an open modal covers toasts).
 - **Forms are plain HTML POSTs**: a `#[route(POST ...)]` handler either
-  `see_other(...)` redirects on success or `rewrite(...)`s back to the GET page
+  `see_other(...)` redirects on success or returns
+  `redisplay(path, failure)` (`web/context.rs`), which re-renders the GET page
   with a request-context value carrying the error (see `auth/pages/login.rs`).
   They work without JS; `@submit` only adds the busy state. Busy state:
   pass `submitting: Some(&is_submitting)` to `form(…)` and give the button
@@ -96,8 +100,8 @@ conventions and gotchas), `layout.md` (file map), `components.md`
   multi-column inserts (`NewUser<'a>`); never inline sqlx in a handler, page
   or procedure. Recipe: the `new-query` skill.
 - **Configuration is parsed once** (`src/config.rs`) and read with
-  `config(cx)` / `app_url(cx, path)`; nothing else reads env vars (except
-  `DATABASE_URL` in `main.rs`).
+  `config(cx)` / `app.url(path)`; nothing else reads env vars (except
+  `DATABASE_URL`, read by `server::database_url()`).
 - **Styling**: BEM classes with a prefix (`a-` component, `l-` layout, `p-`
   page, `u-` utility) are the contract (CSS targets only them, never element
   structure or ids); colors are role-named `light-dark()` variables built
@@ -112,6 +116,36 @@ conventions and gotchas), `layout.md` (file map), `components.md`
   "Sign out" / "Register"; passkeys are *removed*, API tokens are *revoked*
   (they're credentials handed to other apps). Messages are full sentences;
   "Please …" only when asking the visitor to do something.
+
+## Clean-code rules (enforced by `scripts/clean_code.py`)
+
+- **Dependencies are injected, never looked up**: `App { db, config,
+  limits, webauthn, clock }` (`src/env.rs`) is built once in `server.rs`
+  and put in Topcoat context; pages and routes read it with `web::app(cx)`,
+  `web::config(cx)` or `web::env(cx)` (= `app.env(client_ip)`). Actions
+  take `env: &Env` (`db()`, `limits()`, `now()`, `ip`) and never `cx` or the
+  session (the passkey ceremony uses the `PasskeySession` trait); jobs get
+  `&App`. Time comes only from `env.now()` / `app.clock.now()` (`Clock::Fixed`
+  in tests); tests build `App::for_tests(db)` / `Config::for_tests()`.
+- **Infrastructure knows no feature**: `action`, `env`, `jobs`, `mail`,
+  `rate_limit`, `web` never import `auth`/`passkeys`/`profile`/`api_tokens`/
+  `account`. Features plug in at the composition root: jobs implement
+  `trait Job` and are listed in `server::job_handlers()`, cleanup calls each
+  feature's own `delete_*` function. The one exemption is
+  `web/middleware.rs` (`inject_globals` loads the signed-in user through
+  `auth::session`), listed in `COMPOSITION` in `scripts/clean_code.py`.
+- **Small units**: plain functions ≤ 40 lines, components/pages ≤ 80, files
+  ≤ 300 lines before their tests. Split along responsibilities: a tab is a
+  composition file plus `*_dialog.rs`, `*_fields.rs`, `*_routes.rs`
+  (procedure + POST fallback), `*_view.rs` (view models such as
+  `TokenRow::new`). Modal forms use `DialogForm` + `dialog_input`,
+  `dialog_form_error`, `dialog_error_toast` (`components/form/dialog.rs`).
+  Emails are built with `mail::EmailTemplate`, never `format!`.
+- **Encapsulation**: feature `queries` modules are private; visibility is
+  the narrowest that compiles (`pub(super)` inside `pages/`). Test helpers
+  live in `#[cfg(test)]` code or a `testing.rs`; never `#[allow(dead_code)]`.
+- The `clean-code-audit` skill re-runs the whole audit, scores it and
+  tightens the limits; run it after a large feature.
 
 ## Security invariants (never break these)
 
@@ -154,15 +188,15 @@ holding one name), and its transitions live in one place:
 | Toast | one `Signal<String>` per page | name or `NO_TOAST`; click / animation end → `NO_TOAST` |
 | Notice | one `stage` signal | `shown` → `dismissing` → `dismissed` |
 | Form submit | `submitting` signal | idle → busy on submit → idle on bfcache restore (reload) |
-| Form failure | `*Problem` enums | rendered after `rewrite(…)` |
+| Form failure | `*Problem` enums | rendered after `redisplay(…)` |
 | Theme | `Theme` + cookie | `POST /theme` or `window.setTheme` (`assets/js/theme.js`) |
-| Account tab | `AccountTab` (`ALL`, `slug`, `href(cx)`, `sections`) + `AccountSection` (`anchor`, `label`, `href(cx)`) | URL → `from_slug`, unknown → 404 |
+| Account tab | `AccountTab` (`ALL`, `slug`, `path`, `sections`) + `AccountSection` (`anchor`, `label`, `path`) | URL → `from_slug`, unknown → 404 |
 | Passkey prompt | `users.passkey_prompt_after` (NULL / date / `infinity`) | `answer_passkey_prompt` (`PromptAnswer::NotNow` / `Never`); due = no passkeys and not in the future |
 | Passkey prompt grant | session `PasskeyPromptGrant { user_id, granted_at }` | `grant_passkey_prompt` (prompt shown) → `passkey_prompt_granted` (5 min) → `revoke_passkey_prompt` / `sign_in` |
 | API token | `api_tokens` row (`ApiScope`s, `TokenAudience`, expiry) | create (password + email) → used (`last_used_at`) → revoked / password reset / expired → `cleanup` after 7 days |
 | Caller | `Caller.via`: `Channel::Browser` / `ApiToken { id, scopes }`; `Caller.workspace`: `Workspace::Personal` | built per request (`browser_caller` / `authenticate`); checked by `authorize!(caller.require(Permission))` (role, then token scope) |
 | Account event | `account_events` row (`AccountEventKind`, JSON `detail`, channel, token id) | `record_event` in every account change's transaction (append-only; usage stamps and cleanup aren't events) |
-| Job | `jobs` row (`Job`: `SendEmail` / `SendPasswordReset` / `Cleanup`; `queued` / `failed`) | `enqueue` → claimed (`SKIP LOCKED`, 5-min lock) → deleted on success / retried with backoff / `failed` after `max_attempts`; one `cleanup` job reschedules itself hourly |
+| Job | `jobs` row (a `trait Job` type: `SendEmail` / `PasswordResetJob` / `CleanupJob`, registered in `server::job_handlers()`; `queued` / `failed`) | `enqueue` → claimed (`SKIP LOCKED`, 5-min lock) → deleted on success / retried with backoff / `failed` after `max_attempts`; one `cleanup` job reschedules itself hourly |
 | Rate limit | `rate_limit_hits` rows per bucket + key | `allow_*` (insert if under the limit) / `record_*` failures / `clear_failed_logins`; rows older than a day removed by cleanup |
 | Permission | `Permission` + `WorkspaceRole` (`Owner`) | checked by `Caller::require`: role grants it, then token scope if the caller is a token |
 | Config | `Config`, `Mailer`, `RateLimitMode` | parsed once at startup |
@@ -238,7 +272,7 @@ options). Settings are in the `verify` skill.
   `e2e/test-results/`) are blocked (reading them is fine, e.g. failure
   screenshots), and so is reading `.env`; session start reports branch, database,
   pending migrations and whether `topcoat dev` is running.
-- Skills: `check` (full `./check.sh`, failures only), `new-action`, `new-component`, `new-query`, `new-flash`, `new-form-flow`,
+- Skills: `check` (full `./check.sh`, failures only), `clean-code-audit` (repeatable audit + ratchet), `new-action`, `new-component`, `new-query`, `new-flash`, `new-form-flow`,
   `new-e2e-test`, `verify`.
 - After a non-trivial change, run the `convention-reviewer` agent on the diff
   and fix its must-fix findings before reporting done.

@@ -10,13 +10,15 @@ ROUTE_PREFIXES = (
 ROUTE_LITERAL = re.compile(r'"/(?:' + "|".join(map(re.escape, ROUTE_PREFIXES)) + r')(?:[/#?"{])')
 LIMIT_LITERAL = re.compile(r'"[^"\n]*\b\d+ ?(?:characters|KB|MB|hours?|minutes?|days?|seconds?)\b[^"\n]*"')
 LIMIT_TEST = re.compile(r"fn \w*(?:match(?:es)?_the_limits?|matches_the_lifetime)\w*\(")
-PATH_ALLOWED = {"src/auth/links.rs", "src/api/catalog.rs"}
+PATH_ALLOWED = {"src/auth/links.rs", "src/api/catalog.rs", "src/routes.rs"}
 LIMIT_ALLOWED_PREFIXES = ("src/pages/styleguide",)
 SQL = re.compile(r'"\s*(SELECT|INSERT|UPDATE|DELETE|WITH)\b')
 
 problems = []
 for path in sorted((ROOT / "src").rglob("*.rs")):
     relative = path.relative_to(ROOT).as_posix()
+    if path.name in ("tests.rs", "testing.rs"):
+        continue
     text = path.read_text()
     code = text.split("#[cfg(test)]\nmod tests", 1)[0]
     has_limit_test = bool(LIMIT_TEST.search(text))
@@ -73,8 +75,9 @@ if kind_checks:
     for kind in sorted(allowed - event_kinds):
         problems.append(f"{kind_checks[-1].name}: kind `{kind}` has no AccountEventKind variant")
 
-jobs_code = (ROOT / "src/jobs.rs").read_text().split("#[cfg(test)]\nmod tests", 1)[0]
-job_kinds = set(re.findall(r'Self::\w+(?: \{ \.\. \}|\(_\))? => "([a-z_]+)"', jobs_code))
+job_kinds = set()
+for path in (ROOT / "src").rglob("*.rs"):
+    job_kinds.update(re.findall(r'const KIND: &\'static str = "([a-z_]+)";', path.read_text()))
 job_checks = [
     path for path in sorted((ROOT / "migrations").glob("*.sql"))
     if "CREATE TABLE jobs" in path.read_text() or "jobs_kind_check CHECK" in path.read_text()
@@ -84,7 +87,7 @@ if job_checks:
     marker = "jobs_kind_check CHECK" if "jobs_kind_check CHECK" in latest else "kind TEXT NOT NULL CHECK"
     allowed = set(re.findall(r"'([a-z_]+)'", latest.split(marker, 1)[1].split("))", 1)[0]))
     for kind in sorted(job_kinds - allowed):
-        problems.append(f"src/jobs.rs: job kind `{kind}` is missing from the jobs kind CHECK ({job_checks[-1].name}); add a migration")
+        problems.append(f"job kind `{kind}` is missing from the jobs kind CHECK ({job_checks[-1].name}); add a migration")
 
 documented = set()
 for path in (ROOT / "src").rglob("*.rs"):
@@ -98,8 +101,13 @@ for path in sorted((ROOT / "src/api/v1").rglob("*.rs")):
         if (method, api_path) not in documented:
             problems.append(f"{path.relative_to(ROOT).as_posix()}: {method} {api_path} has no ApiAction in the registry (src/api/registry.rs), so it's undocumented")
 
+sys.path.insert(0, str(ROOT / "scripts"))
+import clean_code
+
+problems.extend(clean_code.problems())
+
 if problems:
     print("Convention check failed:")
     print("\n".join(f"  {problem}" for problem in problems))
     sys.exit(1)
-print("Conventions OK (paths, limits, components, event kinds, API registry)")
+print("Conventions OK (paths, limits, components, event kinds, job kinds, API registry, clean code)")

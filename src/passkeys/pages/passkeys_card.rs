@@ -2,9 +2,8 @@ use topcoat::{
     Result,
     context::{Cx, try_context},
     router::{
-        Body, Method,
         content::Form,
-        error::{SeeOther, not_found, rewrite, see_other},
+        error::{SeeOther, not_found, see_other},
         href, route,
     },
     runtime::signal,
@@ -32,7 +31,7 @@ use crate::passkeys::actions::{
 use crate::passkeys::queries::Passkey;
 use crate::user::name::{MAX_NAME_LENGTH, NAME_FIELD};
 use crate::utils::format_date;
-use crate::web::session;
+use crate::web::{env, redisplay, session};
 
 const ADD_MODAL: &str = "add-passkey";
 const RENAME_MODAL: &str = "rename-passkey";
@@ -69,7 +68,7 @@ impl PasskeyRow {
 #[component]
 pub async fn passkeys_card(cx: &Cx) -> Result<impl View> {
     let caller = require_browser_caller(cx)?;
-    let passkeys = match list_passkeys(cx, &caller).await? {
+    let passkeys = match list_passkeys(&env(cx), &caller).await? {
         Ok(passkeys) => passkeys,
         Err(error) => match error.for_browser()? {},
     };
@@ -185,7 +184,6 @@ async fn passkey_dialogs(cx: &Cx, row: &PasskeyRow, only_one: bool) -> Result<im
     let remove_modal = format!("{REMOVE_MODAL}-{}", row.id);
     let name_field = format!("passkey-name-{}", row.id);
 
-    let max_name_length = MAX_NAME_LENGTH.to_string();
     let is_renaming = signal(cx, || false);
     let is_removing = signal(cx, || false);
 
@@ -203,7 +201,7 @@ async fn passkey_dialogs(cx: &Cx, row: &PasskeyRow, only_one: bool) -> Result<im
                     name: NAME_FIELD,
                     value: Some(row.name.as_str()),
                     required: true,
-                    attrs: attributes! { maxlength=(max_name_length.as_str()) }
+                    max_length: Some(MAX_NAME_LENGTH)
                 )
                 form_actions(
                     button(
@@ -247,17 +245,17 @@ async fn passkey_dialogs(cx: &Cx, row: &PasskeyRow, only_one: bool) -> Result<im
 pub async fn rename_passkey_submit(cx: &Cx, Form(input): Form<RenamePasskey>) -> Result<SeeOther> {
     let caller = require_browser_caller(cx)?;
 
-    match rename_passkey(cx, &caller, &input).await? {
+    match rename_passkey(&env(cx), &caller, &input).await? {
         Ok(()) => {
             set_flash(&session(cx)?, Flash::PasskeyRenamed).await?;
-            Ok(see_other(AccountSection::Passkeys.href(cx)))
+            Ok(see_other(AccountSection::Passkeys.path()))
         }
         Err(error) => match error.for_browser()? {
             RenamePasskeyProblem::NotFound => Err(not_found().into()),
-            problem => Err(rewrite(AccountTab::Security.href(cx), Body::empty())
-                .method(Method::GET)
-                .with(PasskeyRenameFailed { problem })
-                .into()),
+            problem => Err(redisplay(
+                AccountTab::Security.path(),
+                PasskeyRenameFailed { problem },
+            )),
         },
     }
 }
@@ -266,13 +264,13 @@ pub async fn rename_passkey_submit(cx: &Cx, Form(input): Form<RenamePasskey>) ->
 pub async fn remove_passkey_submit(cx: &Cx, Form(input): Form<RemovePasskey>) -> Result<SeeOther> {
     let caller = require_browser_caller(cx)?;
 
-    if let Err(error) = remove_passkey(cx, &caller, &input).await? {
+    if let Err(error) = remove_passkey(&env(cx), &caller, &input).await? {
         error.for_browser()?;
         return Err(not_found().into());
     }
     set_flash(&session(cx)?, Flash::PasskeyRemoved).await?;
 
-    Ok(see_other(AccountSection::Passkeys.href(cx)))
+    Ok(see_other(AccountSection::Passkeys.path()))
 }
 
 pub fn rename_problem(cx: &Cx) -> Option<RenamePasskeyProblem> {

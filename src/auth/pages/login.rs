@@ -3,9 +3,8 @@ use topcoat::{
     context::{Cx, try_context},
     metadata::Metadata,
     router::{
-        Body, Method,
         content::Form,
-        error::{SeeOther, rewrite, see_other},
+        error::{SeeOther, see_other},
         href, page, route,
     },
     runtime::signal,
@@ -25,7 +24,7 @@ use crate::components::form::{
 };
 use crate::layout::page_heading::page_heading;
 use crate::passkeys::pages::passkey_setup::after_password_sign_in;
-use crate::web::session;
+use crate::web::{env, redisplay, session};
 
 const PASSKEY_ERROR_ID: &str = "passkey-error";
 
@@ -109,7 +108,7 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
 
 #[route(POST "/login")]
 pub async fn login_submit(cx: &Cx, Form(input): Form<SignIn>) -> Result<SeeOther> {
-    match sign_in_with_password(cx, &input).await? {
+    match sign_in_with_password(&env(cx), &input).await? {
         Ok(user) => {
             let session = session(cx)?;
             sign_in(&session, &user).await?;
@@ -117,12 +116,12 @@ pub async fn login_submit(cx: &Cx, Form(input): Form<SignIn>) -> Result<SeeOther
                 after_password_sign_in(cx, &session, &user).await?,
             ))
         }
-        Err(problem) => Err(rewrite(href!(login_page).resolve(cx), Body::empty())
-            .method(Method::GET)
-            .with(LoginFailed {
+        Err(problem) => Err(redisplay(
+            href!(login_page).resolve(cx),
+            LoginFailed {
                 email: input.email,
                 problem,
-            })
-            .into()),
+            },
+        )),
     }
 }

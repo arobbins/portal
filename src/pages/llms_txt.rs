@@ -10,14 +10,14 @@ use crate::api::v1::docs::openapi_document;
 use crate::app::SITE_NAME;
 use crate::mcp::{PROTOCOL_VERSION, mcp_endpoint};
 use crate::pages::api_docs::api_docs_page;
-use crate::web::app_url;
+use crate::web::app;
 
 #[route(GET "/llms.txt")]
 pub async fn llms_txt(cx: &Cx) -> Result<String> {
-    let openapi = app_url(cx, &href!(openapi_document).resolve(cx));
-    let docs = app_url(cx, &href!(api_docs_page).resolve(cx));
-    let tokens = app_url(cx, &AccountSection::ApiTokens.href(cx));
-    let mcp = app_url(cx, &href!(mcp_endpoint).resolve(cx));
+    let openapi = app(cx).url(&href!(openapi_document).resolve(cx));
+    let docs = app(cx).url(&href!(api_docs_page).resolve(cx));
+    let tokens = app(cx).url(&AccountSection::ApiTokens.path());
+    let mcp = app(cx).url(&href!(mcp_endpoint).resolve(cx));
     let endpoints: Vec<String> = endpoints()
         .iter()
         .map(|endpoint| {

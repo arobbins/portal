@@ -1,7 +1,7 @@
 use sqlx::{PgPool, Postgres, migrate::MigrateDatabase};
 
 use crate::auth::password::hash_password;
-use crate::passkeys::queries::query_decline_passkey_prompt;
+use crate::passkeys::actions::never_prompt_for_passkeys;
 use crate::user::queries::{NewUser, query_insert_user, query_set_password_and_verify_user};
 
 struct SeedUser {
@@ -53,7 +53,7 @@ pub async fn run(database_url: &str) {
             query_set_password_and_verify_user(user_id, &password_hash, &db)
                 .await
                 .unwrap();
-            query_decline_passkey_prompt(user_id, &db).await.unwrap();
+            never_prompt_for_passkeys(user_id, &db).await.unwrap();
         }
     }
 

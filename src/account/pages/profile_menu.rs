@@ -1,4 +1,4 @@
-use crate::routes::logout_url;
+use crate::routes::LOGOUT_PATH;
 use topcoat::{
     Result,
     context::Cx,
@@ -15,8 +15,8 @@ const MENU_ID: &str = "account-menu";
 
 #[component]
 pub async fn profile_menu(cx: &Cx, display_name: &Signal<String>) -> Result<impl View> {
-    let logout_href = logout_url(cx);
-    let subscriptions_href = AccountSection::Subscriptions.href(cx);
+    let logout_href = LOGOUT_PATH.to_string();
+    let subscriptions_href = AccountSection::Subscriptions.path();
 
     Ok(view! {
         <button popovertarget=(MENU_ID) class="p-account__profile-dropdown l-flex">

@@ -1,3 +1,7 @@
+mod template;
+
+pub use template::{EmailTemplate, Part};
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -64,56 +68,88 @@ impl Mailer {
                 tracing::info!(to = %email.to, subject = %email.subject, "email (not sent):\n{}", email.text);
                 Ok(())
             }
-            Self::File { dir } => {
-                let nanos = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_err(MailError::new)?
-                    .as_nanos();
-                let sequence = NEXT_MAIL_FILE.fetch_add(1, Ordering::Relaxed);
-                let json = serde_json::to_vec_pretty(email).map_err(MailError::new)?;
-
-                tokio::fs::create_dir_all(dir)
-                    .await
-                    .map_err(MailError::new)?;
-                tokio::fs::write(dir.join(format!("{nanos}-{sequence:08}.json")), json)
-                    .await
-                    .map_err(MailError::new)
-            }
+            Self::File { dir } => write_to_file(dir, email).await,
             Self::Postmark {
                 client,
                 server_token,
                 base_url,
                 from,
             } => {
-                let body = PostmarkEmail {
+                let postmark = Postmark {
+                    client,
+                    server_token,
+                    base_url,
                     from,
-                    to: &email.to,
-                    subject: &email.subject,
-                    text_body: &email.text,
-                    html_body: &email.html,
-                    message_stream: "outbound",
                 };
-
-                let response = client
-                    .post(format!("{base_url}/email"))
-                    .header("X-Postmark-Server-Token", server_token)
-                    .header(ACCEPT, "application/json")
-                    .json(&body)
-                    .send()
-                    .await
-                    .map_err(MailError::new)?;
-
-                let status = response.status();
-                let response_body = response.text().await.map_err(MailError::new)?;
-
-                if !status.is_success() {
-                    return Err(MailError::new(format!(
-                        "Postmark returned {status}: {response_body}"
-                    )));
-                }
-
-                Ok(())
+                send_with_postmark(&postmark, email).await
             }
         }
+    }
+}
+
+async fn write_to_file(dir: &PathBuf, email: &Email) -> Result<(), MailError> {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(MailError::new)?
+        .as_nanos();
+    let sequence = NEXT_MAIL_FILE.fetch_add(1, Ordering::Relaxed);
+    let json = serde_json::to_vec_pretty(email).map_err(MailError::new)?;
+
+    tokio::fs::create_dir_all(dir)
+        .await
+        .map_err(MailError::new)?;
+    tokio::fs::write(dir.join(format!("{nanos}-{sequence:08}.json")), json)
+        .await
+        .map_err(MailError::new)
+}
+
+struct Postmark<'a> {
+    client: &'a reqwest::Client,
+    server_token: &'a str,
+    base_url: &'a str,
+    from: &'a str,
+}
+
+async fn send_with_postmark(postmark: &Postmark<'_>, email: &Email) -> Result<(), MailError> {
+    let body = PostmarkEmail {
+        from: postmark.from,
+        to: &email.to,
+        subject: &email.subject,
+        text_body: &email.text,
+        html_body: &email.html,
+        message_stream: "outbound",
+    };
+    let response = postmark
+        .client
+        .post(format!("{}/email", postmark.base_url))
+        .header("X-Postmark-Server-Token", postmark.server_token)
+        .header(ACCEPT, "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(MailError::new)?;
+
+    let status = response.status();
+    if status.is_success() {
+        return Ok(());
+    }
+    let response_body = response.text().await.map_err(MailError::new)?;
+    Err(MailError::new(format!(
+        "Postmark returned {status}: {response_body}"
+    )))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SendEmail(pub Email);
+
+impl crate::jobs::Job for SendEmail {
+    const KIND: &'static str = "send_email";
+
+    async fn run(self, app: &crate::env::App) -> Result<(), crate::jobs::JobError> {
+        app.config
+            .mailer
+            .send(&self.0)
+            .await
+            .map_err(crate::jobs::JobError::new)
     }
 }

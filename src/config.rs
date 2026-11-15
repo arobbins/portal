@@ -10,6 +10,100 @@ use crate::rate_limit::RateLimitMode;
 const MAIL_TIMEOUT: Duration = Duration::from_secs(10);
 const DEFAULT_JOB_WORKERS: usize = 2;
 
+struct Reader<'a> {
+    get: &'a dyn Fn(&str) -> Option<String>,
+    problems: Vec<String>,
+}
+
+impl Reader<'_> {
+    fn optional(&self, key: &str) -> Option<String> {
+        (self.get)(key)
+    }
+
+    fn require(&mut self, key: &str, why: &str) -> String {
+        self.optional(key).unwrap_or_else(|| {
+            self.problems.push(format!("{key} must be set {why}"));
+            String::new()
+        })
+    }
+
+    fn parse_optional<T: std::str::FromStr>(&mut self, key: &str, what: &str) -> Option<T> {
+        let raw = self.optional(key)?;
+        let parsed = raw.parse::<T>().ok();
+        if parsed.is_none() {
+            self.problems
+                .push(format!("{key} must be {what} (got `{raw}`)"));
+        }
+        parsed
+    }
+}
+
+fn parse_mailer(reader: &mut Reader<'_>) -> Mailer {
+    match reader.optional("MAIL_TRANSPORT").as_deref() {
+        None | Some("postmark") => postmark_mailer(reader),
+        Some("log") => Mailer::Log,
+        Some("file") => Mailer::File {
+            dir: PathBuf::from(reader.require("MAIL_DIR", "when MAIL_TRANSPORT=file")),
+        },
+        Some(other) => {
+            reader.problems.push(format!(
+                "MAIL_TRANSPORT must be postmark, log or file (got `{other}`)"
+            ));
+            Mailer::Log
+        }
+    }
+}
+
+fn postmark_mailer(reader: &mut Reader<'_>) -> Mailer {
+    let why = "when MAIL_TRANSPORT=postmark";
+    Mailer::Postmark {
+        client: reqwest::Client::builder()
+            .timeout(MAIL_TIMEOUT)
+            .build()
+            .expect("the HTTP client's TLS backend initializes"),
+        server_token: reader.require("POSTMARK_SERVER_TOKEN", why),
+        base_url: reader.require("POSTMARK_BASE_URL", why),
+        from: reader.require("POSTMARK_FROM_EMAIL", why),
+    }
+}
+
+fn parse_rate_limit_mode(reader: &mut Reader<'_>) -> RateLimitMode {
+    match reader.optional("RATE_LIMITS").as_deref() {
+        None | Some("strict") => RateLimitMode::Strict,
+        Some("relaxed") => RateLimitMode::Relaxed,
+        Some(other) => {
+            reader.problems.push(format!(
+                "RATE_LIMITS must be strict or relaxed (got `{other}`)"
+            ));
+            RateLimitMode::Strict
+        }
+    }
+}
+
+fn parse_passkey_domain(reader: &mut Reader<'_>, app_base_url: &str) -> String {
+    passkey_domain(app_base_url).unwrap_or_else(|problem| {
+        if !app_base_url.is_empty() {
+            reader.problems.push(problem);
+        }
+        String::new()
+    })
+}
+
+fn parse_bind_address(reader: &mut Reader<'_>) -> String {
+    let host = reader
+        .optional("HOST")
+        .unwrap_or_else(|| "127.0.0.1".to_string());
+    let port = reader
+        .optional("PORT")
+        .unwrap_or_else(|| "3000".to_string());
+    if port.parse::<u16>().is_err() {
+        reader
+            .problems
+            .push(format!("PORT must be a port number (got `{port}`)"));
+    }
+    format!("{host}:{port}")
+}
+
 #[derive(Debug, Clone)]
 pub struct Config {
     pub app_base_url: String,
@@ -27,94 +121,38 @@ impl Config {
     }
 
     pub fn from_lookup(get: impl Fn(&str) -> Option<String>) -> Result<Self, Vec<String>> {
-        let mut problems = Vec::new();
-        let mut require = |key: &str, why: &str| {
-            get(key).unwrap_or_else(|| {
-                problems.push(format!("{key} must be set {why}"));
-                String::new()
-            })
+        let mut reader = Reader {
+            get: &get,
+            problems: Vec::new(),
+        };
+        let app_base_url = reader.require("APP_BASE_URL", "(e.g. http://localhost:3000)");
+        let config = Self {
+            passkey_domain: parse_passkey_domain(&mut reader, &app_base_url),
+            app_base_url: app_base_url.trim_end_matches('/').to_string(),
+            bind_address: parse_bind_address(&mut reader),
+            mailer: parse_mailer(&mut reader),
+            rate_limit_mode: parse_rate_limit_mode(&mut reader),
+            trusted_proxy_hops: reader.parse_optional("TRUSTED_PROXY_HOPS", "a whole number"),
+            job_workers: reader
+                .parse_optional("JOB_WORKERS", "a whole number")
+                .unwrap_or(DEFAULT_JOB_WORKERS),
         };
 
-        let app_base_url = require("APP_BASE_URL", "(e.g. http://localhost:3000)");
-
-        let mailer = match get("MAIL_TRANSPORT").as_deref() {
-            None | Some("postmark") => Mailer::Postmark {
-                client: reqwest::Client::builder()
-                    .timeout(MAIL_TIMEOUT)
-                    .build()
-                    .expect("the HTTP client's TLS backend initializes"),
-                server_token: require("POSTMARK_SERVER_TOKEN", "when MAIL_TRANSPORT=postmark"),
-                base_url: require("POSTMARK_BASE_URL", "when MAIL_TRANSPORT=postmark"),
-                from: require("POSTMARK_FROM_EMAIL", "when MAIL_TRANSPORT=postmark"),
-            },
-            Some("log") => Mailer::Log,
-            Some("file") => Mailer::File {
-                dir: PathBuf::from(require("MAIL_DIR", "when MAIL_TRANSPORT=file")),
-            },
-            Some(other) => {
-                problems.push(format!(
-                    "MAIL_TRANSPORT must be postmark, log or file (got `{other}`)"
-                ));
-                Mailer::Log
-            }
-        };
-
-        let rate_limit_mode = match get("RATE_LIMITS").as_deref() {
-            None | Some("strict") => RateLimitMode::Strict,
-            Some("relaxed") => RateLimitMode::Relaxed,
-            Some(other) => {
-                problems.push(format!(
-                    "RATE_LIMITS must be strict or relaxed (got `{other}`)"
-                ));
-                RateLimitMode::Strict
-            }
-        };
-
-        let trusted_proxy_hops = get("TRUSTED_PROXY_HOPS").and_then(|hops| {
-            hops.parse::<usize>().ok().or_else(|| {
-                problems.push(format!(
-                    "TRUSTED_PROXY_HOPS must be a whole number (got `{hops}`)"
-                ));
-                None
-            })
-        });
-
-        let job_workers = match get("JOB_WORKERS") {
-            None => DEFAULT_JOB_WORKERS,
-            Some(count) => count.parse::<usize>().unwrap_or_else(|_| {
-                problems.push(format!(
-                    "JOB_WORKERS must be a whole number (got `{count}`)"
-                ));
-                DEFAULT_JOB_WORKERS
-            }),
-        };
-
-        let passkey_domain = passkey_domain(&app_base_url).unwrap_or_else(|problem| {
-            if !app_base_url.is_empty() {
-                problems.push(problem);
-            }
-            String::new()
-        });
-
-        let host = get("HOST").unwrap_or_else(|| "127.0.0.1".to_string());
-        let port = get("PORT").unwrap_or_else(|| "3000".to_string());
-        if port.parse::<u16>().is_err() {
-            problems.push(format!("PORT must be a port number (got `{port}`)"));
-        }
-
-        if problems.is_empty() {
-            Ok(Self {
-                app_base_url: app_base_url.trim_end_matches('/').to_string(),
-                passkey_domain,
-                bind_address: format!("{host}:{port}"),
-                mailer,
-                rate_limit_mode,
-                trusted_proxy_hops,
-                job_workers,
-            })
+        if reader.problems.is_empty() {
+            Ok(config)
         } else {
-            Err(problems)
+            Err(reader.problems)
         }
+    }
+
+    #[cfg(test)]
+    pub fn for_tests() -> Self {
+        Self::from_lookup(|key| match key {
+            "APP_BASE_URL" => Some("http://localhost".to_string()),
+            "MAIL_TRANSPORT" => Some("log".to_string()),
+            _ => None,
+        })
+        .expect("the test configuration is valid")
     }
 
     pub fn origin(&self) -> &str {

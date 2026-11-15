@@ -1,19 +1,16 @@
 use std::convert::Infallible;
 
+use crate::env::Env;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use topcoat::context::Cx;
 
 use crate::action::{ActionError, ActionResult, Caller, authorize, fail};
-use crate::api::catalog::{ErrorDoc, HttpMethod};
-use crate::api::registry::{ApiAction, NoInput};
 use crate::permission::Permission;
 use crate::user::events::{AccountEventKind, EventSource, record_event};
 use crate::user::model::User;
 use crate::user::name::{MAX_NAME_LENGTH, NameProblem, check_name};
 use crate::user::queries::query_update_user_name;
-use crate::web::db;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 #[schemars(description = "The signed-in user's profile.")]
@@ -53,7 +50,7 @@ pub fn get_profile(caller: &Caller) -> Result<ProfileView, ActionError<Infallibl
 }
 
 pub async fn update_profile(
-    cx: &Cx,
+    env: &Env<'_>,
     caller: &Caller,
     input: &UpdateProfile,
 ) -> ActionResult<ProfileView, NameProblem> {
@@ -63,10 +60,10 @@ pub async fn update_profile(
         Err(problem) => return fail(problem),
     };
 
-    let mut tx = db(cx).begin().await?;
+    let mut tx = env.db().begin().await?;
     query_update_user_name(caller.user.id, name, &mut *tx).await?;
     record_event(
-        cx,
+        env,
         &EventSource::of(caller),
         AccountEventKind::ProfileUpdated,
         json!({ "fields": ["name"] }),
@@ -79,88 +76,6 @@ pub async fn update_profile(
         name: name.to_string(),
         ..ProfileView::of(&caller.user)
     }))
-}
-
-pub struct GetProfileAction;
-
-impl ApiAction for GetProfileAction {
-    const ID: &'static str = "get-profile";
-    const GROUP: &'static str = "Profile";
-    const METHOD: HttpMethod = HttpMethod::Get;
-    const PATH: &'static str = "/api/v1/me";
-    const SUMMARY: &'static str = "Get your profile";
-    const DESCRIPTION: &'static str =
-        "Returns the name and email of the account the token belongs to.";
-    const PERMISSION: Permission = Permission::ViewProfile;
-
-    type Input = NoInput;
-    type Output = ProfileView;
-    type Problem = Infallible;
-
-    async fn run(
-        _cx: &Cx,
-        caller: &Caller,
-        _input: &NoInput,
-    ) -> ActionResult<ProfileView, Infallible> {
-        Ok(get_profile(caller))
-    }
-
-    fn example_input() -> Option<NoInput> {
-        None
-    }
-
-    fn example_output() -> ProfileView {
-        sample_profile()
-    }
-
-    fn problems() -> Vec<ErrorDoc> {
-        Vec::new()
-    }
-}
-
-pub struct UpdateProfileAction;
-
-impl ApiAction for UpdateProfileAction {
-    const ID: &'static str = "update-profile";
-    const GROUP: &'static str = "Profile";
-    const METHOD: HttpMethod = HttpMethod::Patch;
-    const PATH: &'static str = "/api/v1/me";
-    const SUMMARY: &'static str = "Update your profile";
-    const DESCRIPTION: &'static str = "Changes the account's display name and returns the updated profile. The change appears in the app straight away and is recorded in the account's activity log.";
-    const PERMISSION: Permission = Permission::EditProfile;
-
-    type Input = UpdateProfile;
-    type Output = ProfileView;
-    type Problem = NameProblem;
-
-    async fn run(
-        cx: &Cx,
-        caller: &Caller,
-        input: &UpdateProfile,
-    ) -> ActionResult<ProfileView, NameProblem> {
-        update_profile(cx, caller, input).await
-    }
-
-    fn example_input() -> Option<UpdateProfile> {
-        Some(UpdateProfile {
-            name: "Ada Lovelace".to_string(),
-        })
-    }
-
-    fn example_output() -> ProfileView {
-        sample_profile()
-    }
-
-    fn problems() -> Vec<ErrorDoc> {
-        NameProblem::ALL.into_iter().map(ErrorDoc::of).collect()
-    }
-}
-
-fn sample_profile() -> ProfileView {
-    ProfileView {
-        name: "Ada Lovelace".to_string(),
-        email: "ada@example.com".to_string(),
-    }
 }
 
 #[cfg(test)]
@@ -225,11 +140,12 @@ mod tests {
     #[sqlx::test]
     async fn renaming_works_from_the_browser_and_a_write_token_and_is_logged(db: sqlx::PgPool) {
         let user = saved_user(&db).await;
-        let cx = Cx::new().with(db.clone());
+        let app = crate::env::App::for_tests(db.clone());
+        let env = app.env(None);
 
         let browser = Caller::browser(user.clone());
         assert_eq!(
-            update_profile(&cx, &browser, &rename(" From Browser "))
+            update_profile(&env, &browser, &rename(" From Browser "))
                 .await
                 .unwrap()
                 .unwrap()
@@ -237,7 +153,7 @@ mod tests {
             "From Browser"
         );
         let writer = Caller::api_token(user.clone(), 9, vec![ApiScope::ProfileWrite]);
-        update_profile(&cx, &writer, &rename("From Token"))
+        update_profile(&env, &writer, &rename("From Token"))
             .await
             .unwrap()
             .unwrap();
@@ -257,10 +173,11 @@ mod tests {
     #[sqlx::test]
     async fn a_read_only_token_changes_nothing(db: sqlx::PgPool) {
         let user = saved_user(&db).await;
-        let cx = Cx::new().with(db.clone());
+        let app = crate::env::App::for_tests(db.clone());
+        let env = app.env(None);
         let reader = Caller::api_token(user.clone(), 3, vec![ApiScope::ProfileRead]);
 
-        let outcome = update_profile(&cx, &reader, &rename("Sneaky"))
+        let outcome = update_profile(&env, &reader, &rename("Sneaky"))
             .await
             .unwrap();
 

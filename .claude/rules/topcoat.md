@@ -8,11 +8,12 @@ paths:
 - Every `#[component]`, `#[page]`, `#[route]`, `#[layout]` and `#[procedure]`
   takes `cx: &Cx` as its first parameter, named exactly `cx`, even if unused:
   `view!` captures it. Helper functions that need context take `cx: &Cx` too.
-- One context: shared values are added with `.with(value)` on the router
-  builder (`app.rs`) and read with `context::<T>(cx)` / `try_context::<T>(cx)`
-  behind small helpers (`db(cx)`, `config(cx)`, `rate_limits(cx)` in
-  `web.rs`). `rewrite(…).with(value)` carries a value to the page it rewrites
-  to; the page reads it with `try_context`. `cx.with(value)` shadows a value
+- One context value: `App` is added with `.with(app)` on the router
+  builder (`app.rs`) and read only through `web::app(cx)`, `web::env(cx)`
+  and `web::config(cx)` (`web/context.rs`; `context::<…>` anywhere else
+  fails the clean-code check). `web::redisplay(path, failure)` re-renders
+  the GET page with `failure` in context; the page reads it with
+  `try_context::<Failure>(cx)`. `cx.with(value)` shadows a value
   for code given the child context.
 - Axum extensions (`Session`, `GlobalState`) are still read with
   `request::extensions(cx)`.

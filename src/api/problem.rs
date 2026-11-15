@@ -6,7 +6,7 @@ use serde::Serialize;
 use serde_json::{Map, Value, json};
 use topcoat::router::{StatusCode, content::Json};
 
-use crate::action::{ActionError, ActionProblem, Denied};
+use crate::action::{ActionError, ActionProblem, Denied, ProblemSpec};
 
 pub const REALM: &str = "api";
 
@@ -20,35 +20,33 @@ pub enum ApiFailure {
 }
 
 impl ActionProblem for ApiFailure {
-    fn code(self) -> &'static str {
+    fn spec(self) -> ProblemSpec {
         match self {
-            Self::Forbidden => "forbidden",
-            Self::InsufficientScope => "insufficient_scope",
-            Self::BrowserOnly => "browser_only",
-            Self::NotFound => "not_found",
-            Self::Internal => "internal_error",
-        }
-    }
-
-    fn message(self) -> &'static str {
-        match self {
-            Self::InsufficientScope => {
-                "This API token doesn't have the scope this endpoint needs. Create a token with that access."
-            }
-            Self::BrowserOnly => "This can only be done in the app, not with an API token.",
-            Self::Forbidden => "Your role in this workspace doesn't allow this.",
-            Self::NotFound => {
-                "There's no API endpoint for this method and path. The API lives under /api/v1."
-            }
-            Self::Internal => "Something went wrong on our side. Try again in a moment.",
-        }
-    }
-
-    fn status(self) -> StatusCode {
-        match self {
-            Self::Forbidden | Self::InsufficientScope | Self::BrowserOnly => StatusCode::FORBIDDEN,
-            Self::NotFound => StatusCode::NOT_FOUND,
-            Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::Forbidden => ProblemSpec::new(
+                "forbidden",
+                "Your role in this workspace doesn't allow this.",
+            )
+            .with_status(StatusCode::FORBIDDEN),
+            Self::InsufficientScope => ProblemSpec::new(
+                "insufficient_scope",
+                "This API token doesn't have the scope this endpoint needs. Create a token with that access.",
+            )
+            .with_status(StatusCode::FORBIDDEN),
+            Self::BrowserOnly => ProblemSpec::new(
+                "browser_only",
+                "This can only be done in the app, not with an API token.",
+            )
+            .with_status(StatusCode::FORBIDDEN),
+            Self::NotFound => ProblemSpec::new(
+                "not_found",
+                "There's no API endpoint for this method and path. The API lives under /api/v1.",
+            )
+            .with_status(StatusCode::NOT_FOUND),
+            Self::Internal => ProblemSpec::new(
+                "internal_error",
+                "Something went wrong on our side. Try again in a moment.",
+            )
+            .with_status(StatusCode::INTERNAL_SERVER_ERROR),
         }
     }
 }

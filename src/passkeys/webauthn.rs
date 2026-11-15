@@ -2,16 +2,17 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
-use topcoat::{Result, context::Cx};
+use time::OffsetDateTime;
+use topcoat::Result;
 use tower_sessions::Session;
 use uuid::Uuid;
 use webauthn_rs::prelude::{CredentialID, Url, Webauthn, WebauthnBuilder};
 
 use crate::app::SITE_NAME;
 use crate::config::Config;
+use crate::env::App;
 use crate::passkeys::queries::query_list_passkeys;
 use crate::user::model::User;
-use crate::web::{config, db};
 
 const CEREMONY_LIFETIME: Duration = Duration::from_secs(10 * 60);
 pub const REGISTRATION_STATE: &str = "passkey_registration";
@@ -87,20 +88,29 @@ struct Ceremony<T> {
     started_at: i64,
 }
 
-pub async fn store_ceremony<T: Serialize>(session: &Session, key: &str, state: T) -> Result<()> {
+pub async fn store_ceremony<T: Serialize>(
+    session: &Session,
+    key: &str,
+    state: T,
+    now: OffsetDateTime,
+) -> Result<()> {
     let ceremony = Ceremony {
         state,
-        started_at: time::OffsetDateTime::now_utc().unix_timestamp(),
+        started_at: now.unix_timestamp(),
     };
     session.insert(key, ceremony).await?;
     Ok(())
 }
 
-pub async fn take_ceremony<T: DeserializeOwned>(session: &Session, key: &str) -> Result<Option<T>> {
+pub async fn take_ceremony<T: DeserializeOwned>(
+    session: &Session,
+    key: &str,
+    now: OffsetDateTime,
+) -> Result<Option<T>> {
     let Some(ceremony) = session.remove::<Ceremony<T>>(key).await? else {
         return Ok(None);
     };
-    let age = time::OffsetDateTime::now_utc().unix_timestamp() - ceremony.started_at;
+    let age = now.unix_timestamp() - ceremony.started_at;
 
     Ok((0..=CEREMONY_LIFETIME.as_secs() as i64)
         .contains(&age)
@@ -111,15 +121,15 @@ pub fn encode_binary(bytes: &[u8]) -> Value {
     serde_json::to_value(CredentialID::from(bytes.to_vec())).unwrap_or(Value::Null)
 }
 
-pub async fn accepted_credentials(user: &User, cx: &Cx) -> Result<Value> {
-    let passkeys = query_list_passkeys(user.id, db(cx)).await?;
+pub async fn accepted_credentials(app: &App, user: &User) -> Result<Value> {
+    let passkeys = query_list_passkeys(user.id, &app.db).await?;
     let ids: Vec<Value> = passkeys
         .iter()
         .map(|passkey| encode_binary(&passkey.credential_id))
         .collect();
 
     Ok(json!({
-        "rpId": config(cx).passkey_domain,
+        "rpId": app.config.passkey_domain,
         "userId": encode_binary(user.webauthn_id.as_bytes()),
         "allAcceptedCredentialIds": ids,
         "name": user.email,

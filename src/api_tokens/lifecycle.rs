@@ -6,6 +6,7 @@ use crate::api_tokens::queries::{
     query_get_api_token_by_hash, query_record_api_token_use,
 };
 use crate::api_tokens::token::is_well_formed;
+use crate::env::App;
 use crate::secret::hash_secret;
 
 const EXPIRED_TOKEN_GRACE: time::Duration = time::Duration::days(7);
@@ -34,6 +35,6 @@ pub async fn revoke_all_for_user(
     query_delete_user_api_tokens(user_id, db).await
 }
 
-pub async fn delete_long_expired(db: impl PgExecutor<'_>) -> Result<u64, sqlx::Error> {
-    query_delete_expired_api_tokens(EXPIRED_TOKEN_GRACE, db).await
+pub async fn delete_long_expired(app: &App) -> Result<u64, sqlx::Error> {
+    query_delete_expired_api_tokens(app.clock.now() - EXPIRED_TOKEN_GRACE, &app.db).await
 }

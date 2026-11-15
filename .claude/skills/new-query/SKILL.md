@@ -85,7 +85,10 @@ is stale. Include the changed `.sqlx/*.json` files in the commit.
 
 - If new state with more than two values appears, add an enum and a row in the CLAUDE.md
   "State machines" table.
-- If expiring rows need deleting, add the query to `cleanup::run` (the hourly cleanup job).
-- Sending email or calling another service after a write: `jobs::enqueue(&Job::…, &mut *tx)`
-  in the same transaction, never inline.
+- If expiring rows need deleting, expose a `pub async fn delete_*(app: &App)` from the
+  feature (it reads `app.clock.now()`) and call it from `cleanup::run` (the hourly
+  `CleanupJob`); `cleanup.rs` never calls a feature's `query_*` directly.
+- Sending email or calling another service after a write: `enqueue(&SomeJob { … }, &mut *tx)`
+  in the same transaction, never inline. `SomeJob` implements `trait Job` (`KIND`, `run`)
+  and is listed in `server::job_handlers()`; add its `KIND` to the `jobs` kind CHECK.
 - Run `./check.sh`.

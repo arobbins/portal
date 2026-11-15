@@ -94,39 +94,16 @@ fn collect(chars: &[char], start: usize, end: usize) -> String {
 }
 
 fn json_line(line: &str) -> Vec<Token> {
+    tokenize(line, json_token)
+}
+
+fn tokenize(line: &str, mut next: impl FnMut(&[char], usize) -> (TokenKind, usize)) -> Vec<Token> {
     let chars: Vec<char> = line.chars().collect();
     let mut tokens = Vec::new();
     let mut index = 0;
     while index < chars.len() {
-        let current = chars[index];
-        let (kind, end) = if current == '"' {
-            let end = quoted_end(&chars, index);
-            let rest = collect(&chars, end, chars.len());
-            let kind = if rest.trim_start().starts_with(':') {
-                TokenKind::Key
-            } else {
-                TokenKind::String
-            };
-            (kind, end)
-        } else if current == '-' || current.is_ascii_digit() {
-            let end = scan(&chars, index + 1, |c| {
-                c.is_ascii_digit() || matches!(c, '.' | 'e' | 'E' | '+' | '-')
-            });
-            (TokenKind::Number, end)
-        } else if current.is_ascii_alphabetic() {
-            let end = scan(&chars, index, |c| c.is_ascii_alphabetic());
-            let word = collect(&chars, index, end);
-            let kind = if matches!(word.as_str(), "true" | "false" | "null") {
-                TokenKind::Literal
-            } else {
-                TokenKind::Plain
-            };
-            (kind, end)
-        } else if "{}[],:".contains(current) {
-            (TokenKind::Punctuation, index + 1)
-        } else {
-            (TokenKind::Plain, index + 1)
-        };
+        let (kind, end) = next(&chars, index);
+        let end = end.max(index + 1);
         tokens.push(Token {
             kind,
             text: collect(&chars, index, end),
@@ -134,6 +111,47 @@ fn json_line(line: &str) -> Vec<Token> {
         index = end;
     }
     tokens
+}
+
+fn json_token(chars: &[char], index: usize) -> (TokenKind, usize) {
+    let current = chars[index];
+    if current == '"' {
+        let end = quoted_end(chars, index);
+        let is_key = collect(chars, end, chars.len())
+            .trim_start()
+            .starts_with(':');
+        (
+            if is_key {
+                TokenKind::Key
+            } else {
+                TokenKind::String
+            },
+            end,
+        )
+    } else if current == '-' || current.is_ascii_digit() {
+        let end = scan(chars, index + 1, |c| {
+            c.is_ascii_digit() || matches!(c, '.' | 'e' | 'E' | '+' | '-')
+        });
+        (TokenKind::Number, end)
+    } else if current.is_ascii_alphabetic() {
+        let end = scan(chars, index, |c| c.is_ascii_alphabetic());
+        let literal = matches!(
+            collect(chars, index, end).as_str(),
+            "true" | "false" | "null"
+        );
+        (
+            if literal {
+                TokenKind::Literal
+            } else {
+                TokenKind::Plain
+            },
+            end,
+        )
+    } else if "{}[],:".contains(current) {
+        (TokenKind::Punctuation, index + 1)
+    } else {
+        (TokenKind::Plain, index + 1)
+    }
 }
 
 fn scan(chars: &[char], start: usize, keep: impl Fn(char) -> bool) -> usize {
@@ -145,51 +163,53 @@ fn scan(chars: &[char], start: usize, keep: impl Fn(char) -> bool) -> usize {
 }
 
 fn shell_line(line: &str, continues: bool) -> Vec<Token> {
-    let chars: Vec<char> = line.chars().collect();
-    let mut tokens = Vec::new();
-    let mut index = 0;
     let mut expects_command = !continues;
-    while index < chars.len() {
-        let current = chars[index];
-        let starts_word = index == 0 || chars[index - 1].is_whitespace();
-        let (kind, end) = if current.is_whitespace() {
-            (TokenKind::Plain, scan(&chars, index, char::is_whitespace))
-        } else if current == '#' && starts_word {
-            (TokenKind::Comment, chars.len())
-        } else if current == '\'' || current == '"' {
-            (TokenKind::String, quoted_end(&chars, index))
-        } else if current == '$' {
-            let end = if chars.get(index + 1) == Some(&'{') {
-                scan(&chars, index + 2, |c| c != '}') + 1
-            } else {
-                scan(&chars, index + 1, |c| c.is_ascii_alphanumeric() || c == '_')
-            };
-            (TokenKind::Variable, end)
-        } else if current == '\\' && index + 1 == chars.len() {
-            (TokenKind::Punctuation, index + 1)
-        } else if current == '-' && starts_word {
-            (TokenKind::Flag, scan(&chars, index, |c| !c.is_whitespace()))
-        } else {
-            let end = scan(&chars, index, |c| {
-                !c.is_whitespace() && !matches!(c, '$' | '\'' | '"')
-            });
-            let kind = if expects_command && starts_word {
+    tokenize(line, |chars, index| {
+        let (kind, end) = shell_token(chars, index, expects_command);
+        if !chars[index].is_whitespace() {
+            expects_command = false;
+        }
+        (kind, end)
+    })
+}
+
+fn shell_token(chars: &[char], index: usize, expects_command: bool) -> (TokenKind, usize) {
+    let current = chars[index];
+    let starts_word = index == 0 || chars[index - 1].is_whitespace();
+    if current.is_whitespace() {
+        (TokenKind::Plain, scan(chars, index, char::is_whitespace))
+    } else if current == '#' && starts_word {
+        (TokenKind::Comment, chars.len())
+    } else if current == '\'' || current == '"' {
+        (TokenKind::String, quoted_end(chars, index))
+    } else if current == '$' {
+        (TokenKind::Variable, variable_end(chars, index))
+    } else if current == '\\' && index + 1 == chars.len() {
+        (TokenKind::Punctuation, index + 1)
+    } else if current == '-' && starts_word {
+        (TokenKind::Flag, scan(chars, index, |c| !c.is_whitespace()))
+    } else {
+        let end = scan(chars, index, |c| {
+            !c.is_whitespace() && !matches!(c, '$' | '\'' | '"')
+        });
+        let command = expects_command && starts_word;
+        (
+            if command {
                 TokenKind::Command
             } else {
                 TokenKind::Plain
-            };
-            (kind, end)
-        };
-        if !matches!(kind, TokenKind::Plain) || !current.is_whitespace() {
-            expects_command = false;
-        }
-        tokens.push(Token {
-            kind,
-            text: collect(&chars, index, end),
-        });
-        index = end.max(index + 1);
+            },
+            end,
+        )
     }
-    tokens
+}
+
+fn variable_end(chars: &[char], index: usize) -> usize {
+    if chars.get(index + 1) == Some(&'{') {
+        scan(chars, index + 2, |c| c != '}') + 1
+    } else {
+        scan(chars, index + 1, |c| c.is_ascii_alphanumeric() || c == '_')
+    }
 }
 
 #[cfg(test)]

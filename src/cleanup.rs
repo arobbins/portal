@@ -1,91 +1,48 @@
-use sqlx::PgPool;
+use serde::{Deserialize, Serialize};
 use tower_sessions::session_store::ExpiredDeletion;
 use tower_sessions_sqlx_store::PostgresStore;
 
-use crate::api_tokens::verify::delete_long_expired;
-use crate::auth::queries::query_delete_expired_user_tokens;
-use crate::jobs::query_delete_old_failed_jobs;
-use crate::rate_limit::query_delete_old_rate_limit_hits;
-use crate::user::events::query_delete_old_account_events;
-use crate::user::queries::query_delete_abandoned_signups;
+use crate::api_tokens::lifecycle::delete_long_expired;
+use crate::auth::links::delete_stale_sign_ups;
+use crate::env::App;
+use crate::jobs::{Job, JobError, delete_old_failed_jobs};
+use crate::user::events::delete_old_events;
 
-const ABANDONED_SIGNUP_AGE: time::Duration = time::Duration::days(7);
-pub const EVENT_RETENTION: time::Duration = time::Duration::days(395);
-const FAILED_JOB_RETENTION: time::Duration = time::Duration::days(30);
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CleanupJob {}
 
-pub async fn run(db: &PgPool, sessions: &PostgresStore) -> topcoat::Result<()> {
-    let tokens = query_delete_expired_user_tokens(db).await?;
-    let signups = query_delete_abandoned_signups(ABANDONED_SIGNUP_AGE, db).await?;
-    let api_tokens = delete_long_expired(db).await?;
-    let hits = query_delete_old_rate_limit_hits(db).await?;
-    let events = query_delete_old_account_events(EVENT_RETENTION, db).await?;
-    let jobs = query_delete_old_failed_jobs(FAILED_JOB_RETENTION, db).await?;
-    sessions
+impl Job for CleanupJob {
+    const KIND: &'static str = "cleanup";
+    const REPEAT_EVERY: Option<time::Duration> = Some(time::Duration::hours(1));
+
+    async fn run(self, app: &App) -> Result<(), JobError> {
+        run(app).await
+    }
+}
+
+async fn run(app: &App) -> Result<(), JobError> {
+    let (links, sign_ups) = delete_stale_sign_ups(app).await?;
+    let api_tokens = delete_long_expired(app).await?;
+    let hits = app.limits.forget_old_hits(app.clock.now()).await?;
+    let events = delete_old_events(app).await?;
+    let jobs = delete_old_failed_jobs(app).await?;
+    PostgresStore::new(app.db.clone())
         .delete_expired()
         .await
-        .map_err(|e| topcoat::Error::msg(e.to_string()))?;
+        .map_err(JobError::new)?;
 
     tracing::info!(
-        "cleanup removed {tokens} expired links, {api_tokens} expired API tokens, {signups} abandoned sign-ups, {hits} rate-limit hits, {events} old account events and {jobs} failed jobs"
+        "cleanup removed {links} expired links, {sign_ups} abandoned sign-ups, {api_tokens} expired API tokens, {hits} rate-limit hits, {events} old account events and {jobs} failed jobs"
     );
-
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::links::TokenPurpose;
-    use crate::auth::password::hash_password;
-    use crate::auth::queries::query_insert_user_token;
-    use crate::user::queries::{
-        NewUser, query_get_user_by_id, query_insert_user, query_set_password_and_verify_user,
-    };
+    use sqlx::PgPool;
     use tower_sessions::session::{Id, Record};
     use tower_sessions::session_store::SessionStore;
-
-    async fn insert_user(email: &str, days_old: i64, db: &PgPool) -> i32 {
-        let new_user = NewUser {
-            name: "Tester",
-            email,
-        };
-        let user_id = query_insert_user(&new_user, db).await.unwrap().unwrap();
-        sqlx::query!(
-            "UPDATE users SET created_at = now() - make_interval(days => $1) WHERE id = $2",
-            days_old as i32,
-            user_id,
-        )
-        .execute(db)
-        .await
-        .unwrap();
-        user_id
-    }
-
-    async fn insert_token(user_id: i32, hash: &str, expired: bool, db: &PgPool) {
-        query_insert_user_token(user_id, TokenPurpose::EmailVerification, hash, db)
-            .await
-            .unwrap();
-        if expired {
-            sqlx::query!(
-                "UPDATE user_tokens SET expires_at = now() - interval '1 hour' WHERE token_hash = $1",
-                hash,
-            )
-            .execute(db)
-            .await
-            .unwrap();
-        }
-    }
-
-    async fn exists(user_id: i32, db: &PgPool) -> bool {
-        query_get_user_by_id(user_id, db).await.unwrap().is_some()
-    }
-
-    async fn token_count(db: &PgPool) -> i64 {
-        sqlx::query_scalar!(r#"SELECT count(*) AS "count!" FROM user_tokens"#)
-            .fetch_one(db)
-            .await
-            .unwrap()
-    }
 
     async fn session_store(db: &PgPool) -> PostgresStore {
         let store = PostgresStore::new(db.clone());
@@ -115,33 +72,8 @@ mod tests {
         save_session(&store, time::Duration::hours(-1)).await;
         save_session(&store, time::Duration::hours(1)).await;
 
-        run(&db, &store).await.unwrap();
+        run(&App::for_tests(db.clone())).await.unwrap();
 
         assert_eq!(session_count(&db).await, 1);
-    }
-
-    #[sqlx::test]
-    async fn removes_expired_tokens_and_abandoned_sign_ups(db: PgPool) {
-        let abandoned = insert_user("abandoned@example.test", 8, &db).await;
-        insert_token(abandoned, "expired-hash", true, &db).await;
-
-        let still_has_a_link = insert_user("waiting@example.test", 8, &db).await;
-        insert_token(still_has_a_link, "valid-hash", false, &db).await;
-
-        let recent = insert_user("recent@example.test", 1, &db).await;
-
-        let active = insert_user("active@example.test", 30, &db).await;
-        let password_hash = hash_password("a-strong-test-password").unwrap();
-        query_set_password_and_verify_user(active, &password_hash, &db)
-            .await
-            .unwrap();
-
-        run(&db, &session_store(&db).await).await.unwrap();
-
-        assert!(!exists(abandoned, &db).await);
-        assert!(exists(still_has_a_link, &db).await);
-        assert!(exists(recent, &db).await);
-        assert!(exists(active, &db).await);
-        assert_eq!(token_count(&db).await, 1);
     }
 }

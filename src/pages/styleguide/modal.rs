@@ -9,7 +9,7 @@ use super::styleguide_section;
 use crate::components::button::{ButtonType, ButtonVariant, button};
 use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::form::{form, form_actions};
-use crate::components::modal::modal;
+use crate::components::modal::{ClosedBy, modal};
 
 const CONFIRM_ID: &str = "styleguide-confirm";
 
@@ -28,7 +28,35 @@ pub async fn modal_section(cx: &Cx) -> Result<impl View> {
                     attrs: attributes! { command="show-modal" commandfor=(CONFIRM_ID) },
                     "Delete account"
                 )
+                button(
+                    variant: ButtonVariant::Secondary,
+                    attrs: attributes! {
+                        command="show-modal"
+                        commandfor="styleguide-modal-escape"
+                    },
+                    "Esc to close"
+                )
+                button(
+                    variant: ButtonVariant::Secondary,
+                    attrs: attributes! {
+                        command="show-modal"
+                        commandfor="styleguide-modal-button"
+                    },
+                    "Button to close"
+                )
             </div>
+            modal(
+                id: "styleguide-modal-escape",
+                heading: "Esc or the close button",
+                closed_by: ClosedBy::CloseRequest,
+                <p>"Clicking outside doesn't close this one."</p>
+            )
+            modal(
+                id: "styleguide-modal-button",
+                heading: "Close button only",
+                closed_by: ClosedBy::None,
+                <p>"Only the close button closes this one."</p>
+            )
             modal(
                 id: "styleguide-modal",
                 heading: "Update profile",

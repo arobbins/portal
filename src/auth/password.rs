@@ -2,16 +2,12 @@ use std::sync::LazyLock;
 
 use argon2::{Argon2, PasswordHasher, PasswordVerifier};
 use password_hash::{PasswordHash, SaltString};
-use topcoat::{
-    Error, Result,
-    context::Cx,
-    router::{StatusCode, request::client_ip},
-};
+use topcoat::{Error, Result};
 
-use crate::action::{ActionProblem, Outcome, TooManyAttempts, fail};
+use crate::action::{ActionProblem, Outcome, ProblemSpec, TooManyAttempts, fail};
+use crate::env::Env;
 use crate::secret::random_base62;
 use crate::user::model::{AccountStatus, User};
-use crate::web::rate_limits;
 
 pub const MIN_PASSWORD_LENGTH: usize = 8;
 pub const MAX_PASSWORD_LENGTH: usize = 256;
@@ -37,26 +33,20 @@ impl PasswordProblem {
 }
 
 impl ActionProblem for PasswordProblem {
-    fn code(self) -> &'static str {
+    fn spec(self) -> ProblemSpec {
         match self {
-            Self::TooShort => "password_too_short",
-            Self::TooLong => "password_too_long",
-            Self::Mismatch => "password_mismatch",
-        }
-    }
-
-    fn message(self) -> &'static str {
-        match self {
-            Self::TooShort => "Password must be at least 8 characters.",
-            Self::TooLong => "Password must be 256 characters or fewer.",
-            Self::Mismatch => "Passwords do not match.",
-        }
-    }
-
-    fn field(self) -> Option<&'static str> {
-        match self {
-            Self::TooShort | Self::TooLong => Some(PASSWORD_FIELD),
-            Self::Mismatch => Some(CONFIRMATION_FIELD),
+            Self::TooShort => ProblemSpec::new(
+                "password_too_short",
+                "Password must be at least 8 characters.",
+            )
+            .on_field(PASSWORD_FIELD),
+            Self::TooLong => ProblemSpec::new(
+                "password_too_long",
+                "Password must be 256 characters or fewer.",
+            )
+            .on_field(PASSWORD_FIELD),
+            Self::Mismatch => ProblemSpec::new("password_mismatch", "Passwords do not match.")
+                .on_field(CONFIRMATION_FIELD),
         }
     }
 }
@@ -86,42 +76,24 @@ pub enum CurrentPasswordProblem {
 }
 
 impl ActionProblem for CurrentPasswordProblem {
-    fn code(self) -> &'static str {
+    fn spec(self) -> ProblemSpec {
         match self {
-            Self::Wrong => "wrong_password",
-            Self::TooManyAttempts => TooManyAttempts.code(),
-        }
-    }
-
-    fn message(self) -> &'static str {
-        match self {
-            Self::Wrong => "Your current password is incorrect.",
-            Self::TooManyAttempts => TooManyAttempts.message(),
-        }
-    }
-
-    fn field(self) -> Option<&'static str> {
-        match self {
-            Self::Wrong => Some(CURRENT_PASSWORD_FIELD),
-            Self::TooManyAttempts => None,
-        }
-    }
-
-    fn status(self) -> StatusCode {
-        match self {
-            Self::Wrong => StatusCode::UNPROCESSABLE_ENTITY,
-            Self::TooManyAttempts => TooManyAttempts.status(),
+            Self::Wrong => {
+                ProblemSpec::new("wrong_password", "Your current password is incorrect.")
+                    .on_field(CURRENT_PASSWORD_FIELD)
+            }
+            Self::TooManyAttempts => TooManyAttempts.spec(),
         }
     }
 }
 
 pub async fn check_current_password(
-    cx: &Cx,
+    env: &Env<'_>,
     user: &User,
     password: &str,
 ) -> Outcome<(), CurrentPasswordProblem> {
-    let limits = rate_limits(cx);
-    let ip = client_ip(cx);
+    let limits = env.limits();
+    let ip = env.ip;
     if !limits.allow_password_submission(ip).await? || limits.login_blocked(&user.email, ip).await?
     {
         return fail(CurrentPasswordProblem::TooManyAttempts);

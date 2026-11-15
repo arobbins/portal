@@ -1,4 +1,3 @@
-use sqlx::PgPool;
 use topcoat::{
     Result,
     asset::{AssetBundle, RouterBuilderAssetExt},
@@ -12,31 +11,17 @@ use topcoat::{
     view::{View, error_boundary, view},
 };
 
-use crate::config::Config;
 use crate::layout::{footer::footer, header::header};
-use crate::passkeys::webauthn;
-use crate::rate_limit::RateLimits;
 use topcoat::metadata::Metadata;
 
+use crate::env::App;
 use crate::pages::not_found::not_found_page;
 use crate::web::globals;
-use std::sync::Arc;
 use topcoat::router::TrustedProxies;
 
-pub fn router(
-    db: PgPool,
-    config: Config,
-    rate_limits: Arc<RateLimits>,
-    assets: AssetBundle,
-) -> Router {
-    let trusted_proxy_hops = config.trusted_proxy_hops;
-    let relying_party = webauthn::relying_party(&config);
-    let mut builder = Router::builder()
-        .discover()
-        .with(db)
-        .with(config)
-        .with(relying_party)
-        .with(rate_limits);
+pub fn router(app: App, assets: AssetBundle) -> Router {
+    let trusted_proxy_hops = app.config.trusted_proxy_hops;
+    let mut builder = Router::builder().discover().with(app);
 
     if let Some(hops) = trusted_proxy_hops {
         builder = builder.trusted_proxies(TrustedProxies::new().nearest(hops));

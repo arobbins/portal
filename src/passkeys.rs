@@ -1,6 +1,7 @@
 pub mod actions;
 pub mod emails;
 pub mod pages;
-pub mod queries;
+mod queries;
 pub mod routes;
+pub mod session;
 pub mod webauthn;
