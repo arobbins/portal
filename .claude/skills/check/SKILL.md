@@ -9,6 +9,12 @@ description: Run the full ./check.sh (format, conventions, clippy, sqlx data, Ru
 scripts/check-summary.sh
 ```
 
+- `--changed` runs everything but limits Playwright to Chromium and the specs for the changed
+  areas (`scripts/changed_specs.py`; infrastructure changes run every spec). Use it while
+  iterating; run without the flag once before calling work done.
+- Failed Playwright tests are rerun once. "passed after one rerun" lists the first-run failures
+  as flaky or environment; mention them, but they don't block. "ENVIRONMENT FAILURE" means the
+  browser or server didn't start: rerun later instead of debugging the code.
 - Passing: one line with the test counts. Report it and stop.
 - Failing: the step that failed, then only its errors. For Playwright, each failing test's
   error details from `e2e/test-results/*/error-context.md` and its screenshot path (open the

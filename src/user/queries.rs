@@ -125,6 +125,14 @@ pub async fn query_update_password(
     .await
 }
 
+pub async fn query_delete_user(user_id: i32, db: impl PgExecutor<'_>) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!("DELETE FROM users WHERE id = $1", user_id)
+        .execute(db)
+        .await?;
+
+    Ok(result.rows_affected() == 1)
+}
+
 pub async fn query_delete_abandoned_signups(
     cutoff: time::OffsetDateTime,
     db: impl PgExecutor<'_>,

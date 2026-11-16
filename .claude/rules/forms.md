@@ -45,12 +45,14 @@ paths:
   first editable field so focus skips the read-only one.
 - Form fields take typed `autocomplete: Some(Autocomplete::…)` hints (name,
   email, current/new password) for password managers.
-- **Modal forms** share one scaffold: `let form = DialogForm::new(cx,
-  field, message)` holds the error field, error message and busy signals;
-  inputs spread `dialog_input(cx, &form, FIELD, &value, &draft)`, the error
-  is `dialog_form_error(form: &form)` and the no-JS fallback's error toast is
-  `dialog_error_toast(form: &form, toast: &toast)`, with the page's toast
-  signal from `page_toast(cx, failed.is_some(), flash)`. The dialog itself is
+- **Modal forms** share one scaffold, one `DialogForm` per dialog (never
+  shared between dialogs): `DialogForm::new(cx, failure)` takes that
+  dialog's own no-JS failure (`Option<ProblemSpec>`) and holds the error
+  field, error message and busy signals; inputs spread `dialog_input(cx,
+  &form, FIELD, &value, &draft)` and the error is `dialog_form_error(form:
+  &form)`. The page shows whichever dialog failed in one error toast,
+  `dialog_error_toast(failure: page_failure, toast: &toast)`, with the toast
+  signal from `page_toast(cx, page_failure.is_some(), flash)`. The dialog itself is
   `modal_form(…, submit: ModalSubmit { … }, args: $((…)))`
   (`form/submit.rs`), which owns the procedure call, busy state, catch,
   success toast and closing; dialogs that don't close on success (Create

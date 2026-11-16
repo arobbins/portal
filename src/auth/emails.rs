@@ -78,3 +78,10 @@ pub fn email_changed_email(recipient: &str, new_email: &str) -> Email {
         .text("If you didn't make this change, someone else may know your password. Contact support right away so we can help you get your account back.")
         .to(recipient)
 }
+
+pub fn account_deleted_email(recipient: &str) -> Email {
+    EmailTemplate::new("Your account was deleted")
+        .text("Your account and everything in it have been deleted, and you've been signed out everywhere.")
+        .text("If you didn't do this, someone else may know your password. Contact support right away.")
+        .to(recipient)
+}

@@ -27,6 +27,7 @@ pub enum Flash {
     PasskeyRenamed,
     PasskeyRemoved,
     ApiTokenRevoked,
+    AccountDeleted,
 }
 
 impl Flash {
@@ -44,6 +45,7 @@ impl Flash {
             Self::PasskeyRenamed => "passkey-renamed",
             Self::PasskeyRemoved => "passkey-removed",
             Self::ApiTokenRevoked => "api-token-revoked",
+            Self::AccountDeleted => "account-deleted",
         }
     }
 
@@ -64,6 +66,9 @@ impl Flash {
             Self::PasskeyRenamed => "Passkey renamed.",
             Self::PasskeyRemoved => "Passkey removed.",
             Self::ApiTokenRevoked => "API token revoked. Apps using it can no longer sign in.",
+            Self::AccountDeleted => {
+                "Your account has been deleted. You've been signed out everywhere."
+            }
             Self::PasswordChanged => {
                 "Your password has been changed. Your other devices have been signed out."
             }

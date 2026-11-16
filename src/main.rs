@@ -23,6 +23,7 @@ mod routes;
 mod secret;
 mod seed;
 mod server;
+mod sql_console;
 mod syntax;
 mod theme;
 mod user;
@@ -35,6 +36,7 @@ enum Command {
     Serve,
     Work,
     Seed,
+    Sql,
 }
 
 impl Command {
@@ -42,6 +44,7 @@ impl Command {
         match std::env::args().nth(1).as_deref() {
             Some("work") => Self::Work,
             Some("seed") => Self::Seed,
+            Some("sql") => Self::Sql,
             _ => Self::Serve,
         }
     }
@@ -56,6 +59,7 @@ async fn main() {
         Command::Serve => server::serve().await,
         Command::Work => server::work().await,
         Command::Seed => seed::run(&server::database_url()).await,
+        Command::Sql => sql_console::run(&server::database_url(), std::env::args().nth(2)).await,
     }
 }
 

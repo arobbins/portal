@@ -106,40 +106,22 @@ paths:
   as the no-JS fallback (errors come back as an error toast). Procedures
   return a `FieldError` (`field`, `message`) so the right input gets
   `aria-invalid`.
-- **Change password** (`auth::actions::change_password`, browser-only;
-  procedure `save_new_password`, fallback `POST /account/password/change`):
-  needs the current password (`check_current_password`), then
-  `query_update_password` bumps `session_version`, a `password_changed`
-  event is recorded, and the page signs this device back in with the
-  returned user, so only *other* devices are signed out. The new-password
-  inputs are the shared `new_password_fields`.
-- **Password reset** (`reset_password.rs`): `/reset-password` always answers
-  "if an account exists, we've sent a link" (active → 1-hour reset link;
-  awaiting password → a fresh sign-up link; unknown → nothing). The request
-  only enqueues a `send_password_reset` job (one insert, whatever the
-  email), so the response takes the same time whether or not the account
-  exists; the worker looks the account up and sends the right email. `GET /reset-password/{token}` only shows the
-  form; `POST` (`set_password_from_link`: rate-limited, and it checks the
-  link exists *before* running argon2) consumes the token, sets the password
-  with `query_update_password` (bumps `session_version`, so other devices
-  are signed out), deletes every API token and records one `password_reset`
-  event in the same transaction, signs in and shows a toast on `/account`.
-- **Change email** (`auth::actions::request_email_change`, browser-only
-  `Permission::ManageEmail`; Email card on the Profile tab, procedure
-  `send_email_change_link`, fallback `POST /account/email/change`): needs the
-  current password or a passkey confirmation (`check_reauth`), a valid address that isn't the current one, and the
-  email-request limit; it only enqueues an `EmailChangeJob` and records
-  `email_change_requested`, so the answer is the same whether or not the new
-  address has an account. The job sends a 24-hour `TokenPurpose::EmailChange`
-  link to the new address (the address is the token's `payload`; the DB
-  requires a payload exactly for `email_change`), or, if the address already
-  has an account, only an "already has an account" notice. `GET
-  /confirm-email/{token}` shows the new address; `POST` consumes the token,
-  switches the email (`query_update_user_email`, which refuses an address
-  taken in the meantime), deletes pending email-change and password-reset
-  links, bumps `session_version` (every device is signed out; the confirming
-  browser is signed back in if it was signed in as that user), emails a
-  notice to the old address and records `email_changed`. The email doesn't
-  change until the link is used.
-  A password change or reset deletes pending email-change links (someone who
-  knew the old password can't finish a change afterwards).
+- **Account flows** (each is one action under `auth/actions/`; read the
+  action and its `tests.rs` for the details). The invariants:
+  - *Change password* (`change_password.rs`): current password required;
+    bumps `session_version` and signs this device back in with the returned
+    user, so only other devices are signed out.
+  - *Password reset* (`reset_password.rs`, `link_password.rs`): the request
+    is one job insert whatever the email (same answer and timing); the POST
+    checks the link before argon2, bumps `session_version`, deletes every API
+    token and records one `password_reset` event.
+  - *Change email* (`change_email.rs`, `confirm_email.rs`): re-auth with
+    `check_reauth`; the request only enqueues `EmailChangeJob`, so the answer
+    never reveals whether the new address has an account. The new address
+    lives in the link's `payload` and nothing changes until the link's POST,
+    which bumps `session_version` (every device signs out; the confirming
+    browser signs back in if it was that user) and notifies the old address.
+  - *Delete account* (`delete_account.rs`): `DELETE` typed plus
+    `check_reauth`; immediate, one transaction (goodbye email + delete row,
+    everything cascades, so it's logged with `tracing`, not an event).
+  - A password change or reset deletes pending email-change links.

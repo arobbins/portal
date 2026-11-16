@@ -18,7 +18,12 @@ use crate::web::env;
 const PASSWORD_LABEL: &str = "Current password";
 
 #[component]
-pub async fn reauth_field(cx: &Cx, id: &str, #[default] attrs: Attributes) -> Result<impl View> {
+pub async fn reauth_field(
+    cx: &Cx,
+    id: &str,
+    #[default(true)] suggest_passkey: bool,
+    #[default] attrs: Attributes,
+) -> Result<impl View> {
     let has_passkey = match current_user(cx) {
         Some(user) => has_passkey(&env(cx), user.id).await?,
         None => false,
@@ -46,7 +51,7 @@ pub async fn reauth_field(cx: &Cx, id: &str, #[default] attrs: Attributes) -> Re
                             >
                                 "Use a passkey instead"
                             </button>
-                        } else {
+                        } else if suggest_passkey {
                             <a
                                 class="a-form-label-row__link"
                                 href=(&add_passkey)

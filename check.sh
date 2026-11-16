@@ -3,6 +3,18 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+e2e_args=()
+if [[ "${1:-}" == "--changed" ]]; then
+  specs=$(python3 scripts/changed_specs.py)
+  if [[ "$specs" == "ALL" ]]; then
+    e2e_args=(--project=chromium)
+  elif [[ -z "$specs" ]]; then
+    e2e_args=(--project=chromium --pass-with-no-tests --grep-invert .)
+  else
+    read -ra e2e_args <<<"--project=chromium $specs"
+  fi
+fi
+
 step() {
   printf '\n==> %s\n' "$1"
 }
@@ -24,7 +36,7 @@ step "Rust tests"
 topcoat asset bundle
 cargo test
 
-step "Behavior tests (Playwright)"
-(cd e2e && npx playwright test)
+step "Behavior tests (Playwright) ${e2e_args[*]:-}"
+(cd e2e && npx playwright test ${e2e_args[@]+"${e2e_args[@]}"})
 
 printf '\nAll checks passed.\n'

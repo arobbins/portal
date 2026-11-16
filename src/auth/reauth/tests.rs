@@ -5,23 +5,8 @@ use time::Duration;
 use tower_sessions::MemoryStore;
 
 use super::*;
-use crate::auth::password::hash_password;
 use crate::env::App;
-use crate::user::queries::{NewUser, query_insert_user, query_set_password_and_verify_user};
-
-const PASSWORD: &str = "a-strong-test-password";
-
-async fn active_user(email: &str, db: &PgPool) -> User {
-    let new_user = NewUser {
-        name: "Confirmer",
-        email,
-    };
-    let user_id = query_insert_user(&new_user, db).await.unwrap().unwrap();
-    let password_hash = hash_password(PASSWORD).unwrap();
-    query_set_password_and_verify_user(user_id, &password_hash, db)
-        .await
-        .unwrap()
-}
+use crate::user::testing::{TEST_PASSWORD, active_user};
 
 fn session() -> Session {
     Session::new(None, Arc::new(MemoryStore::default()), None)
@@ -35,7 +20,7 @@ fn at(seconds: i64) -> OffsetDateTime {
 async fn a_passkey_proof_lasts_five_minutes_for_one_user_and_sign_in(db: PgPool) {
     let user = active_user("proof@example.test", &db).await;
     let other = active_user("other@example.test", &db).await;
-    let signed_in_again = User {
+    let signed_in_again = Arc::new(User {
         id: user.id,
         name: user.name.clone(),
         email: user.email.clone(),
@@ -44,7 +29,7 @@ async fn a_passkey_proof_lasts_five_minutes_for_one_user_and_sign_in(db: PgPool)
         verified_at: user.verified_at,
         session_version: user.session_version + 1,
         webauthn_id: user.webauthn_id,
-    };
+    });
     let cases = [
         (&user, 300, true),
         (&user, 301, false),
@@ -106,7 +91,9 @@ async fn reauth_takes_a_proof_for_this_user_or_the_right_password(db: PgPool) {
 
     assert_eq!(check_reauth(&env, &user, "", mine).await.unwrap(), Ok(()));
     assert_eq!(
-        check_reauth(&env, &user, PASSWORD, None).await.unwrap(),
+        check_reauth(&env, &user, TEST_PASSWORD, None)
+            .await
+            .unwrap(),
         Ok(())
     );
     assert_eq!(

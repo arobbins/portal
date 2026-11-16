@@ -127,10 +127,8 @@ async fn replace_user_token(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::password::hash_password;
-    use crate::user::queries::{
-        NewUser, query_get_user_by_id, query_insert_user, query_set_password_and_verify_user,
-    };
+    use crate::user::queries::{NewUser, query_get_user_by_id, query_insert_user};
+    use crate::user::testing::activate;
     use sqlx::PgPool;
 
     async fn insert_user(email: &str, days_old: i64, db: &PgPool) -> i32 {
@@ -192,10 +190,7 @@ mod tests {
         let recent = insert_user("recent@example.test", 1, &db).await;
 
         let active = insert_user("active@example.test", 30, &db).await;
-        let password_hash = hash_password("a-strong-test-password").unwrap();
-        query_set_password_and_verify_user(active, &password_hash, &db)
-            .await
-            .unwrap();
+        activate(active, &db).await;
 
         delete_stale_sign_ups(&App::for_tests(db.clone()))
             .await

@@ -79,11 +79,12 @@ Never type a path: `href!(handler)`, `AccountTab::X.path()`, `AccountSection::X.
 Follow `profile/pages/profile_tab.rs` exactly (and `account/pages/security_tab.rs` +
 `password_routes.rs` for the file split once a tab grows past 300 lines):
 
-- `let form = DialogForm::new(cx, "", "")` holds the error field, error message and busy
-  signals; inputs take `attrs: dialog_input(cx, &form, FIELD, &value, &draft)`, the
-  dialog's error is `dialog_form_error(form: &form)`, and the fallback's toast is
-  `dialog_error_toast(form: &form, toast: &toast)`, with the page's toast
-  signal from `page_toast(cx, failed.is_some(), flash)`.
+- Each dialog gets its own `let form = DialogForm::new(cx, failure)`, where `failure` is
+  that dialog's no-JS problem (`Option<ProblemSpec>`); it holds the error field, error
+  message and busy signals. Inputs take `attrs: dialog_input(cx, &form, FIELD, &value,
+  &draft)` and the dialog's error is `dialog_form_error(form: &form)`. The page has one
+  `dialog_error_toast(failure: page_failure, toast: &toast)` (any dialog's failure) with
+  the toast signal from `page_toast(cx, page_failure.is_some(), flash)`.
 
 - `card(id: Some(AccountSection::X.anchor()), …)` with the action button in its header
   (`command="show-modal" commandfor=(MODAL_ID)`; its `@click` resets the field signals).

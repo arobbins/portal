@@ -129,19 +129,8 @@ mod tests {
     use super::*;
     use crate::auth::password::hash_password;
     use crate::user::queries::{NewUser, query_insert_user, query_set_password_and_verify_user};
+    use crate::user::testing::active_user;
     use tower_sessions::MemoryStore;
-
-    async fn active_user(db: &PgPool) -> User {
-        let new_user = NewUser {
-            name: "Tester",
-            email: "tester@example.test",
-        };
-        let user_id = query_insert_user(&new_user, db).await.unwrap().unwrap();
-        let password_hash = hash_password("a-strong-test-password").unwrap();
-        query_set_password_and_verify_user(user_id, &password_hash, db)
-            .await
-            .unwrap()
-    }
 
     #[test]
     fn a_passkey_prompt_grant_lasts_five_minutes() {
@@ -153,7 +142,7 @@ mod tests {
 
     #[sqlx::test]
     async fn a_passkey_prompt_grant_belongs_to_one_user_and_one_sign_in(db: PgPool) {
-        let user = active_user(&db).await;
+        let user = active_user("tester@example.test", &db).await;
         let other_id = query_insert_user(
             &NewUser {
                 name: "Other",
@@ -196,7 +185,7 @@ mod tests {
 
     #[sqlx::test]
     async fn a_password_change_signs_out_existing_sessions(db: PgPool) {
-        let user = active_user(&db).await;
+        let user = active_user("tester@example.test", &db).await;
         let session = Session::new(None, Arc::new(MemoryStore::default()), None);
         sign_in(&session, &user).await.unwrap();
         assert!(load_signed_in_user(&session, &db).await.unwrap().is_some());
@@ -212,7 +201,7 @@ mod tests {
 
     #[sqlx::test]
     async fn a_session_for_a_deleted_user_is_signed_out(db: PgPool) {
-        let user = active_user(&db).await;
+        let user = active_user("tester@example.test", &db).await;
         let session = Session::new(None, Arc::new(MemoryStore::default()), None);
         sign_in(&session, &user).await.unwrap();
         sqlx::query!("DELETE FROM users WHERE id = $1", user.id)

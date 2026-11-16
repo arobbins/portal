@@ -8,7 +8,7 @@ use topcoat::{
 use super::dialog::{DialogForm, dialog_form_error};
 use super::layout::{form, form_actions};
 use crate::action::FieldError;
-use crate::components::button::{ButtonType, button};
+use crate::components::button::{ButtonType, ButtonVariant, button};
 use crate::components::modal::modal;
 use crate::components::toaster::NO_TOAST;
 
@@ -30,6 +30,8 @@ pub async fn modal_form<P>(
     submit: ModalSubmit<'_, P>,
     args: Expr<P::Args>,
     #[default] saved: Option<&Signal<String>>,
+    #[default] variant: ButtonVariant,
+    #[default] navigate_to: Option<&str>,
     #[default] child: Child<'_>,
 ) -> Result<impl View>
 where
@@ -37,11 +39,8 @@ where
     P::Args: Clone + Send + Sync + 'static,
     <P as Surrogated>::Surrogate: serde::Serialize,
 {
-    let DialogForm {
-        error_field,
-        error_message,
-        is_submitting,
-    } = form;
+    let (error_field, error_message) = (&form.error_field, &form.error_message);
+    let is_submitting = &form.is_submitting;
     let ModalSubmit {
         procedure,
         action,
@@ -52,6 +51,7 @@ where
     let saved = saved.cloned().unwrap_or_else(|| signal(cx, String::new));
     let success_toast = success_toast.to_string();
     let modal_id = id.to_string();
+    let navigate_to = navigate_to.unwrap_or_default().to_string();
     let failed: std::result::Result<String, FieldError> = Err(FieldError::general(unreachable));
 
     Ok(view! {
@@ -78,10 +78,8 @@ where
                             saved.set(outcome.unwrap());
                             toast.set(success_toast.clone());
                             raw!(
-                                "document.getElementById(String(${modal_id})).close()",
-                                {
-                                    let _ = (&procedure, &modal_id);
-                                },
+                                "String(${navigate_to}) ? location.assign(String(${navigate_to})) : document.getElementById(String(${modal_id})).close()",
+                                (),
                             );
                         } else {
                             let failure = outcome.unwrap_err();
@@ -91,20 +89,26 @@ where
                     })
                 },
                 (child)
-                modal_form_footer(form: form, label: label)
+                modal_form_footer(form: form, label: label, variant: variant)
             )
         )
     })
 }
 
 #[component]
-async fn modal_form_footer(cx: &Cx, form: &DialogForm, label: &str) -> Result<impl View> {
+async fn modal_form_footer(
+    cx: &Cx,
+    form: &DialogForm,
+    label: &str,
+    variant: ButtonVariant,
+) -> Result<impl View> {
     let is_submitting = &form.is_submitting;
 
     Ok(view! {
         dialog_form_error(form: form)
         form_actions(
             button(
+                variant: variant,
                 button_type: ButtonType::Submit,
                 busy: $(is_submitting.get()),
                 (label)

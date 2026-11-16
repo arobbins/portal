@@ -176,28 +176,10 @@ mod tests {
     use super::*;
     use crate::action::{Channel, Denied};
     use crate::api_tokens::testing::{delete_token, issue_token};
-    use crate::auth::password::hash_password;
     use crate::rate_limit::BAD_API_TOKEN_WINDOW_MINUTES;
 
     use crate::user::model::User;
-    use crate::user::queries::{NewUser, query_insert_user, query_set_password_and_verify_user};
-
-    async fn active_user(db: &PgPool) -> User {
-        let user_id = query_insert_user(
-            &NewUser {
-                name: "Api Tester",
-                email: "api@example.test",
-            },
-            db,
-        )
-        .await
-        .unwrap()
-        .unwrap();
-        let password_hash = hash_password("a-strong-test-password").unwrap();
-        query_set_password_and_verify_user(user_id, &password_hash, db)
-            .await
-            .unwrap()
-    }
+    use crate::user::testing::active_user;
 
     async fn issue(
         user: &User,
@@ -248,7 +230,7 @@ mod tests {
 
     #[sqlx::test]
     async fn a_valid_token_becomes_a_caller_with_its_scopes(db: PgPool) {
-        let user = active_user(&db).await;
+        let user = active_user("api@example.test", &db).await;
         let (raw, id, _) = issue(&user, &["profile:read"], time::Duration::days(1), &db).await;
 
         let caller = check(&raw, &db).await.unwrap();
@@ -269,7 +251,7 @@ mod tests {
 
     #[sqlx::test]
     async fn expired_revoked_and_unknown_tokens_look_the_same(db: PgPool) {
-        let user = active_user(&db).await;
+        let user = active_user("api@example.test", &db).await;
         let (expired, expired_id, _) =
             issue(&user, &["profile:read"], time::Duration::days(1), &db).await;
         sqlx::query!(

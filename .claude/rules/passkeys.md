@@ -29,29 +29,15 @@ Passkeys card in `passkeys/pages/passkeys_card.rs`, built on `webauthn-rs`:
   `revoke_passkey_prompt`): issued for one user, for 5 minutes, only when a
   password sign-in shows the prompt; cleared by `sign_in`, by answering the
   prompt and by adding a passkey.
-- **Confirming it's you** (`passkeys/actions/verify.rs`, browser-only
-  `Permission::ConfirmIdentity`): `POST /passkeys/verify/{start,finish}` run
-  a non-discoverable, user-verified request for the signed-in user's own
-  passkeys (start uses the passkey challenge limit, finish the password
-  limiter and account lockout). Success stores a `PasskeyReauth` grant in
-  the session (`auth/reauth.rs`: user, `session_version`, 5 minutes). Routes
-  `take_passkey_proof` (removes it, so two requests can't both use it) and
-  pass the `PasskeyProof` to the action, which calls `check_reauth(env,
-  user, password, proof)`; if the action fails, `return_passkey_proof` puts
-  it back so the user can fix the form without another tap. A proof isn't
-  tied to one action: one tap covers whichever confirmed action runs next.
-  Removing a passkey `forget_passkey_proof`s, and a valid proof wins over
-  whatever was typed in the password field. Dialogs
-  render the password through `auth::pages::reauth_field`. With a passkey
-  (and WebAuthn support) it starts in passkey mode: a "Confirm it's you"
-  panel with "Use your password instead", the password input hidden and
-  disabled; `passkeys.js` catches the form's submit in the capture phase
-  (before Topcoat's handler), runs the request, then `requestSubmit`s once.
-  Every submit in passkey mode asks for the passkey again; closing the
-  dialog returns to passkey mode. Without a passkey it shows the password
-  with an "Add a passkey for faster authentication" link to Security →
-  Passkeys (hidden without WebAuthn). Used by Change email
-  and Create API token; Change password and Add passkey keep the password.
+- **Confirming it's you** (`passkeys/actions/verify.rs`,
+  `auth/reauth.rs`, `auth/pages/reauth_field.rs`, `assets/js/passkeys.js`):
+  a user-verified request for the user's own passkeys stores a 5-minute
+  `PasskeyReauth` grant bound to `session_version`. Routes
+  `take_passkey_proof` (single use) and `return_passkey_proof` when the
+  action fails; removing a passkey `forget_passkey_proof`s. Dialogs that
+  need re-auth render `reauth_field` (passkey first when the user has one)
+  and actions call `check_reauth`. Used by Change email, Delete account and
+  Create API token; Change password and Add passkey keep the password.
 - Registration overrides the library's options to `residentKey: required`
   (passkeys must be discoverable). Sign-in is discoverable (no email typed):
   the login page starts conditional mediation (autofill on the

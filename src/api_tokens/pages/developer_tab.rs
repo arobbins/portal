@@ -24,7 +24,8 @@ pub async fn developer_tab(cx: &Cx) -> Result<impl View> {
     let flash = take_flash(cx, FLASHES).await?;
     let failed = try_context::<CreateTokenFailed>(cx).map(|failed| failed.problem);
     let created = try_context::<TokenCreated>(cx).map(|created| created.token.clone());
-    let form = DialogForm::new(cx, "", failed.map_or("", ActionProblem::message));
+    let failure = failed.map(ActionProblem::spec);
+    let form = DialogForm::new(cx, failure);
     let toast = page_toast(cx, failed.is_some(), flash);
     let drafts = TokenDrafts::new(cx);
 
@@ -37,7 +38,7 @@ pub async fn developer_tab(cx: &Cx) -> Result<impl View> {
             tokens_card(rows: &rows, form: &form, drafts: &drafts)
             create_token_dialog(form: &form, drafts: &drafts, toast: &toast)
             flash_toasts(toast: &toast, flashes: FLASHES)
-            dialog_error_toast(form: &form, toast: &toast)
+            dialog_error_toast(failure: failure, toast: &toast)
         </div>
     })
 }

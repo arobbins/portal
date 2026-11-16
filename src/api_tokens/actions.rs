@@ -11,30 +11,14 @@ mod tests {
     use crate::api::scope::{ApiScope, TokenAudience};
     use crate::api_tokens::lifetime::TokenLifetime;
     use crate::api_tokens::testing::issue_token;
-    use crate::auth::password::hash_password;
     use crate::env::App;
-    use crate::user::queries::{NewUser, query_insert_user, query_set_password_and_verify_user};
+    use crate::user::testing::{TEST_PASSWORD, active_user};
     use sqlx::PgPool;
-    use std::sync::Arc;
 
     #[sqlx::test]
     async fn an_api_token_can_never_create_or_revoke_tokens(db: PgPool) {
-        let user_id = query_insert_user(
-            &NewUser {
-                name: "Guarded",
-                email: "guarded@example.test",
-            },
-            &db,
-        )
-        .await
-        .unwrap()
-        .unwrap();
-        let hash = hash_password("a-strong-test-password").unwrap();
-        let user = Arc::new(
-            query_set_password_and_verify_user(user_id, &hash, &db)
-                .await
-                .unwrap(),
-        );
+        let user = active_user("guarded@example.test", &db).await;
+        let user_id = user.id;
         let existing = issue_token(user_id, &["profile:write"], time::Duration::days(1), &db).await;
         let app = App::for_tests(db.clone());
         let env = app.env(None);
@@ -48,7 +32,7 @@ mod tests {
                 access: ApiScope::ProfileWrite,
                 lifetime: TokenLifetime::Year,
                 audience: TokenAudience::Api,
-                current_password: "a-strong-test-password".to_string(),
+                current_password: TEST_PASSWORD.to_string(),
             },
             None,
         )
@@ -85,22 +69,8 @@ mod tests {
     async fn a_passkey_confirmation_can_stand_in_for_the_password(db: PgPool) {
         use crate::auth::reauth::{PasskeyProof, ReauthProblem};
 
-        let user_id = query_insert_user(
-            &NewUser {
-                name: "Passkey Holder",
-                email: "holder@example.test",
-            },
-            &db,
-        )
-        .await
-        .unwrap()
-        .unwrap();
-        let hash = hash_password("a-strong-test-password").unwrap();
-        let user = Arc::new(
-            query_set_password_and_verify_user(user_id, &hash, &db)
-                .await
-                .unwrap(),
-        );
+        let user = active_user("holder@example.test", &db).await;
+        let user_id = user.id;
         let app = App::for_tests(db.clone());
         let env = app.env(None);
         let caller = Caller::browser(user);

@@ -36,6 +36,7 @@
 
 .a-form-label-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--form-column-gap);

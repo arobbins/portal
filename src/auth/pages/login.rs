@@ -23,11 +23,13 @@ use crate::components::button::{ButtonType, ButtonVariant, button};
 use crate::components::form::{
     Autocomplete, FormVariant, InputType, LabelLink, form, form_actions, form_error, form_field,
 };
+use crate::flash::{Flash, flash_toast, flash_toasts, take_flash};
 use crate::layout::page_heading::page_heading;
 use crate::passkeys::pages::passkey_setup::after_password_sign_in;
 use crate::web::{env, redisplay, session};
 
 const PASSKEY_ERROR_ID: &str = "passkey-error";
+const FLASHES: &[Flash] = &[Flash::AccountDeleted];
 
 struct LoginFailed {
     email: String,
@@ -38,6 +40,8 @@ struct LoginFailed {
 pub async fn login_page(cx: &Cx) -> Result<impl View> {
     redirect_signed_in_users(cx)?;
 
+    let flash = take_flash(cx, FLASHES).await?;
+    let toast = flash_toast(cx, flash);
     let failed = try_context::<LoginFailed>(cx);
     let email = failed.map(|failed| failed.email.clone());
     let problem = failed.map(|failed| failed.problem);
@@ -52,6 +56,7 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
                 (page_status(problem))
             }
             page_heading(text: "Sign in")
+            flash_toasts(toast: &toast, flashes: FLASHES)
             form(
                 submitting: Some(&is_submitting),
                 variant: FormVariant::Page,

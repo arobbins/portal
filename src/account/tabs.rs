@@ -48,7 +48,7 @@ impl AccountTab {
 
     pub fn sections(self) -> &'static [AccountSection] {
         match self {
-            Self::Profile => &[],
+            Self::Profile => &[AccountSection::DeleteAccount],
             Self::Security => &[
                 AccountSection::Password,
                 AccountSection::Passkeys,
@@ -77,11 +77,12 @@ pub enum AccountSection {
     PaymentMethods,
     Notifications,
     ApiTokens,
+    DeleteAccount,
 }
 
 impl AccountSection {
     #[cfg(test)]
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::Password,
         Self::Passkeys,
         Self::TwoFactor,
@@ -91,6 +92,7 @@ impl AccountSection {
         Self::PaymentMethods,
         Self::Notifications,
         Self::ApiTokens,
+        Self::DeleteAccount,
     ];
 
     pub fn tab(self) -> AccountTab {
@@ -111,6 +113,7 @@ impl AccountSection {
             Self::PaymentMethods => "payment-methods",
             Self::Notifications => "notifications",
             Self::ApiTokens => "api-tokens",
+            Self::DeleteAccount => "delete-account",
         }
     }
 
@@ -125,6 +128,7 @@ impl AccountSection {
             Self::PaymentMethods => "Payment methods",
             Self::Notifications => "Notifications",
             Self::ApiTokens => "API tokens",
+            Self::DeleteAccount => "Delete account",
         }
     }
 

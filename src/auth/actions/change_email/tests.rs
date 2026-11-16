@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use sqlx::PgPool;
 
 use super::*;
@@ -7,29 +5,13 @@ use crate::action::{ActionError, Denied};
 use crate::api::scope::ApiScope;
 use crate::auth::actions::{ConfirmEmailProblem, confirm_email_change, pending_email_change};
 use crate::auth::password::CurrentPasswordProblem;
-use crate::auth::password::hash_password;
 use crate::auth::queries::{NewUserToken, query_insert_user_token};
 use crate::auth::reauth::{PasskeyProof, ReauthProblem};
 use crate::secret::hash_secret;
-use crate::user::model::User;
-use crate::user::queries::{NewUser, query_insert_user, query_set_password_and_verify_user};
+use crate::user::testing::{TEST_PASSWORD, active_user};
 
-const PASSWORD: &str = "a-strong-test-password";
 const NEW_EMAIL: &str = "new@example.test";
 const RAW_TOKEN: &str = "a-raw-email-change-token";
-
-async fn active_user(email: &str, db: &PgPool) -> Arc<User> {
-    let new_user = NewUser {
-        name: "Mover",
-        email,
-    };
-    let user_id = query_insert_user(&new_user, db).await.unwrap().unwrap();
-    let password_hash = hash_password(PASSWORD).unwrap();
-    let user = query_set_password_and_verify_user(user_id, &password_hash, db)
-        .await
-        .unwrap();
-    Arc::new(user)
-}
 
 fn change_to(new_email: &str, current_password: &str) -> ChangeEmail {
     ChangeEmail {
@@ -85,7 +67,7 @@ async fn an_api_token_can_never_change_the_email(db: PgPool) {
     let outcome = request_email_change(
         &app.env(None),
         &caller,
-        &change_to(NEW_EMAIL, PASSWORD),
+        &change_to(NEW_EMAIL, TEST_PASSWORD),
         None,
     )
     .await
@@ -104,11 +86,11 @@ async fn a_request_needs_the_current_password_and_a_new_valid_address(db: PgPool
     let caller = Caller::browser(user.clone());
     let cases = [
         (
-            change_to("not-an-email", PASSWORD),
+            change_to("not-an-email", TEST_PASSWORD),
             ChangeEmailProblem::InvalidEmail,
         ),
         (
-            change_to(" Checks@Example.test ", PASSWORD),
+            change_to(" Checks@Example.test ", TEST_PASSWORD),
             ChangeEmailProblem::SameEmail,
         ),
         (
@@ -136,7 +118,7 @@ async fn a_request_queues_the_link_and_is_logged_without_changing_the_email(db: 
     request_email_change(
         &app.env(None),
         &caller,
-        &change_to(" New@Example.test ", PASSWORD),
+        &change_to(" New@Example.test ", TEST_PASSWORD),
         None,
     )
     .await
@@ -286,7 +268,7 @@ async fn changing_or_resetting_the_password_cancels_a_pending_email_change(db: P
     let env = app.env(None);
     let new_password = "a-brand-new-password".to_string();
     let input = ChangePassword {
-        current_password: PASSWORD.to_string(),
+        current_password: TEST_PASSWORD.to_string(),
         password: new_password.clone(),
         confirm_password: new_password.clone(),
     };

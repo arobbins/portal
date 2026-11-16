@@ -53,14 +53,10 @@ impl PasswordDrafts {
 #[component]
 pub async fn security_tab(cx: &Cx) -> Result<impl View> {
     let flash = take_flash(cx, FLASHES).await?;
-    let failure = try_context::<ChangePasswordFailed>(cx)
-        .map(|failed| failed.problem.spec())
-        .or_else(|| rename_problem(cx).map(ActionProblem::spec));
-    let form = DialogForm::new(
-        cx,
-        failure.and_then(|spec| spec.field).unwrap_or_default(),
-        failure.map_or("", |spec| spec.message),
-    );
+    let password_failure =
+        try_context::<ChangePasswordFailed>(cx).map(|failed| failed.problem.spec());
+    let failure = password_failure.or_else(|| rename_problem(cx).map(ActionProblem::spec));
+    let form = DialogForm::new(cx, password_failure);
     let toast = page_toast(cx, failure.is_some(), flash);
     let drafts = PasswordDrafts::new(cx);
 
@@ -81,7 +77,7 @@ pub async fn security_tab(cx: &Cx) -> Result<impl View> {
             )
             change_password_dialog(form: &form, drafts: &drafts, toast: &toast)
             flash_toasts(toast: &toast, flashes: FLASHES)
-            dialog_error_toast(form: &form, toast: &toast)
+            dialog_error_toast(failure: failure, toast: &toast)
         </div>
     })
 }

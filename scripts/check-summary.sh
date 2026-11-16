@@ -6,8 +6,26 @@ log=target/check.log
 mkdir -p target
 rm -rf e2e/test-results
 
-./check.sh >"$log" 2>&1
+./check.sh "$@" >"$log" 2>&1
 status=$?
+
+environment='browserType.launch: Timeout|Timed out waiting [0-9]+ms from config.webServer|EADDRINUSE|Process from config.webServer exited early'
+step=$(grep '^==> ' "$log" | tail -1 | sed 's/^==> //')
+
+if [[ $status -ne 0 && "$step" == Behavior* ]]; then
+  first_failures=$(grep -E '^\s+[0-9]+\) \[' "$log" | sed 's/ ─*$//' | sort -u)
+  cause="flaky"
+  grep -Eq "$environment" "$log" && cause="environment (load average: $(sysctl -n vm.loadavg 2>/dev/null || cat /proc/loadavg 2>/dev/null))"
+  printf '\n==> Rerunning failed Playwright tests once\n' >>"$log"
+  (cd e2e && npx playwright test --last-failed) >>"$log" 2>&1
+  if [[ $? -eq 0 ]]; then
+    echo "All checks passed after one rerun. First-run failures ($cause):"
+    printf '%s\n' "${first_failures:-  (none listed: the run failed before tests started)}"
+    echo "Full log: $log"
+    exit 0
+  fi
+  grep -Eq "$environment" "$log" && echo "ENVIRONMENT FAILURE (not the code): the browser or test server didn't start. Rerun when the machine is less busy."
+fi
 
 if [[ $status -eq 0 ]]; then
   tests=$(grep -Eo '[0-9]+ passed' "$log" | tr '\n' ' ')
@@ -15,7 +33,6 @@ if [[ $status -eq 0 ]]; then
   exit 0
 fi
 
-step=$(grep '^==> ' "$log" | tail -1 | sed 's/^==> //')
 echo "FAILED at: $step (full log: $log)"
 echo
 

@@ -70,3 +70,11 @@ paths:
   bundle, so every page panics with "failed to resolve asset".
 - A missing asset bundle panics at startup; `topcoat dev` (or
   `topcoat asset bundle`) creates it in `target/<profile>/assets`.
+- Generic components (`modal_form<P: TypedProcedure>` in
+  `components/form/submit.rs` is the reference): return a concrete type
+  (`Result<impl View>` with a fixed `String` procedure output), not a generic
+  `T`, or the trait solver overflows; bound `P::Args: Clone + Send + Sync +
+  'static` and `<P as Surrogated>::Surrogate: Serialize`; pass procedure
+  arguments as one tuple `Expr<P::Args>` prop built with `$(...)` at the call
+  site (`$(...)` only works inside `view!`) and spread it in the handler.
+  Avoid higher-ranked (`for<'a>`) bounds.

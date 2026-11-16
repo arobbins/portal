@@ -7,6 +7,7 @@ use topcoat::{
 
 use super::layout::form_error;
 use super::types::FORM_ERROR_ID;
+use crate::action::ProblemSpec;
 use crate::components::toaster::toaster;
 use crate::components::tone::Tone;
 use crate::flash::{Flash, flash_toast};
@@ -20,7 +21,9 @@ pub struct DialogForm {
 }
 
 impl DialogForm {
-    pub fn new(cx: &Cx, field: &str, message: &str) -> Self {
+    pub fn new(cx: &Cx, failure: Option<ProblemSpec>) -> Self {
+        let field = failure.and_then(|spec| spec.field).unwrap_or_default();
+        let message = failure.map_or("", |spec| spec.message);
         let (field, message) = (field.to_string(), message.to_string());
         Self {
             error_field: signal(cx, move || field),
@@ -68,17 +71,12 @@ pub async fn dialog_form_error(cx: &Cx, form: &DialogForm) -> Result<impl View> 
 #[component]
 pub async fn dialog_error_toast(
     cx: &Cx,
-    form: &DialogForm,
+    failure: Option<ProblemSpec>,
     toast: &Signal<String>,
 ) -> Result<impl View> {
-    let error_message = &form.error_message;
+    let message = failure.map_or("", |spec| spec.message);
 
     Ok(view! {
-        toaster(
-            toast: toast,
-            name: DIALOG_ERROR_TOAST,
-            tone: Tone::Error,
-            $(error_message.get())
-        )
+        toaster(toast: toast, name: DIALOG_ERROR_TOAST, tone: Tone::Error, (message))
     })
 }

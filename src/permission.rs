@@ -9,10 +9,11 @@ pub enum Permission {
     ConfirmIdentity,
     ManagePasskeys,
     ManageApiTokens,
+    DeleteAccount,
 }
 
 impl Permission {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::ViewProfile,
         Self::EditProfile,
         Self::ManagePassword,
@@ -20,6 +21,7 @@ impl Permission {
         Self::ConfirmIdentity,
         Self::ManagePasskeys,
         Self::ManageApiTokens,
+        Self::DeleteAccount,
     ];
 
     pub fn api_scope(self) -> Option<ApiScope> {
@@ -30,7 +32,8 @@ impl Permission {
             | Self::ManageEmail
             | Self::ConfirmIdentity
             | Self::ManagePasskeys
-            | Self::ManageApiTokens => None,
+            | Self::ManageApiTokens
+            | Self::DeleteAccount => None,
         }
     }
 }
@@ -60,6 +63,7 @@ mod tests {
             Permission::ConfirmIdentity,
             Permission::ManagePasskeys,
             Permission::ManageApiTokens,
+            Permission::DeleteAccount,
         ] {
             assert_eq!(permission.api_scope(), None);
         }

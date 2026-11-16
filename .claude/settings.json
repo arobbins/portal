@@ -35,7 +35,10 @@
       "Bash(npm run screenshot*)",
       "Bash(rtk proxy npx playwright test*)",
       "Bash(rtk proxy npm run screenshot*)",
-      "Bash(rtk proxy npm test*)"
+      "Bash(rtk proxy npm test*)",
+      "Bash(scripts/sql.sh*)",
+      "Bash(rtk proxy cargo test*)",
+      "Bash(scripts/check-summary.sh --changed*)"
     ],
     "deny": [
       "Bash(git push --force*)",

@@ -1,0 +1,66 @@
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+SPECS = ROOT / "e2e" / "tests"
+
+AREAS = {
+    "src/auth/": ["auth", "register", "verify-email", "reset-password", "change-password",
+                  "change-email", "delete-account", "login-limits", "passkey-setup", "back-button"],
+    "src/passkeys/": ["passkeys", "passkey-setup", "change-email", "delete-account"],
+    "src/profile/": ["profile", "change-email", "delete-account", "api-profile"],
+    "src/api_tokens/": ["api-tokens", "api-mcp", "api-profile"],
+    "src/api/": ["api-docs", "api-mcp", "api-profile", "api-tokens"],
+    "src/mcp": ["api-mcp"],
+    "src/account/": ["account-tabs", "security", "change-password", "mobile"],
+    "src/user/": ["profile", "change-email", "delete-account", "register"],
+    "src/pages/": ["home", "styleguide", "components", "not-found"],
+    "src/components/": ["components", "styleguide", "form-inputs", "toaster", "notice"],
+    "src/layout": ["mobile", "theme", "home"],
+    "src/theme": ["theme"],
+    "src/flash": ["flash", "toaster"],
+    "src/rate_limit": ["login-limits"],
+    "assets/css/": ["styleguide", "components", "mobile", "theme"],
+    "assets/js/passkeys": ["passkeys", "passkey-setup", "change-email", "delete-account"],
+}
+EVERYTHING = ("src/web", "src/server", "src/app", "src/env", "src/action", "src/main",
+              "migrations/", "Cargo", "build.rs", "e2e/support/", "e2e/playwright", "assets/js/")
+IGNORED = (".claude/", "scripts/", "README", ".sqlx/", "e2e/screenshots/", "src/sql_console", "src/seed")
+
+
+def changed_files():
+    tracked = subprocess.run(["git", "diff", "--name-only", "HEAD"], cwd=ROOT,
+                             capture_output=True, text=True, check=True).stdout.split()
+    untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard"], cwd=ROOT,
+                               capture_output=True, text=True, check=True).stdout.split()
+    return tracked + untracked
+
+
+def specs_for(path):
+    if path.startswith("e2e/tests/") and path.endswith(".spec.ts"):
+        return {Path(path).name.removesuffix(".spec.ts")}
+    if path.startswith(IGNORED) or path.endswith(".rs") and "/tests" in path or path.endswith(("tests.rs", "testing.rs")):
+        return set()
+    if path.startswith(EVERYTHING):
+        return None
+    matches = [specs for prefix, specs in AREAS.items() if path.startswith(prefix)]
+    if not matches and path.startswith(("src/", "assets/")):
+        return None
+    return {spec for specs in matches for spec in specs}
+
+
+def main():
+    wanted = set()
+    for path in changed_files():
+        specs = specs_for(path)
+        if specs is None:
+            print("ALL")
+            return
+        wanted |= specs
+    existing = sorted(spec for spec in wanted if (SPECS / f"{spec}.spec.ts").exists())
+    print(" ".join(f"tests/{spec}.spec.ts" for spec in existing))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

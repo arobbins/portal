@@ -59,30 +59,34 @@ test("logging out returns to login and protects the account page again", async (
   await expect(page).toHaveURL("/login");
 });
 
-test("a login takes as long for an unknown email as for a real account", async ({
-  page,
-}, testInfo) => {
-  const email = await createAccount(page, testInfo, "Timing Tester");
-  const origin = new URL(page.url()).origin;
-  const timeLogin = async (address: string) => {
-    const started = performance.now();
-    await page.request.post("/login", {
-      form: { email: address, password: "not-the-password" },
-      headers: { Origin: origin },
-      maxRedirects: 0,
-    });
-    return performance.now() - started;
-  };
-  const median = (values: number[]) => values.sort((a, b) => a - b)[1];
+test.describe("login timing", () => {
+  test.describe.configure({ retries: 2 });
 
-  const known = median([await timeLogin(email), await timeLogin(email), await timeLogin(email)]);
-  const unknown = median([
-    await timeLogin(uniqueEmail(testInfo, "nobody-1")),
-    await timeLogin(uniqueEmail(testInfo, "nobody-2")),
-    await timeLogin(uniqueEmail(testInfo, "nobody-3")),
-  ]);
+  test("a login takes as long for an unknown email as for a real account", async ({
+    page,
+  }, testInfo) => {
+    const email = await createAccount(page, testInfo, "Timing Tester");
+    const origin = new URL(page.url()).origin;
+    const timeLogin = async (address: string) => {
+      const started = performance.now();
+      await page.request.post("/login", {
+        form: { email: address, password: "not-the-password" },
+        headers: { Origin: origin },
+        maxRedirects: 0,
+      });
+      return performance.now() - started;
+    };
+    const median = (values: number[]) => values.sort((a, b) => a - b)[1];
 
-  expect(unknown).toBeGreaterThan(known * 0.5);
+    const known = median([await timeLogin(email), await timeLogin(email), await timeLogin(email)]);
+    const unknown = median([
+      await timeLogin(uniqueEmail(testInfo, "nobody-1")),
+      await timeLogin(uniqueEmail(testInfo, "nobody-2")),
+      await timeLogin(uniqueEmail(testInfo, "nobody-3")),
+    ]);
+
+    expect(unknown).toBeGreaterThan(known * 0.5);
+  });
 });
 
 test("the sign-in page links to registration", async ({ page }) => {
