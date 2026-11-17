@@ -7,26 +7,35 @@ SPECS = ROOT / "e2e" / "tests"
 
 AREAS = {
     "src/auth/": ["auth", "register", "verify-email", "reset-password", "change-password",
-                  "change-email", "delete-account", "login-limits", "passkey-setup", "back-button"],
+                  "change-email", "delete-account", "login-limits", "passkey-setup", "back-button", "autocomplete", "devices", "admin"],
     "src/passkeys/": ["passkeys", "passkey-setup", "change-email", "delete-account"],
+    "src/devices/": ["devices", "auth", "change-password", "change-email"],
+    "src/activity/": ["devices", "admin"],
+    "src/admin/": ["admin"],
     "src/profile/": ["profile", "change-email", "delete-account", "api-profile"],
     "src/api_tokens/": ["api-tokens", "api-mcp", "api-profile"],
     "src/api/": ["api-docs", "api-mcp", "api-profile", "api-tokens"],
     "src/mcp": ["api-mcp"],
     "src/account/": ["account-tabs", "security", "change-password", "mobile"],
     "src/user/": ["profile", "change-email", "delete-account", "register"],
-    "src/pages/": ["home", "styleguide", "components", "not-found"],
-    "src/components/": ["components", "styleguide", "form-inputs", "toaster", "notice"],
+    "src/pages/": ["home", "styleguide", "components", "not-found", "webtransport"],
+    "src/components/": ["components", "styleguide", "form-inputs", "toaster", "notice", "state-machines"],
     "src/layout": ["mobile", "theme", "home"],
-    "src/theme": ["theme"],
+    "src/theme": ["theme", "state-machines"],
     "src/flash": ["flash", "toaster"],
     "src/rate_limit": ["login-limits"],
-    "assets/css/": ["styleguide", "components", "mobile", "theme"],
+    "assets/css/": ["styleguide", "components", "mobile", "theme", "state-machines"],
     "assets/js/passkeys": ["passkeys", "passkey-setup", "change-email", "delete-account"],
 }
 EVERYTHING = ("src/web", "src/server", "src/app", "src/env", "src/action", "src/main",
               "migrations/", "Cargo", "build.rs", "e2e/support/", "e2e/playwright", "assets/js/")
 IGNORED = (".claude/", "scripts/", "README", ".sqlx/", "e2e/screenshots/", "src/sql_console", "src/seed")
+
+
+def unmapped_specs():
+    mapped = {spec for specs in AREAS.values() for spec in specs}
+    return sorted(path.name for path in SPECS.glob("*.spec.ts")
+                  if path.name.removesuffix(".spec.ts") not in mapped)
 
 
 def changed_files():

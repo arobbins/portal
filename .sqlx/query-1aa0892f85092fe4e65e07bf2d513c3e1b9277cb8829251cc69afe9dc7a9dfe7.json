@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM user_devices d USING users u WHERE u.id = d.user_id AND d.user_id = $1 AND d.public_id = $2 AND d.session_version = u.session_version RETURNING d.user_agent",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_agent",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1aa0892f85092fe4e65e07bf2d513c3e1b9277cb8829251cc69afe9dc7a9dfe7"
+}

@@ -34,9 +34,16 @@ cargo sqlx prepare --check -- --all-targets
 
 step "Rust tests"
 topcoat asset bundle
-cargo test
+rm -f target/state-machines/*.json
+cargo test || { python3 scripts/state_machine_report.py; exit 1; }
+
+step "State machine report"
+python3 scripts/state_machine_report.py
 
 step "Behavior tests (Playwright) ${e2e_args[*]:-}"
-(cd e2e && npx playwright test ${e2e_args[@]+"${e2e_args[@]}"})
+(cd e2e && npx playwright test ${e2e_args[@]+"${e2e_args[@]}"}) || { python3 scripts/state_machine_report.py; exit 1; }
+
+step "State machine report (with browser results)"
+python3 scripts/state_machine_report.py
 
 printf '\nAll checks passed.\n'

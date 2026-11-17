@@ -4,10 +4,29 @@ Every piece of state with more than two values is a Rust enum (or one signal
 holding one name), and its transitions live in one place. When adding state,
 extend one of these or add a row here.
 
+**Modeled machines** (`src/state_machines/`, test-only): a machine lists its
+states and events, and `expect(state, event)` is one exhaustive `match`
+returning `Moves(to)`, `Refused` (state unchanged) or `Unreachable(reason)`.
+Its test (`<machine>/tests.rs`) puts a fresh row in every state, runs every
+event through the real actions, and fails on any mismatch. After every
+cell it also checks the machine's `rules` (side effects the state alone
+doesn't show: devices, links, events, session version). `writers` lists
+every function that calls a query writing the state (with its event, or
+`None` for seed data); the report finds the real callers and fails `check`
+when one isn't listed or a listed one is gone, so a new code path that
+changes the state must be added to the model. It also writes
+`target/state-machines/<machine>.json`, which `./check.sh` turns into
+`target/state-machines/index.html` (`scripts/state_machine_report.py`):
+every row below as a card, plus a diagram, the full state × event table and
+every query that writes the state for each modeled one. The card's name must
+match the `name` in the row. Modeled: Account, Role, Admin unlock, Signed in, API token, Job, Email change, Emailed link (a password reset link stands for every purpose), Account tab, Form failure (the sign-in form stands for every form) Flash (guards `set_flash` / `take_flash` themselves: a `stored_in` entry ending in `@definitions` checks the functions that write, not their callers) Rate limit (the sign-in lockout for one account and IP), Permission (the Caller table by permission, plus rules on the permissions themselves), Account tab sections, Account event and Admin log (append-only records: a `stored_in` entry `table.*` makes any `UPDATE` of the table a writer, so editing either table fails `check` until it's modeled), Caller (an access table: each kind of caller × every `Permission` → the decision, written out by hand and checked against `caller.require` and the real API endpoints), Passkey prompt, Passkey prompt grant and Passkey reauth grant (the passkey ceremony is simulated by calling `grant_passkey_reauth` on the browser's session; the routes that use the proof are real). Browser-only state is modeled in Playwright: `e2e/tests/state-machines.spec.ts` (Form submit, Theme, Toast, Notice; Chromium only) declares the same table with `e2e/support/state-machines.ts` and writes `target/state-machines/browser/<machine>.json`, which `./check.sh` folds into the report after the Playwright step (the last two driven over HTTP through the real router by `state_machines::testing::Browser`, with the clock moved between requests; Signed in uses a second browser as the other device). A writer with no events belongs to seed data or another machine. A `stored_in` entry `session:KEY` finds session writers (`.insert(KEY` / `.remove(KEY`).
+
 | State | Type | Transitions |
 |---|---|---|
-| Account | `AccountStatus` (`AwaitingPassword` → `Active`) | `query_set_password_and_verify_user`; DB `CHECK ((password IS NULL) = (verified_at IS NULL))` |
-| Signed in | `SessionAuth` in the session | `sign_in`; dropped by `load_signed_in_user` when the user or `session_version` changes; `logout` |
+| Account | `AccountStatus` (`AwaitingPassword` → `Active`; either ⇄ `Disabled`) | `query_set_password_and_verify_user`; DB `CHECK ((password IS NULL) = (verified_at IS NULL))`; `disable_user` / `enable_user` (admin only) |
+| Role | `Role` (`Subscriber` / `Admin`) | `webserver admin grant|revoke <email>` only (`change_role`; does nothing and records nothing when the role is already set) |
+| Admin unlock | session `AdminUnlock { user_id, session_version, admin_since, last_used_at }` | `/admin/confirm` (`confirm_admin`) → refreshed by every admin page → expires after 15 idle minutes, a new `session_version` or a new `admin_granted_at` (role revoked and granted again) |
+| Signed in | `SessionAuth { user_id, session_version, device }` in the session + a `user_devices` row | `sign_in(cx, session, user, SignInMethod)` creates the device row and a `signed_in` event; `stay_signed_in` moves this device to a new `session_version`; dropped by `load_signed_in_user` when the device row is gone or either version differs; `sign_out` / signing a device out deletes the row; `cleanup` deletes rows idle for `DEVICE_IDLE_LIMIT` or on an old version |
 | Email change | `user_tokens` row (`EmailChange`, new address in `payload`) | `request_email_change` → `EmailChangeJob` (link, or a notice if the address is taken) → `confirm_email_change` switches `users.email` once / expiry |
 | Emailed link | `user_tokens` row per `TokenPurpose` | `email_user_link` (replaces) → `query_consume_user_token` (once) / expiry → `cleanup` |
 | Flash | `Flash` (one slot) | `set_flash` → `take_flash` on a page that accepts it |
@@ -17,13 +36,15 @@ extend one of these or add a row here.
 | Form failure | `*Problem` enums | rendered after `redisplay(…)` |
 | Theme | `Theme` + cookie | `POST /theme` or `window.setTheme` (`assets/js/theme.js`) |
 | Account tab | `AccountTab` (`ALL`, `slug`, `path`, `sections`) + `AccountSection` (`anchor`, `label`, `path`) | URL → `from_slug`, unknown → 404 |
-| Passkey prompt | `users.passkey_prompt_after` (NULL / date / `infinity`) | `answer_passkey_prompt` (`PromptAnswer::NotNow` / `Never`); due = no passkeys and not in the future |
-| Passkey reauth grant | session `PasskeyReauth { user_id, session_version, confirmed_at }` | `finish_passkey_verification` → `take_passkey_proof` (5 min, same user and `session_version`) → `return_passkey_proof` if the action fails; `forget_passkey_proof` on passkey removal |
+| Account tab sections | `AccountSection` (`anchor`, `label`, `path`) in exactly one `AccountTab::sections()` | sidebar link or `path()` → its tab, at `#anchor` |
+| Passkey prompt | `users.passkey_prompt_after` (NULL / date / `infinity`) | `answer_passkey_prompt` (`PromptAnswer::NotNow` / `Never`), only while the prompt is showing; due = no passkeys and not in the future |
+| Passkey reauth grant | session `PasskeyReauth { user_id, session_version, confirmed_at }` | `finish_passkey_verification` → `take_passkey_proof` (5 min, same user and `session_version`) → `return_passkey_proof` if the action fails; `forget_passkey_proof` on passkey removal; cleared with the rest of the session when another account signs in |
 | Passkey prompt grant | session `PasskeyPromptGrant { user_id, granted_at }` | `grant_passkey_prompt` (prompt shown) → `passkey_prompt_granted` (5 min) → `revoke_passkey_prompt` / `sign_in` |
 | API token | `api_tokens` row (`ApiScope`s, `TokenAudience`, expiry) | create (password + email) → used (`last_used_at`) → revoked / password reset / expired → `cleanup` after 7 days |
 | Caller | `Caller.via`: `Channel::Browser` / `ApiToken { id, scopes }`; `Caller.workspace`: `Workspace::Personal` | built per request (`browser_caller` / `authenticate`); checked by `authorize!(caller.require(Permission))` (role, then token scope) |
-| Account event | `account_events` row (`AccountEventKind`, JSON `detail`, channel, token id) | `record_event` in every account change's transaction (append-only; usage stamps and cleanup aren't events) |
-| Job | `jobs` row (a `trait Job` type: `SendEmail` / `PasswordResetJob` / `EmailChangeJob` / `CleanupJob`, registered in `server::job_handlers()`; `queued` / `failed`) | `enqueue` → claimed (`SKIP LOCKED`, 5-min lock) → deleted on success / retried with backoff / `failed` after `max_attempts`; one `cleanup` job reschedules itself hourly |
+| Account event | `account_events` row (`AccountEventKind`, JSON `detail`, `EventChannel`: browser / api_token / admin / console, token id) | `record_event` in every account change's transaction (append-only; usage stamps and cleanup aren't events) |
+| Admin log | `admin_log` row (`AdminLogAction`, admin + target public id and email as text) | `log_admin_action` in each admin action's / `webserver admin` transaction (append-only, no FKs, kept forever) |
+| Job | `jobs` row (a `trait Job` type: `SendEmail` / `PasswordResetJob` / `EmailChangeJob` / `CleanupJob`, registered in `server::job_handlers()`; `queued` / `failed`) | `enqueue` → claimed (`SKIP LOCKED`, 5-min lock, only while `attempts < max_attempts`) → deleted on success / retried with backoff / `failed` after `max_attempts`; a job whose worker died during its last attempt is marked `failed` by the next poll (`query_fail_abandoned_jobs`), never run again; one `cleanup` job reschedules itself hourly |
 | Rate limit | `rate_limit_hits` rows per bucket + key | `allow_*` (insert if under the limit) / `record_*` failures / `clear_failed_logins`; rows older than a day removed by cleanup |
 | Permission | `Permission` + `WorkspaceRole` (`Owner`) | checked by `Caller::require`: role grants it, then token scope if the caller is a token |
 | Config | `Config`, `Mailer`, `RateLimitMode` | parsed once at startup |

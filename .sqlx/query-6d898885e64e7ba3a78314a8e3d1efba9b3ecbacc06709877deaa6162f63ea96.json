@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT l.admin_email, l.action AS \"action: AdminLogAction\", l.target_public_id, l.target_email,\n            EXISTS (SELECT 1 FROM users u WHERE u.public_id = l.target_public_id) AS \"target_exists!\",\n            l.created_at\n        FROM admin_log l\n        ORDER BY l.created_at DESC, l.id DESC\n        LIMIT $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "admin_email",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "action: AdminLogAction",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "target_public_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "target_email",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "target_exists!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      null,
+      false
+    ]
+  },
+  "hash": "6d898885e64e7ba3a78314a8e3d1efba9b3ecbacc06709877deaa6162f63ea96"
+}

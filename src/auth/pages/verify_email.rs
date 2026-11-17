@@ -18,6 +18,7 @@ use crate::auth::pages::new_password_form::new_password_form;
 use crate::auth::pages::register::register_page;
 use crate::auth::pages::reset_password::{LinkPasswordFailed, link_password_failed};
 use crate::auth::session::sign_in;
+use crate::devices::lifecycle::SignInMethod;
 use crate::flash::{Flash, set_flash};
 use crate::layout::page_heading::page_heading;
 use crate::passkeys::pages::passkey_setup::after_password_sign_in;
@@ -69,7 +70,7 @@ pub async fn set_password_submit(cx: &Cx, Form(input): Form<NewPassword>) -> Res
     match set_password_from_link(&env(cx), PURPOSE, token(cx), &input).await? {
         Ok(user) => {
             let session = session(cx)?;
-            sign_in(&session, &user).await?;
+            sign_in(cx, &session, &user, SignInMethod::NewAccount).await?;
             set_flash(&session, Flash::EmailConfirmed).await?;
             Ok(see_other(
                 after_password_sign_in(cx, &session, &user).await?,

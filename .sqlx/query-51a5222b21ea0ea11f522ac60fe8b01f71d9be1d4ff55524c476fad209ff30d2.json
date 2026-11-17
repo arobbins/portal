@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT t.expires_at <= now() AS \"expired!\", u.disabled_at IS NOT NULL AS \"disabled!\"\n            FROM api_tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "expired!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 1,
+        "name": "disabled!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "51a5222b21ea0ea11f522ac60fe8b01f71d9be1d4ff55524c476fad209ff30d2"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE rate_limit_hits SET at = at - make_interval(mins => $2) WHERE bucket = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "71809d3ceadba0c3e92ddc2b57c0f280aa21a8b0cfd0222ae0cb9d4f57204d5f"
+}

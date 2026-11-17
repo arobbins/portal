@@ -27,16 +27,36 @@
 
   &:hover {
     cursor: pointer;
+  }
+}
 
-    &:after {
-      content: "Close";
-      position: absolute;
-      top: 50%;
-      translate: 0 -50%;
-      right: -43px;
-      color: var(--color-muted);
-      font-size: var(--text-xs);
-    }
+.a-notice__close {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  right: -43px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+  opacity: 0;
+
+  .a-notice--is-dismissible:hover &,
+  &:focus-visible {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 760px) {
+  .a-notice--is-dismissible {
+    padding-right: var(--space-12);
+  }
+
+  .a-notice__close {
+    right: var(--space-3);
   }
 }
 

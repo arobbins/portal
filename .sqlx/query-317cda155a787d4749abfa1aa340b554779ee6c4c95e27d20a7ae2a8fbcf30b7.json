@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users SET passkey_prompt_after = now() - interval '1 second' WHERE id = $1 AND passkey_prompt_after > now() AND passkey_prompt_after <> 'infinity'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "317cda155a787d4749abfa1aa340b554779ee6c4c95e27d20a7ae2a8fbcf30b7"
+}

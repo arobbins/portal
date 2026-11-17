@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::api::scope::{ApiScope, grants};
 use crate::permission::{Permission, WorkspaceRole};
-use crate::user::model::User;
+use crate::user::model::{Role, User};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Channel {
@@ -11,13 +11,6 @@ pub enum Channel {
 }
 
 impl Channel {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Browser => "browser",
-            Self::ApiToken { .. } => "api_token",
-        }
-    }
-
     pub fn api_token_id(&self) -> Option<i32> {
         match self {
             Self::Browser => None,
@@ -78,6 +71,9 @@ impl Caller {
         if !self.role().grants(permission) {
             return Err(Denied::NotPermitted(permission));
         }
+        if permission.admins_only() && self.user.role != Role::Admin {
+            return Err(Denied::NotPermitted(permission));
+        }
         match (&self.via, permission.api_scope()) {
             (Channel::Browser, _) => Ok(()),
             (Channel::ApiToken { .. }, None) => Err(Denied::BrowserOnly),
@@ -106,7 +102,7 @@ mod tests {
     fn the_browser_has_every_scope() {
         let browser = caller(Channel::Browser);
 
-        for permission in Permission::ALL {
+        for permission in Permission::ALL.into_iter().filter(|p| !p.admins_only()) {
             assert_eq!(browser.require(permission), Ok(()));
         }
         assert_eq!(browser.api_token_id(), None);
@@ -135,5 +131,31 @@ mod tests {
             Err(Denied::BrowserOnly)
         );
         assert_eq!(writer.api_token_id(), Some(8));
+    }
+
+    #[test]
+    fn only_admins_may_administer_users() {
+        let subscriber = caller(Channel::Browser);
+        let admin = Caller::browser(Arc::new(User {
+            role: Role::Admin,
+            ..User::default_for_tests()
+        }));
+        let admin_token = Caller {
+            via: Channel::ApiToken {
+                id: 1,
+                scopes: ApiScope::ALL.to_vec(),
+            },
+            ..admin.clone()
+        };
+
+        assert_eq!(
+            subscriber.require(Permission::AdministerUsers),
+            Err(Denied::NotPermitted(Permission::AdministerUsers))
+        );
+        assert_eq!(admin.require(Permission::AdministerUsers), Ok(()));
+        assert_eq!(
+            admin_token.require(Permission::AdministerUsers),
+            Err(Denied::BrowserOnly)
+        );
     }
 }

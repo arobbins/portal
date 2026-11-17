@@ -29,6 +29,7 @@ use crate::components::button::{ButtonType, button};
 use crate::components::form::{
     Autocomplete, FormVariant, InputType, form, form_actions, form_error, form_field,
 };
+use crate::devices::lifecycle::SignInMethod;
 use crate::flash::{Flash, flash_toast, flash_toasts, set_flash, take_flash};
 use crate::layout::page_heading::page_heading;
 use crate::web::{env, redisplay, session};
@@ -167,7 +168,7 @@ pub async fn choose_password_submit(cx: &Cx, Form(input): Form<NewPassword>) -> 
     match set_password_from_link(&env(cx), PURPOSE, token(cx), &input).await? {
         Ok(user) => {
             let session = session(cx)?;
-            sign_in(&session, &user).await?;
+            sign_in(cx, &session, &user, SignInMethod::PasswordReset).await?;
             set_flash(&session, Flash::PasswordReset).await?;
             Ok(see_other(ACCOUNT_PATH))
         }

@@ -23,6 +23,7 @@ use crate::components::button::{ButtonType, ButtonVariant, button};
 use crate::components::form::{
     Autocomplete, FormVariant, InputType, LabelLink, form, form_actions, form_error, form_field,
 };
+use crate::devices::lifecycle::SignInMethod;
 use crate::flash::{Flash, flash_toast, flash_toasts, take_flash};
 use crate::layout::page_heading::page_heading;
 use crate::passkeys::pages::passkey_setup::after_password_sign_in;
@@ -117,7 +118,7 @@ pub async fn login_submit(cx: &Cx, Form(input): Form<SignIn>) -> Result<SeeOther
     match sign_in_with_password(&env(cx), &input).await? {
         Ok(user) => {
             let session = session(cx)?;
-            sign_in(&session, &user).await?;
+            sign_in(cx, &session, &user, SignInMethod::Password).await?;
             Ok(see_other(
                 after_password_sign_in(cx, &session, &user).await?,
             ))

@@ -30,6 +30,16 @@ pub fn format_date(date: time::OffsetDateTime) -> String {
     format!("{} {}, {}", &month[..3], date.day(), date.year())
 }
 
+pub fn format_date_time(date: time::OffsetDateTime) -> String {
+    let utc = date.to_offset(time::UtcOffset::UTC);
+    format!(
+        "{} at {:02}:{:02} UTC",
+        format_date(utc),
+        utc.hour(),
+        utc.minute()
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -59,6 +69,7 @@ mod tests {
         let date = time::OffsetDateTime::from_unix_timestamp(1_793_700_000).unwrap();
 
         assert_eq!(format_date(date), "Nov 3, 2026");
+        assert_eq!(format_date_time(date), "Nov 3, 2026 at 10:00 UTC");
     }
 
     #[test]

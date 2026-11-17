@@ -15,16 +15,27 @@ pub struct User {
     pub verified_at: Option<time::OffsetDateTime>,
     pub session_version: i32,
     pub webauthn_id: uuid::Uuid,
+    pub public_id: String,
+    pub disabled_at: Option<time::OffsetDateTime>,
+    pub admin_granted_at: Option<time::OffsetDateTime>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AccountStatus<'a> {
     AwaitingPassword,
     Active { password_hash: &'a str },
+    Disabled { password_hash: Option<&'a str> },
 }
 
 impl User {
     pub fn status(&self) -> AccountStatus<'_> {
+        if self.disabled_at.is_some() {
+            let password_hash = self
+                .password
+                .as_deref()
+                .filter(|_| self.verified_at.is_some());
+            return AccountStatus::Disabled { password_hash };
+        }
         match (self.password.as_deref(), self.verified_at) {
             (Some(password_hash), Some(_)) => AccountStatus::Active { password_hash },
             _ => AccountStatus::AwaitingPassword,
@@ -45,6 +56,9 @@ impl User {
             verified_at: Some(now),
             session_version: 0,
             webauthn_id: uuid::Uuid::nil(),
+            public_id: "usr_00000000000000000000".to_string(),
+            disabled_at: None,
+            admin_granted_at: None,
         }
     }
 }
@@ -64,6 +78,9 @@ mod tests {
             verified_at: verified.then_some(now),
             session_version: 0,
             webauthn_id: uuid::Uuid::nil(),
+            public_id: "usr_00000000000000000000".to_string(),
+            disabled_at: None,
+            admin_granted_at: None,
         }
     }
 

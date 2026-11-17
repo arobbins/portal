@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM user_tokens WHERE purpose = $1 AND token_hash = $2 AND expires_at > now() AND payload IS NOT NULL AND user_id IN (SELECT id FROM users WHERE disabled_at IS NULL) RETURNING user_id, payload AS \"payload!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "payload!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "466998d101ab2cac842e52e64471576571995c53494d79c12757e88ccc117b3f"
+}

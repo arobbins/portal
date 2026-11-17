@@ -18,13 +18,17 @@ pub fn hash_secret(secret: &str) -> String {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PublicIdKind {
     ApiToken,
+    Device,
     Passkey,
+    User,
 }
 
 impl PublicIdKind {
     pub fn prefix(self) -> &'static str {
         match self {
             Self::ApiToken => "tok_",
+            Self::Device => "dev_",
+            Self::User => "usr_",
             Self::Passkey => "pk_",
         }
     }
@@ -63,7 +67,11 @@ mod tests {
 
     #[test]
     fn public_ids_have_their_prefix_and_validate() {
-        for kind in [PublicIdKind::ApiToken, PublicIdKind::Passkey] {
+        for kind in [
+            PublicIdKind::ApiToken,
+            PublicIdKind::Device,
+            PublicIdKind::Passkey,
+        ] {
             let id = kind.generate();
             assert!(id.starts_with(kind.prefix()));
             assert!(kind.is_valid(&id));

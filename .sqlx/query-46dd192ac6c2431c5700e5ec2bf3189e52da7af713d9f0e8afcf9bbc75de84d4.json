@@ -1,0 +1,60 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT u.public_id, u.name, u.email, u.role AS \"role: Role\",\n            CASE WHEN u.disabled_at IS NOT NULL THEN 'disabled' WHEN u.verified_at IS NULL THEN 'awaiting_password' ELSE 'active' END AS \"status!: ListedStatus\",\n            u.created_at, GREATEST(\n                (SELECT max(d.last_seen_at) FROM user_devices d WHERE d.user_id = u.id),\n                (SELECT max(e.created_at) FROM account_events e WHERE e.user_id = u.id AND e.kind = 'signed_in')\n            ) AS last_active_at\n        FROM users u\n        WHERE $1 = '' OR strpos(lower(u.email), lower($1)) > 0 OR strpos(lower(u.name), lower($1)) > 0\n        ORDER BY u.created_at DESC, u.id DESC\n        LIMIT $2 OFFSET $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "public_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "email",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "role: Role",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "status!: ListedStatus",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "last_active_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      null,
+      false,
+      null
+    ]
+  },
+  "hash": "46dd192ac6c2431c5700e5ec2bf3189e52da7af713d9f0e8afcf9bbc75de84d4"
+}

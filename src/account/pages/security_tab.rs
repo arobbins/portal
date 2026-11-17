@@ -7,8 +7,10 @@ use topcoat::{
 };
 
 use super::password_routes::{ChangePasswordFailed, change_password_submit, save_new_password};
+use super::placeholder_tab::coming_soon_card;
 use crate::account::tabs::AccountSection;
 use crate::action::ActionProblem;
+use crate::activity::pages::activity_card::activity_card;
 use crate::auth::pages::new_password_form::new_password_fields;
 use crate::auth::password::{CONFIRMATION_FIELD, CURRENT_PASSWORD_FIELD, PASSWORD_FIELD};
 use crate::components::button::{ButtonSize, ButtonVariant, button};
@@ -18,9 +20,10 @@ use crate::components::form::{
     DialogForm, ModalSubmit, dialog_error_toast, dialog_input, modal_form, page_toast,
 };
 use crate::components::icon::{IconName, icon};
+use crate::devices::pages::devices_card::devices_card;
 use crate::flash::{Flash, flash_toasts, take_flash};
 use crate::layout::page_heading::{PageHeadingVariant, page_heading};
-use crate::passkeys::pages::passkey_routes::rename_problem;
+use crate::passkeys::pages::passkey_routes::{remove_problem, rename_problem};
 use crate::passkeys::pages::passkeys_card::passkeys_card;
 
 const MODAL_ID: &str = "change-password";
@@ -30,6 +33,8 @@ const FLASHES: &[Flash] = &[
     Flash::PasskeyAdded,
     Flash::PasskeyRenamed,
     Flash::PasskeyRemoved,
+    Flash::DeviceSignedOut,
+    Flash::OtherDevicesSignedOut,
 ];
 
 struct PasswordDrafts {
@@ -55,7 +60,9 @@ pub async fn security_tab(cx: &Cx) -> Result<impl View> {
     let flash = take_flash(cx, FLASHES).await?;
     let password_failure =
         try_context::<ChangePasswordFailed>(cx).map(|failed| failed.problem.spec());
-    let failure = password_failure.or_else(|| rename_problem(cx).map(ActionProblem::spec));
+    let failure = password_failure
+        .or_else(|| rename_problem(cx).map(ActionProblem::spec))
+        .or_else(|| remove_problem(cx).map(ActionProblem::spec));
     let form = DialogForm::new(cx, password_failure);
     let toast = page_toast(cx, failure.is_some(), flash);
     let drafts = PasswordDrafts::new(cx);
@@ -65,6 +72,8 @@ pub async fn security_tab(cx: &Cx) -> Result<impl View> {
             page_heading(text: "Security", variant: PageHeadingVariant::Compact)
             password_card(form: &form, drafts: &drafts)
             passkeys_card()
+            devices_card()
+            activity_card()
             coming_soon_card(
                 section: AccountSection::TwoFactor,
                 action: "Set up",
@@ -125,30 +134,6 @@ async fn password_card(cx: &Cx, form: &DialogForm, drafts: &PasswordDrafts) -> R
                     "Use a long password you don't use anywhere else. Changing it signs you out on your other devices."
                 </p>
             )
-        )
-    })
-}
-
-#[component]
-async fn coming_soon_card(
-    cx: &Cx,
-    section: AccountSection,
-    action: &str,
-    text: &str,
-) -> Result<impl View> {
-    Ok(view! {
-        card(
-            id: Some(section.anchor()),
-            card_header(
-                title: section.label(),
-                button(
-                    variant: ButtonVariant::Secondary,
-                    size: ButtonSize::Sm,
-                    disabled: true,
-                    (action)
-                )
-            )
-            card_body(<p>(text)</p>)
         )
     })
 }

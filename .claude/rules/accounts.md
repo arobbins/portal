@@ -27,28 +27,77 @@ paths:
   GETs never consume tokens (email scanners prefetch links). Users without a
   password can't log in.
 - **Signed-in state**: the session stores one `SessionAuth { user_id,
-  session_version }` value (never separate keys); a session whose version no
-  longer matches the user's is flushed, so **any query that changes a
-  password (or should log out every device) must do
-  `session_version = session_version + 1`**. `inject_globals` loads the user
-  once per request (skipped for `/assets`) into
-  `GlobalState.current_user: Option<Arc<User>>`; a session pointing at a
-  missing user is flushed. Read it with `current_user(cx)` /
-  `require_user(cx)` (sync, no extra query), or as a `Caller` with
-  `browser_caller(cx)` / `require_browser_caller(cx)`. Never cache user data in the
-  session.
+  session_version, device }` value (never separate keys) and every signed-in
+  browser has a `user_devices` row (`devices/`, `dev_…` public id, user agent,
+  IP, `last_seen_at` written at most every 5 minutes). A session is valid only
+  while its device row exists and both versions match the user's, so **any
+  query that changes a password (or should log out every device) must do
+  `session_version = session_version + 1`**. Sign in only through
+  `auth::session::sign_in(cx, session, user, SignInMethod)` (records a
+  `signed_in` event; when a different account was signed in on this
+  session, its session data is cleared first); after a version bump on *this* device use
+  `stay_signed_in(app, session, user)`; sign out with `sign_out`.
+  `inject_globals` loads the user once per request (skipped for `/assets`)
+  into `GlobalState.current_user: Option<Arc<User>>`. Read it with
+  `current_user(cx)` / `require_user(cx)` (sync, no extra query), or as a
+  `Caller` with `browser_caller(cx)` / `require_browser_caller(cx)`. Never
+  cache user data in the session.
+- **Devices and activity** (Security tab, browser-only `ManageDevices` /
+  `ViewActivity`): `devices/actions.rs` lists this user's live devices, signs
+  one out (deletes its row; never the current one) or signs out every other
+  device (bumps `session_version`, keeps this row); `activity/actions.rs`
+  shows the latest 20 `account_events` as short neutral phrases ("Password
+  changed", never "your"), because the same list appears on the admin
+  user page (`summarize`, one per `AccountEventKind`: a new kind needs a
+  summary, a test enforces it).
 - **Account status** comes only from `user.status()` → `AccountStatus`
-  (`AwaitingPassword` / `Active { password_hash }`). Never branch on
-  `password` / `verified_at` directly. The only transition to Active is
+  (`AwaitingPassword` / `Active { password_hash }` / `Disabled {
+  password_hash }`). Never branch on `password` / `verified_at` /
+  `disabled_at` directly; a new variant makes the compiler list every place
+  that must decide what it means. The only transition to Active is
   `query_set_password_and_verify_user`; the DB enforces
   `CHECK ((password IS NULL) = (verified_at IS NULL))`, so new users are
-  always inserted without a password. `role` is the `Role` enum (select it
-  with `role AS "role: Role"`; the DB has a matching `CHECK`).
+  always inserted without a password. `role` is the `Role` enum
+  (`Subscriber` / `Admin`; select it with `role AS "role: Role"`; the DB has
+  a matching `CHECK`). Users have a public id (`usr_…`, DB default).
+- **Disabled accounts** (`users.disabled_at`, set only by an admin): a
+  correct password or passkey gets `AccountDisabled` (403) instead of a
+  session, API tokens are rejected as `invalid_token`, no sign-in or reset
+  emails are sent, and disabling bumps `session_version`, deletes every
+  device row and every emailed link. The link queries also ignore disabled
+  users and `EmailChangeJob` / `PasswordResetJob` send nothing for them, so a
+  job queued before disabling can't hand out a working link. Enabling
+  restores sign-in, passkeys and API tokens.
+- **Admin area** (`src/admin/`, `/admin/users`): `Permission::AdministerUsers`
+  is `admins_only()` (needs `Role::Admin`) and has no API scope. Non-admins
+  get a 404. Every admin page calls `require_admin(cx)`, which also needs
+  an unlock (`/admin/confirm`: password or passkey via `check_reauth`) used
+  within the last 15 minutes (`ADMIN_IDLE_LIMIT`, sliding, bound to
+  `session_version` and to `users.admin_granted_at`, which is set exactly
+  while the role is admin, so revoking and granting again locks it; a locked GET is remembered and reopened after
+  confirming). Actions (disable, enable, sign out everywhere, resend
+  confirmation, delete) refuse the admin's own account and other admins
+  (`AdminUserProblem`), lock the target row (`FOR UPDATE`) inside their
+  transaction, are idempotent (enabling an active account changes nothing),
+  and record the event on the *target* user with channel `admin` and
+  `{"admin": "usr_…"}`. Resending a confirmation email uses the per-address
+  email limit; an admin deletion sends `account_removed_email` (not the
+  self-service "if you didn't do this" email). Roles change only from the
+  terminal: `webserver admin grant|revoke <email>` (channel `console`).
+  Every admin action and console role change also writes an `admin_log`
+  row (`log_admin_action`, same transaction; `AdminLogAction`) holding the
+  admin's and target's public id and email as text, with no foreign keys, so
+  it survives deletions and is never cleaned up; `/admin/log` shows the last
+  100 (`Server console` when there's no admin). A self-service deletion
+  records no event, because events cascade with the row; it's logged with
+  `tracing`. The e2e seed includes `admin@example.test`; e2e tests make
+  their own admin with `grantAdmin(email)` (`support/console.ts`).
 - **Cleanup** (`src/cleanup.rs`, run hourly as one `cleanup` job, so once
   per cluster): deletes expired `user_tokens`, expired sessions, sign-ups
   that never set a password after 7 days and have no live link, API tokens
   7 days past expiry, rate-limit hits older than a day, account events older
-  than 13 months (`EVENT_RETENTION`) and failed jobs older than 30 days.
+  than 13 months (`EVENT_RETENTION`), failed jobs older than 30 days and
+  device rows idle for a day or on an old `session_version`.
 - **Email is always a job** (`src/jobs.rs`): code never calls the mailer;
   it `enqueue`s `SendEmail(email)` (a `Job`, built with `EmailTemplate`) (inside the same transaction as the
   change it reports, where there is one) and a worker sends it with retries

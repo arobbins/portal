@@ -26,7 +26,7 @@ pub async fn query_get_user_by_id(
 ) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as!(
         User,
-        "SELECT id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id FROM users WHERE id = $1",
+        "SELECT id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at FROM users WHERE id = $1",
         user_id,
     )
     .fetch_optional(db)
@@ -39,7 +39,7 @@ pub async fn query_get_user_by_email(
 ) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as!(
         User,
-        "SELECT id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id FROM users WHERE email = $1",
+        "SELECT id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at FROM users WHERE email = $1",
         email,
     )
     .fetch_optional(db)
@@ -52,7 +52,7 @@ pub async fn query_get_user_by_webauthn_id(
 ) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as!(
         User,
-        "SELECT id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id FROM users WHERE webauthn_id = $1",
+        "SELECT id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at FROM users WHERE webauthn_id = $1",
         webauthn_id,
     )
     .fetch_optional(db)
@@ -82,7 +82,7 @@ pub async fn query_update_user_email(
 ) -> Result<Option<User>, sqlx::Error> {
     let updated = sqlx::query_as!(
         User,
-        "UPDATE users SET email = $1, session_version = session_version + 1, updated_at = now() WHERE id = $2 AND verified_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users WHERE email = $1) RETURNING id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id",
+        "UPDATE users SET email = $1, session_version = session_version + 1, updated_at = now() WHERE id = $2 AND verified_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users WHERE email = $1) RETURNING id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at",
         email,
         user_id,
     )
@@ -102,7 +102,7 @@ pub async fn query_set_password_and_verify_user(
 ) -> Result<User, sqlx::Error> {
     sqlx::query_as!(
         User,
-        "UPDATE users SET password = $1, verified_at = now(), session_version = session_version + 1, updated_at = now() WHERE id = $2 RETURNING id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id",
+        "UPDATE users SET password = $1, verified_at = now(), session_version = session_version + 1, updated_at = now() WHERE id = $2 RETURNING id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at",
         password_hash,
         user_id,
     )
@@ -117,7 +117,7 @@ pub async fn query_update_password(
 ) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as!(
         User,
-        "UPDATE users SET password = $1, session_version = session_version + 1, updated_at = now() WHERE id = $2 AND verified_at IS NOT NULL RETURNING id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id",
+        "UPDATE users SET password = $1, session_version = session_version + 1, updated_at = now() WHERE id = $2 AND verified_at IS NOT NULL RETURNING id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at",
         password_hash,
         user_id,
     )
@@ -145,4 +145,84 @@ pub async fn query_delete_abandoned_signups(
     .await?;
 
     Ok(result.rows_affected())
+}
+
+pub async fn query_bump_session_version(
+    user_id: i32,
+    db: impl PgExecutor<'_>,
+) -> Result<User, sqlx::Error> {
+    sqlx::query_as!(
+        User,
+        "UPDATE users SET session_version = session_version + 1, updated_at = now() WHERE id = $1 RETURNING id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at",
+        user_id,
+    )
+    .fetch_one(db)
+    .await
+}
+
+pub async fn query_get_user_by_public_id(
+    public_id: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<Option<User>, sqlx::Error> {
+    sqlx::query_as!(
+        User,
+        r#"SELECT id, name, email, password, role AS "role: Role", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at FROM users WHERE public_id = $1"#,
+        public_id,
+    )
+    .fetch_optional(db)
+    .await
+}
+
+pub async fn query_lock_user_by_public_id(
+    public_id: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<Option<User>, sqlx::Error> {
+    sqlx::query_as!(
+        User,
+        r#"SELECT id, name, email, password, role AS "role: Role", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at FROM users WHERE public_id = $1 FOR UPDATE"#,
+        public_id,
+    )
+    .fetch_optional(db)
+    .await
+}
+
+pub async fn query_disable_user(
+    user_id: i32,
+    disabled_at: time::OffsetDateTime,
+    db: impl PgExecutor<'_>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "UPDATE users SET disabled_at = $1, session_version = session_version + 1, updated_at = now() WHERE id = $2",
+        disabled_at,
+        user_id,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn query_enable_user(user_id: i32, db: impl PgExecutor<'_>) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "UPDATE users SET disabled_at = NULL, updated_at = now() WHERE id = $1",
+        user_id,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn query_set_role_by_email(
+    email: &str,
+    role: Role,
+    db: impl PgExecutor<'_>,
+) -> Result<Option<i32>, sqlx::Error> {
+    sqlx::query_scalar!(
+        "UPDATE users SET role = $1, admin_granted_at = CASE WHEN $1 = 'admin' THEN now() END, updated_at = now() WHERE email = $2 AND role <> $1 RETURNING id",
+        role as Role,
+        email,
+    )
+    .fetch_optional(db)
+    .await
 }

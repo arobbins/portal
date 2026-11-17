@@ -11,6 +11,7 @@ use crate::action::{ActionError, ActionProblem, SESSION_EXPIRED, browser_caller}
 use crate::api::body::{MAX_JSON_BODY, read_json};
 use crate::api::problem::{ApiProblem, ApiResponse, ok};
 use crate::auth::session::sign_in;
+use crate::devices::lifecycle::SignInMethod;
 use crate::flash::{Flash, set_flash};
 use crate::passkeys::actions::{
     PasskeySignInProblem, StartRegistration, StartSignIn, finish_passkey_registration,
@@ -96,7 +97,7 @@ pub async fn finish_authentication(cx: &Cx, body: Body) -> Result<ApiResponse> {
         }
         Err(problem) => return Ok(ApiProblem::of(problem).response()),
     };
-    sign_in(&session(cx)?, &user).await?;
+    sign_in(cx, &session(cx)?, &user, SignInMethod::Passkey).await?;
 
     let mut body = accepted_credentials(app(cx), &user).await?;
     body["redirect"] = json!(ACCOUNT_PATH);

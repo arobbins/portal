@@ -36,8 +36,8 @@ Passkeys card in `passkeys/pages/passkeys_card.rs`, built on `webauthn-rs`:
   `take_passkey_proof` (single use) and `return_passkey_proof` when the
   action fails; removing a passkey `forget_passkey_proof`s. Dialogs that
   need re-auth render `reauth_field` (passkey first when the user has one)
-  and actions call `check_reauth`. Used by Change email, Delete account and
-  Create API token; Change password and Add passkey keep the password.
+  and actions call `check_reauth`. Used by Change email, Delete account,
+  Create API token, Remove passkey and the admin area; Change password and Add passkey keep the password.
 - Registration overrides the library's options to `residentKey: required`
   (passkeys must be discoverable). Sign-in is discoverable (no email typed):
   the login page starts conditional mediation (autofill on the
@@ -58,7 +58,9 @@ Passkeys card in `passkeys/pages/passkeys_card.rs`, built on `webauthn-rs`:
   `users.passkey_prompt_after` is in the future ("Not now" = +30 days,
   "Don't ask again" = `'infinity'`; the due check lives in SQL so
   `infinity` is never decoded). The page only shows while the grant is
-  valid, then redirects to `/account`. Adding a passkey there
+  valid, then redirects to `/account`; "Not now" / "Don't ask again"
+  only count while the prompt is showing (`prompt_showing`), so an old tab
+  can't undo an earlier answer. Adding a passkey there
   needs no password and lands on Security → Passkeys. Passkey sign-ins and
   password resets never prompt; seeded e2e users have declined it.
 - Automatic (conditional) passkey creation after a password sign-in is

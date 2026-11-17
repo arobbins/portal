@@ -29,6 +29,9 @@ async fn a_passkey_proof_lasts_five_minutes_for_one_user_and_sign_in(db: PgPool)
         verified_at: user.verified_at,
         session_version: user.session_version + 1,
         webauthn_id: user.webauthn_id,
+        public_id: user.public_id.clone(),
+        disabled_at: user.disabled_at,
+        admin_granted_at: user.admin_granted_at,
     });
     let cases = [
         (&user, 300, true),

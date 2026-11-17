@@ -11,7 +11,7 @@ use crate::components::toaster::{NO_TOAST, toaster};
 use crate::components::tone::Tone;
 use crate::web::session;
 
-const SESSION_FLASH: &str = "flash";
+pub const SESSION_FLASH: &str = "flash";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Flash {
@@ -26,8 +26,15 @@ pub enum Flash {
     PasskeyAdded,
     PasskeyRenamed,
     PasskeyRemoved,
+    DeviceSignedOut,
+    OtherDevicesSignedOut,
     ApiTokenRevoked,
     AccountDeleted,
+    UserDisabled,
+    UserEnabled,
+    UserSignedOut,
+    VerificationResent,
+    UserDeleted,
 }
 
 impl Flash {
@@ -44,8 +51,15 @@ impl Flash {
             Self::PasskeyAdded => "passkey-added",
             Self::PasskeyRenamed => "passkey-renamed",
             Self::PasskeyRemoved => "passkey-removed",
+            Self::DeviceSignedOut => "device-signed-out",
+            Self::OtherDevicesSignedOut => "other-devices-signed-out",
             Self::ApiTokenRevoked => "api-token-revoked",
             Self::AccountDeleted => "account-deleted",
+            Self::UserDisabled => "user-disabled",
+            Self::UserEnabled => "user-enabled",
+            Self::UserSignedOut => "user-signed-out",
+            Self::VerificationResent => "verification-resent",
+            Self::UserDeleted => "user-deleted",
         }
     }
 
@@ -65,6 +79,8 @@ impl Flash {
             Self::PasskeyAdded => "Passkey added. You can now use it to sign in.",
             Self::PasskeyRenamed => "Passkey renamed.",
             Self::PasskeyRemoved => "Passkey removed.",
+            Self::DeviceSignedOut => "That device has been signed out.",
+            Self::OtherDevicesSignedOut => "Your other devices have been signed out.",
             Self::ApiTokenRevoked => "API token revoked. Apps using it can no longer sign in.",
             Self::AccountDeleted => {
                 "Your account has been deleted. You've been signed out everywhere."
@@ -72,6 +88,11 @@ impl Flash {
             Self::PasswordChanged => {
                 "Your password has been changed. Your other devices have been signed out."
             }
+            Self::UserDisabled => "Account disabled. They've been signed out everywhere.",
+            Self::UserEnabled => "Account enabled. They can sign in again.",
+            Self::UserSignedOut => "They've been signed out of every device.",
+            Self::VerificationResent => "A new confirmation email is on its way.",
+            Self::UserDeleted => "The account has been deleted.",
         }
     }
 }

@@ -5,9 +5,11 @@ mod sign_in;
 mod verify;
 
 pub use manage::{
-    RemovePasskey, RenamePasskey, RenamePasskeyProblem, list_passkeys, remove_passkey,
-    rename_passkey,
+    RemovePasskey, RemovePasskeyProblem, RenamePasskey, RenamePasskeyProblem, list_passkeys,
+    remove_passkey, rename_passkey,
 };
+#[cfg(test)]
+pub use prompt::PROMPT_SNOOZE_DAYS;
 pub use prompt::{
     PromptAnswer, answer_passkey_prompt, never_prompt_for_passkeys, passkey_prompt_due,
 };

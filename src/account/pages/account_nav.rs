@@ -40,6 +40,7 @@ pub async fn account_nav(cx: &Cx, active: AccountTab) -> Result<impl View> {
                 <li class="l-nav__list-item l-nav__list-item-group">
                     <a
                         href=(tab_href.as_str())
+                        aria-current=((*tab == active).then_some("page"))
                         class=(if *tab == active {
                             "l-nav__link l-nav__link--active"
                         } else {

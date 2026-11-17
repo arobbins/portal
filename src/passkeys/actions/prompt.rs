@@ -11,7 +11,7 @@ use crate::passkeys::session::PasskeySession;
 use crate::permission::Permission;
 use crate::user::events::{AccountEventKind, EventSource, record_event};
 
-const PROMPT_SNOOZE_DAYS: i32 = 30;
+pub const PROMPT_SNOOZE_DAYS: i32 = 30;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PromptAnswer {

@@ -250,6 +250,24 @@ mod tests {
     }
 
     #[sqlx::test]
+    async fn a_disabled_accounts_tokens_stop_working(db: PgPool) {
+        let user = active_user("api@example.test", &db).await;
+        let (raw, _, _) = issue(&user, &["profile:read"], time::Duration::days(1), &db).await;
+        sqlx::query!(
+            "UPDATE users SET disabled_at = now() WHERE id = $1",
+            user.id
+        )
+        .execute(&db)
+        .await
+        .unwrap();
+
+        assert_eq!(
+            check(&raw, &db).await.unwrap_err(),
+            ApiAuthProblem::InvalidToken
+        );
+    }
+
+    #[sqlx::test]
     async fn expired_revoked_and_unknown_tokens_look_the_same(db: PgPool) {
         let user = active_user("api@example.test", &db).await;
         let (expired, expired_id, _) =

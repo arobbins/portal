@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT admin_email, action, target_email FROM admin_log ORDER BY id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "admin_email",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "action",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "target_email",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "0cb433dce3b7eb9160ddbe13047963f8e1ac608a8b9894618e8533a582da31a8"
+}

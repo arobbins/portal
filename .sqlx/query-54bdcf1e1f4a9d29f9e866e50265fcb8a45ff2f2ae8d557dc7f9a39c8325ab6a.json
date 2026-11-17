@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE user_devices SET last_seen_at = $1 WHERE public_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "54bdcf1e1f4a9d29f9e866e50265fcb8a45ff2f2ae8d557dc7f9a39c8325ab6a"
+}

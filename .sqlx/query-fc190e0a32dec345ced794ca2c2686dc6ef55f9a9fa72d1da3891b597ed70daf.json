@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (passkey_prompt_after IS NULL OR passkey_prompt_after <= now()) AS \"due!\" FROM users WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "due!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "fc190e0a32dec345ced794ca2c2686dc6ef55f9a9fa72d1da3891b597ed70daf"
+}

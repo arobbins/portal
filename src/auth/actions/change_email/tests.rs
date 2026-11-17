@@ -328,3 +328,28 @@ async fn a_passkey_confirmation_stands_in_for_the_password(db: PgPool) {
         .unwrap();
     assert_eq!(events(user.id, &db).await, vec!["email_change_requested"]);
 }
+
+#[sqlx::test]
+async fn a_disabled_accounts_links_and_queued_jobs_do_nothing(db: PgPool) {
+    let user = active_user("frozen@example.test", &db).await;
+    insert_link(user.id, NEW_EMAIL, &db).await;
+    sqlx::query!(
+        "UPDATE users SET disabled_at = now() WHERE id = $1",
+        user.id
+    )
+    .execute(&db)
+    .await
+    .unwrap();
+    let app = App::for_tests(db.clone());
+    let env = app.env(None);
+
+    assert_eq!(pending_email_change(&env, RAW_TOKEN).await.unwrap(), None);
+    let confirmed = confirm_email_change(&env, RAW_TOKEN).await.unwrap();
+    assert!(matches!(confirmed, Err(ConfirmEmailProblem::ExpiredLink)));
+    let job = EmailChangeJob {
+        user_id: user.id,
+        new_email: "another@example.test".to_string(),
+    };
+    job.run(&app).await.unwrap();
+    assert!(jobs(&db).await.is_empty());
+}

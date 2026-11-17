@@ -80,6 +80,20 @@
   }
 }
 
+.a-form-actions > .a-button--is-busy:last-child:not(:first-child) {
+  padding-right: 0.7em;
+  padding-left: 2.4em;
+
+  &:after {
+    right: auto;
+    left: 0.72em;
+  }
+}
+
+.a-form--page .a-form-actions > .a-button--is-busy {
+  padding-right: 0.7em;
+}
+
 .a-button--sm {
   font-size: var(--text-sm);
 }

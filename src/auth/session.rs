@@ -1,31 +1,33 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use time::OffsetDateTime;
-
-use crate::routes::ACCOUNT_PATH;
+use axum::http::header::USER_AGENT;
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
+use time::OffsetDateTime;
 use topcoat::{
     Result,
     context::Cx,
-    router::{error::see_other, href},
+    router::{error::see_other, href, request},
 };
 use tower_sessions::Session;
 
 use crate::auth::pages::login::login_page;
+use crate::devices::lifecycle::{SignInMethod, end_device, keep_device, load_device, start_device};
+use crate::env::{App, Env};
+use crate::routes::ACCOUNT_PATH;
 use crate::user::model::User;
-use crate::user::queries::query_get_user_by_id;
-use crate::web::globals;
+use crate::web::{env, globals};
 
 const SESSION_AUTH: &str = "auth";
-const PASSKEY_PROMPT_GRANT: &str = "passkey_prompt_grant";
-const PASSKEY_PROMPT_WINDOW: Duration = Duration::from_secs(5 * 60);
+pub const PASSKEY_PROMPT_GRANT: &str = "passkey_prompt_grant";
+pub const PASSKEY_PROMPT_WINDOW: Duration = Duration::from_secs(5 * 60);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct SessionAuth {
     user_id: i32,
     session_version: i32,
+    #[serde(default)]
+    device: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,18 +36,27 @@ struct PasskeyPromptGrant {
     granted_at: i64,
 }
 
-pub async fn load_signed_in_user(session: &Session, db: &PgPool) -> Result<Option<Arc<User>>> {
+pub async fn load_signed_in_user(session: &Session, app: &App) -> Result<Option<Arc<User>>> {
     let Some(auth) = session.get::<SessionAuth>(SESSION_AUTH).await? else {
         return Ok(None);
     };
+    let user = match auth.device.as_deref() {
+        Some(device) => load_device(app, auth.user_id, device).await?,
+        None => None,
+    };
 
-    match query_get_user_by_id(auth.user_id, db).await? {
+    match user {
         Some(user) if user.session_version == auth.session_version => Ok(Some(Arc::new(user))),
         _ => {
             session.flush().await?;
             Ok(None)
         }
     }
+}
+
+pub async fn current_device(session: &Session) -> Result<Option<String>> {
+    let auth = session.get::<SessionAuth>(SESSION_AUTH).await?;
+    Ok(auth.and_then(|auth| auth.device))
 }
 
 pub fn current_user(cx: &Cx) -> Option<Arc<User>> {
@@ -64,19 +75,71 @@ pub fn redirect_signed_in_users(cx: &Cx) -> Result<()> {
     Ok(())
 }
 
-pub async fn sign_in(session: &Session, user: &User) -> Result<()> {
+pub async fn sign_in(cx: &Cx, session: &Session, user: &User, method: SignInMethod) -> Result<()> {
+    let user_agent = request::headers(cx)
+        .get(USER_AGENT)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+    start_session(&env(cx), session, user, user_agent, method).await
+}
+
+async fn start_session(
+    env: &Env<'_>,
+    session: &Session,
+    user: &User,
+    user_agent: &str,
+    method: SignInMethod,
+) -> Result<()> {
+    let previous = session.get::<SessionAuth>(SESSION_AUTH).await?;
+    end_session_device(env.app, session).await?;
+    if previous.is_some_and(|auth| auth.user_id != user.id) {
+        session.clear().await;
+    }
     session.cycle_id().await?;
     revoke_passkey_prompt(session).await?;
-    session
-        .insert(
-            SESSION_AUTH,
-            SessionAuth {
-                user_id: user.id,
-                session_version: user.session_version,
-            },
-        )
-        .await?;
+    let device = start_device(env, user, user_agent, method).await?;
+    remember(session, user, device).await
+}
 
+pub async fn stay_signed_in(app: &App, session: &Session, user: &User) -> Result<()> {
+    let auth = session.get::<SessionAuth>(SESSION_AUTH).await?;
+    let device = auth
+        .filter(|auth| auth.user_id == user.id)
+        .and_then(|auth| auth.device);
+    let Some(device) = device else {
+        session.flush().await?;
+        return Ok(());
+    };
+    if !keep_device(app, &device, user).await? {
+        session.flush().await?;
+        return Ok(());
+    }
+    session.cycle_id().await?;
+    remember(session, user, device).await
+}
+
+pub async fn sign_out(app: &App, session: &Session) -> Result<()> {
+    end_session_device(app, session).await?;
+    session.flush().await?;
+    Ok(())
+}
+
+async fn end_session_device(app: &App, session: &Session) -> Result<()> {
+    if let Some(auth) = session.get::<SessionAuth>(SESSION_AUTH).await?
+        && let Some(device) = auth.device
+    {
+        end_device(app, auth.user_id, &device).await?;
+    }
+    Ok(())
+}
+
+async fn remember(session: &Session, user: &User, device: String) -> Result<()> {
+    let auth = SessionAuth {
+        user_id: user.id,
+        session_version: user.session_version,
+        device: Some(device),
+    };
+    session.insert(SESSION_AUTH, auth).await?;
     Ok(())
 }
 
@@ -128,8 +191,11 @@ fn within_prompt_window(granted_at: i64, now: i64) -> bool {
 mod tests {
     use super::*;
     use crate::auth::password::hash_password;
-    use crate::user::queries::{NewUser, query_insert_user, query_set_password_and_verify_user};
+    use crate::user::queries::{
+        NewUser, query_get_user_by_id, query_insert_user, query_set_password_and_verify_user,
+    };
     use crate::user::testing::active_user;
+    use sqlx::PgPool;
     use tower_sessions::MemoryStore;
 
     #[test]
@@ -175,7 +241,10 @@ mod tests {
                 .unwrap()
         );
 
-        sign_in(&session, &other).await.unwrap();
+        let app = App::for_tests(db.clone());
+        start_session(&app.env(None), &session, &other, "", SignInMethod::Password)
+            .await
+            .unwrap();
         assert!(
             !passkey_prompt_granted(&session, &user, OffsetDateTime::now_utc())
                 .await
@@ -186,30 +255,52 @@ mod tests {
     #[sqlx::test]
     async fn a_password_change_signs_out_existing_sessions(db: PgPool) {
         let user = active_user("tester@example.test", &db).await;
+        let app = App::for_tests(db.clone());
         let session = Session::new(None, Arc::new(MemoryStore::default()), None);
-        sign_in(&session, &user).await.unwrap();
-        assert!(load_signed_in_user(&session, &db).await.unwrap().is_some());
+        start_session(&app.env(None), &session, &user, "", SignInMethod::Password)
+            .await
+            .unwrap();
+        assert!(load_signed_in_user(&session, &app).await.unwrap().is_some());
 
         let password_hash = hash_password("a-new-test-password").unwrap();
         query_set_password_and_verify_user(user.id, &password_hash, &db)
             .await
             .unwrap();
 
-        assert!(load_signed_in_user(&session, &db).await.unwrap().is_none());
-        assert!(load_signed_in_user(&session, &db).await.unwrap().is_none());
+        assert!(load_signed_in_user(&session, &app).await.unwrap().is_none());
+        assert!(load_signed_in_user(&session, &app).await.unwrap().is_none());
     }
 
     #[sqlx::test]
     async fn a_session_for_a_deleted_user_is_signed_out(db: PgPool) {
         let user = active_user("tester@example.test", &db).await;
+        let app = App::for_tests(db.clone());
         let session = Session::new(None, Arc::new(MemoryStore::default()), None);
-        sign_in(&session, &user).await.unwrap();
+        start_session(&app.env(None), &session, &user, "", SignInMethod::Password)
+            .await
+            .unwrap();
         sqlx::query!("DELETE FROM users WHERE id = $1", user.id)
             .execute(&db)
             .await
             .unwrap();
 
-        assert!(load_signed_in_user(&session, &db).await.unwrap().is_none());
+        assert!(load_signed_in_user(&session, &app).await.unwrap().is_none());
+        assert!(session.is_empty().await);
+    }
+
+    #[sqlx::test]
+    async fn a_session_from_before_devices_is_signed_out(db: PgPool) {
+        let user = active_user("legacy@example.test", &db).await;
+        let app = App::for_tests(db.clone());
+        let session = Session::new(None, Arc::new(MemoryStore::default()), None);
+        let legacy = SessionAuth {
+            user_id: user.id,
+            session_version: user.session_version,
+            device: None,
+        };
+        session.insert(SESSION_AUTH, legacy).await.unwrap();
+
+        assert!(load_signed_in_user(&session, &app).await.unwrap().is_none());
         assert!(session.is_empty().await);
     }
 }

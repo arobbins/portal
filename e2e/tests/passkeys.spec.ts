@@ -112,6 +112,30 @@ test.describe("with a passkey-capable device", () => {
     await expect(passkeys.getByRole("listitem")).toHaveCount(0);
   });
 
+  test("removing a passkey needs a confirmation; a wrong password keeps it", async ({
+    page,
+  }, testInfo) => {
+    await addVirtualAuthenticator(page);
+    await createAccount(page, testInfo, "Careful Remover");
+    await addPasskey(page);
+    const passkeys = page.locator("#passkeys");
+    await passkeys.getByRole("button", { name: "Remove Passkey" }).click();
+    const remove = page.getByRole("dialog", { name: "Remove passkey" });
+    await remove.getByRole("button", { name: "Use your password instead" }).click();
+
+    await remove.getByLabel("Current password").fill("not-the-password");
+    await remove.getByLabel("Current password").press("Enter");
+
+    await expect(page.getByText("Your current password is incorrect.")).toBeVisible();
+    await expect(passkeys.getByRole("listitem")).toHaveCount(1);
+    await passkeys.getByRole("button", { name: "Remove Passkey" }).click();
+    await remove.getByRole("button", { name: "Use your password instead" }).click();
+    await remove.getByLabel("Current password").fill(ACCOUNT_PASSWORD);
+    await remove.getByLabel("Current password").press("Enter");
+    await expect(page.getByText("Passkey removed.")).toHaveCSS("opacity", "1");
+    await expect(passkeys.getByRole("listitem")).toHaveCount(0);
+  });
+
   test("a removed passkey can no longer sign in", async ({ page }, testInfo) => {
     await withoutPasskeyAutofill(page);
     await addVirtualAuthenticator(page);

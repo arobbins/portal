@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users SET created_at = created_at - interval '8 days' WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2b11dee4384c6fab6febb0c724f8efc8be6119222faa68c8f0346cd7c5e8dea7"
+}

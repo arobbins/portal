@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE jobs SET run_at = now() - interval '1 second' WHERE status = 'queued' AND run_at > now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "737c1b59eace3565c82265277a765d979f1daa4d6cfef311339f9a48d7738d28"
+}

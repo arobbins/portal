@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT kind, detail, channel, ip FROM account_events WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "detail",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 2,
+        "name": "channel",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "ip",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "30dd66cafc8251eec6ea931154f9777457957dead49274fc17c3ddc0fece28d8"
+}

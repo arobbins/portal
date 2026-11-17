@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT status = 'failed' AS \"failed!\",\n                COALESCE(locked_until > now(), false) AS \"held!\",\n                run_at > now() AS \"later!\",\n                attempts, max_attempts,\n                last_error IS NOT NULL AS \"has_error!\"\n            FROM jobs",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "failed!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 1,
+        "name": "held!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 2,
+        "name": "later!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "attempts",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "max_attempts",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "has_error!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "ccbbec67377488836feac2d9d0ef2b25bbb5aa4cdc68f807f0e62dfe85ddb4bb"
+}

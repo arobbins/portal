@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO user_passkeys (user_id, credential_id, passkey, name, backup_eligible, backed_up, public_id)\n            VALUES ($1, convert_to(random_base62(16), 'UTF8'), '{}', 'Spare key', false, false, 'pk_' || random_base62(20))\n            RETURNING public_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "public_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d8160915d01d8ed785f838cfa74c8379938b2fa33485eb15cb1bc220498976c2"
+}

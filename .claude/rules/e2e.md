@@ -22,13 +22,18 @@ full suite and the `verify` skill for one spec.
 
 - Import `test`/`expect` from `e2e/support/test.ts`: any console error or
   uncaught exception fails the test; allow expected ones with
-  `test.use({ allowedConsoleErrors: [/…/] })`.
+  `test.use({ allowedConsoleErrors: [/…/] })`. Pass exactly one regex
+  (`/status of 40[34]/`): a two-element array is read by Playwright as a
+  `[value, options]` fixture tuple and breaks every test in the file.
 - Shared helpers: `support/flows.ts` (`register`, `logIn`, `uniqueEmail`,
   `createAccount`, `createAccountAtPasskeyPrompt`, `skipPasskeyPrompt`,
   `logOut`, `setPassword`), `support/passkeys.ts` (virtual authenticator), `support/api.ts` (`createToken`,
   `bearer`, `getMe`), `support/mail.ts`
   (`waitForEmails`, `expectNoEmails`, `verificationLink`, `resetLink`),
-  `support/users.ts` (seeded users — keep in sync with `src/seed.rs`).
+  `support/users.ts` (seeded users — keep in sync with `src/seed.rs`),
+  `support/console.ts` (`grantAdmin`, runs `webserver admin grant`),
+  `support/state-machines.ts` (browser state machines for the report; see
+  `.claude/state-machines.md`).
   Tests that change data use their own `uniqueEmail` user, never the seeded
   ones. New accounts land on the passkey prompt; `createAccount` answers
   "Not now", so later password logins go straight to `/account`.

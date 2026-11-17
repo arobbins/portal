@@ -102,12 +102,15 @@ for path in sorted((ROOT / "src/api/v1").rglob("*.rs")):
             problems.append(f"{path.relative_to(ROOT).as_posix()}: {method} {api_path} has no ApiAction in the registry (src/api/registry.rs), so it's undocumented")
 
 sys.path.insert(0, str(ROOT / "scripts"))
+import changed_specs
 import clean_code
 
 problems.extend(clean_code.problems())
+for spec in changed_specs.unmapped_specs():
+    problems.append(f"e2e/tests/{spec}: add it to an area in scripts/changed_specs.py, or `check-summary.sh --changed` never runs it")
 
 if problems:
     print("Convention check failed:")
     print("\n".join(f"  {problem}" for problem in problems))
     sys.exit(1)
-print("Conventions OK (paths, limits, components, event kinds, job kinds, API registry, clean code)")
+print("Conventions OK (paths, limits, components, event kinds, job kinds, API registry, clean code, spec areas)")

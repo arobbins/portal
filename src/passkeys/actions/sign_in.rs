@@ -6,6 +6,7 @@ use webauthn_rs::prelude::{Passkey, PublicKeyCredential};
 
 use super::registration::CeremonyProblem;
 use crate::action::{ActionProblem, Outcome, ProblemSpec, TooManyAttempts, fail};
+use crate::auth::actions::AccountDisabled;
 use crate::env::Env;
 use crate::passkeys::queries::{query_get_passkey_by_credential, query_record_passkey_use};
 use crate::passkeys::session::PasskeySession;
@@ -25,6 +26,7 @@ pub struct StartSignIn {
 pub enum PasskeySignInProblem {
     Ceremony(CeremonyProblem),
     UnknownPasskey,
+    Disabled,
     TooManyAttempts,
 }
 
@@ -37,6 +39,7 @@ impl ActionProblem for PasskeySignInProblem {
                 "That passkey isn't registered with this site anymore. Sign in another way.",
             )
             .with_status(StatusCode::BAD_REQUEST),
+            Self::Disabled => AccountDisabled.spec(),
             Self::TooManyAttempts => TooManyAttempts.spec(),
         }
     }
@@ -91,6 +94,9 @@ pub async fn finish_passkey_sign_in(
     else {
         return fail(PasskeySignInProblem::Ceremony(CeremonyProblem::NotVerified));
     };
+    if matches!(user.status(), AccountStatus::Disabled { .. }) {
+        return fail(PasskeySignInProblem::Disabled);
+    }
     passkey.update_credential(&result);
     query_record_passkey_use(stored.id, &passkey, result.backup_state(), env.db()).await?;
 
@@ -104,7 +110,12 @@ async fn registered_passkey(
 ) -> Result<Option<(User, crate::passkeys::queries::Passkey)>, sqlx::Error> {
     let user = query_get_user_by_webauthn_id(webauthn_id, env.db())
         .await?
-        .filter(|user| matches!(user.status(), AccountStatus::Active { .. }));
+        .filter(|user| {
+            matches!(
+                user.status(),
+                AccountStatus::Active { .. } | AccountStatus::Disabled { .. }
+            )
+        });
     let Some(user) = user else {
         return Ok(None);
     };

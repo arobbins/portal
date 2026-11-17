@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE admin_log SET created_at = created_at - interval '5 years'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "957eb0b427ec369fcd4c297185bad01c932b91fdc038b6f2c7c5e95153f12957"
+}

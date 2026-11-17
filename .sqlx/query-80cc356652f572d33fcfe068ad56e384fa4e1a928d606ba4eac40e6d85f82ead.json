@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n                (SELECT count(*) FROM user_devices d JOIN users u ON u.id = d.user_id WHERE d.user_id = $1 AND d.session_version = u.session_version) AS \"devices!\",\n                (SELECT count(*) FROM account_events WHERE user_id = $1 AND kind = 'signed_in') AS \"sign_ins!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "devices!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "sign_ins!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "80cc356652f572d33fcfe068ad56e384fa4e1a928d606ba4eac40e6d85f82ead"
+}

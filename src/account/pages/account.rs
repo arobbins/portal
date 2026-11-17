@@ -18,7 +18,7 @@ use crate::auth::session::require_user;
 use crate::components::theme_switcher::theme_switcher;
 use crate::passkeys::webauthn::accepted_credentials;
 use crate::profile::pages::profile_tab::profile_tab;
-use crate::user::model::User;
+use crate::user::model::{Role, User};
 use crate::web::app;
 
 path_param!(pub tab);
@@ -64,7 +64,10 @@ async fn account_layout(cx: &Cx, user: &User, tab: AccountTab) -> Result<impl Vi
                         class="l-flex l-flex-space-between l-flex-align-items-center p-account__header"
                     >
                         <div class="l-flex l-flex-1 l-flex-align-items-center">
-                            profile_menu(display_name: &display_name)
+                            profile_menu(
+                                display_name: &display_name,
+                                is_admin: user.role == Role::Admin
+                            )
                         </div>
                     </div>
                     account_nav(active: tab)
@@ -80,7 +83,7 @@ async fn account_layout(cx: &Cx, user: &User, tab: AccountTab) -> Result<impl Vi
                         AccountTab::Security => security_tab(),
                         AccountTab::Developer => developer_tab(),
                         AccountTab::Billing | AccountTab::Settings => placeholder_tab(
-                            heading: tab.heading()
+                            tab: tab
                         ),
                     }
                 </section>

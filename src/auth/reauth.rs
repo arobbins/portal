@@ -12,7 +12,7 @@ use crate::auth::password::{
 use crate::env::Env;
 use crate::user::model::User;
 
-const PASSKEY_REAUTH: &str = "passkey_reauth";
+pub const PASSKEY_REAUTH: &str = "passkey_reauth";
 const PASSKEY_REAUTH_WINDOW: Duration = Duration::from_secs(5 * 60);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

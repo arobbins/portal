@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT u.created_at,\n            (SELECT count(*) FROM user_passkeys p WHERE p.user_id = u.id) AS \"passkeys!\",\n            (SELECT count(*) FROM user_devices d WHERE d.user_id = u.id AND d.session_version = u.session_version) AS \"devices!\",\n            (SELECT count(*) FROM api_tokens t WHERE t.user_id = u.id AND t.expires_at > now()) AS \"api_tokens!\"\n        FROM users u WHERE u.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 1,
+        "name": "passkeys!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "devices!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "api_tokens!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "40333f997092d6e361de6519e91a8e4500c3a4baec636e728f713da55fb32a64"
+}

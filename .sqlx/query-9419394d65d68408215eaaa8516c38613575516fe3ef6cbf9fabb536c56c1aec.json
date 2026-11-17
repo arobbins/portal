@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM user_devices d USING users u WHERE u.id = d.user_id AND (d.last_seen_at < $1 OR d.session_version <> u.session_version)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9419394d65d68408215eaaa8516c38613575516fe3ef6cbf9fabb536c56c1aec"
+}

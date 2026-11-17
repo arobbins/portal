@@ -23,6 +23,7 @@ pub async fn toaster(
 
     Ok(view! {
         <div
+            role="status"
             :class=$(if toast.get() == name {
                 "a-toaster a-toaster--is-open"
             } else {

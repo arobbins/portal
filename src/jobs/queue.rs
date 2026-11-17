@@ -51,7 +51,7 @@ pub(super) async fn query_claim_job(
         SET attempts = attempts + 1, locked_until = now() + make_interval(secs => $1)
         WHERE id = (
             SELECT id FROM jobs
-            WHERE status = 'queued' AND run_at <= now()
+            WHERE status = 'queued' AND run_at <= now() AND attempts < max_attempts
               AND (locked_until IS NULL OR locked_until < now())
             ORDER BY run_at
             FOR UPDATE SKIP LOCKED
@@ -62,6 +62,20 @@ pub(super) async fn query_claim_job(
     )
     .fetch_optional(db)
     .await
+}
+
+pub(super) async fn query_fail_abandoned_jobs(
+    error: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<u64, sqlx::Error> {
+    let result = sqlx::query!(
+        "UPDATE jobs SET status = 'failed', locked_until = NULL, last_error = $1 WHERE status = 'queued' AND attempts >= max_attempts AND (locked_until IS NULL OR locked_until < now())",
+        error,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(result.rows_affected())
 }
 
 pub(super) async fn query_delete_job(id: i64, db: impl PgExecutor<'_>) -> Result<(), sqlx::Error> {

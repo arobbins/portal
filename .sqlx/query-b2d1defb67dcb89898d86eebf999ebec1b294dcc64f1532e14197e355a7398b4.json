@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT kind, detail, ip, channel, created_at FROM account_events WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "detail",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 2,
+        "name": "ip",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "channel",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "b2d1defb67dcb89898d86eebf999ebec1b294dcc64f1532e14197e355a7398b4"
+}

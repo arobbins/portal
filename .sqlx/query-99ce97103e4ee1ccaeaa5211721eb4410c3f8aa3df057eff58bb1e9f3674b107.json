@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE user_tokens SET expires_at = now() - interval '1 second' WHERE user_id = $1 AND purpose = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "99ce97103e4ee1ccaeaa5211721eb4410c3f8aa3df057eff58bb1e9f3674b107"
+}

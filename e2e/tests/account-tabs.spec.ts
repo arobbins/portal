@@ -10,11 +10,18 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("unfinished sections say so instead of showing the profile", async ({ page }) => {
-  for (const heading of ["Billing", "Settings"]) {
+  const tabs = { Billing: ["subscriptions", "invoices", "payment-methods"], Settings: ["notifications"] };
+  for (const [heading, sections] of Object.entries(tabs)) {
     await page.goto(`/account/${heading.toLowerCase()}`);
 
     await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
-    await expect(page.getByText("This section isn't available yet.")).toBeVisible();
+    await expect(page.getByRole("link", { name: heading, exact: true })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    for (const anchor of sections) {
+      await expect(page.locator(`#${anchor}`)).toContainText("Coming soon.");
+    }
     await expect(page.getByText(`Name: ${verifiedUser.name}`)).toHaveCount(0);
   }
 });

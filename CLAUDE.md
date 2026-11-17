@@ -56,13 +56,15 @@ components (`components.md`) before new markup.
 ## Commands
 
 - Run: `topcoat dev` (:3000). E2E: `cd e2e && npm test` (:3100, own DB).
-- Tests through rtk: `rtk proxy cargo test …` and `rtk proxy npx playwright
-  …`; the rtk filter can swallow the result line.
+- Playwright through rtk: `rtk proxy npx playwright …` (the filter can
+  swallow the result line; `cargo test` is excluded from rtk already).
 - Dev database (read-only, secret columns hidden): `scripts/sql.sh "SELECT …"`.
   Writes go through the app or a migration, never this.
 - Checks: `scripts/check-summary.sh --changed` (Chromium, only the specs for
   changed areas) while iterating; no flag before calling work done. Failed
   Playwright tests are rerun once and reported as flaky or environment.
+- State machine report: `./check.sh` writes `target/state-machines/index.html`
+  (how to model one: `.claude/state-machines.md`).
 - Format: `topcoat fmt --rustfmt $(find src -name "*.rs")`, never `leptosfmt`.
 - Migrations: always a new file; e2e DB first, then `sqlx migrate run`.
 

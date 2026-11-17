@@ -48,6 +48,7 @@ pub async fn notice(
             })
         >
             (child)
+            <button type="button" class="a-notice__close">"Close"</button>
         </div>
     }
     .boxed())

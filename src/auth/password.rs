@@ -101,7 +101,7 @@ pub async fn check_current_password(
 
     let hash = match user.status() {
         AccountStatus::Active { password_hash } => Some(password_hash),
-        AccountStatus::AwaitingPassword => None,
+        AccountStatus::AwaitingPassword | AccountStatus::Disabled { .. } => None,
     };
     if !password_matches(hash, password) {
         limits.record_failed_login(&user.email, ip).await?;

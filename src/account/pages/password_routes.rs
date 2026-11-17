@@ -12,9 +12,9 @@ use topcoat::{
 use crate::account::tabs::AccountTab;
 use crate::action::{FieldError, browser_caller, require_browser_caller};
 use crate::auth::actions::{ChangePassword, ChangePasswordProblem, change_password};
-use crate::auth::session::sign_in;
+use crate::auth::session::stay_signed_in;
 use crate::flash::{Flash, set_flash};
-use crate::web::{env, redisplay, session};
+use crate::web::{app, env, redisplay, session};
 
 pub(super) struct ChangePasswordFailed {
     pub problem: ChangePasswordProblem,
@@ -38,7 +38,7 @@ pub(super) async fn save_new_password(
 
     match change_password(&env(cx), &caller, &input).await? {
         Ok(user) => {
-            sign_in(&session(cx)?, &user).await?;
+            stay_signed_in(app(cx), &session(cx)?, &user).await?;
             Ok(Ok(String::new()))
         }
         Err(error) => Ok(Err(FieldError::of(error.for_browser()?))),
@@ -55,7 +55,7 @@ pub async fn change_password_submit(
     match change_password(&env(cx), &caller, &input).await? {
         Ok(user) => {
             let session = session(cx)?;
-            sign_in(&session, &user).await?;
+            stay_signed_in(app(cx), &session, &user).await?;
             set_flash(&session, Flash::PasswordChanged).await?;
             Ok(see_other(AccountTab::Security.path()))
         }

@@ -11,8 +11,10 @@
 
 .a-toaster .a-notice {
   opacity: 0;
+  visibility: hidden;
   translate: 0 -1em;
   transition: opacity var(--duration-normal),
+    visibility var(--duration-normal) allow-discrete,
     translate var(--duration-normal),
     overlay var(--duration-normal) allow-discrete,
     display var(--duration-normal) allow-discrete;
@@ -25,6 +27,7 @@
 
 .a-toaster--is-open .a-notice {
   opacity: 1;
+  visibility: visible;
   translate: 0 0;
 }
 

@@ -34,7 +34,7 @@ pub async fn query_get_valid_user_token(
     db: impl PgExecutor<'_>,
 ) -> Result<Option<i32>, sqlx::Error> {
     sqlx::query_scalar!(
-        "SELECT user_id FROM user_tokens WHERE purpose = $1 AND token_hash = $2 AND expires_at > now()",
+        "SELECT user_id FROM user_tokens WHERE purpose = $1 AND token_hash = $2 AND expires_at > now() AND user_id IN (SELECT id FROM users WHERE disabled_at IS NULL)",
         purpose.as_str(),
         token_hash,
     )
@@ -54,7 +54,7 @@ pub async fn query_get_valid_user_token_payload(
 ) -> Result<Option<LinkPayload>, sqlx::Error> {
     sqlx::query_as!(
         LinkPayload,
-        r#"SELECT user_id, payload AS "payload!" FROM user_tokens WHERE purpose = $1 AND token_hash = $2 AND expires_at > now() AND payload IS NOT NULL"#,
+        r#"SELECT user_id, payload AS "payload!" FROM user_tokens WHERE purpose = $1 AND token_hash = $2 AND expires_at > now() AND payload IS NOT NULL AND user_id IN (SELECT id FROM users WHERE disabled_at IS NULL)"#,
         purpose.as_str(),
         token_hash,
     )
@@ -69,7 +69,7 @@ pub async fn query_consume_user_token_payload(
 ) -> Result<Option<LinkPayload>, sqlx::Error> {
     sqlx::query_as!(
         LinkPayload,
-        r#"DELETE FROM user_tokens WHERE purpose = $1 AND token_hash = $2 AND expires_at > now() AND payload IS NOT NULL RETURNING user_id, payload AS "payload!""#,
+        r#"DELETE FROM user_tokens WHERE purpose = $1 AND token_hash = $2 AND expires_at > now() AND payload IS NOT NULL AND user_id IN (SELECT id FROM users WHERE disabled_at IS NULL) RETURNING user_id, payload AS "payload!""#,
         purpose.as_str(),
         token_hash,
     )
@@ -83,7 +83,7 @@ pub async fn query_consume_user_token(
     db: impl PgExecutor<'_>,
 ) -> Result<Option<i32>, sqlx::Error> {
     sqlx::query_scalar!(
-        "DELETE FROM user_tokens WHERE purpose = $1 AND token_hash = $2 AND expires_at > now() RETURNING user_id",
+        "DELETE FROM user_tokens WHERE purpose = $1 AND token_hash = $2 AND expires_at > now() AND user_id IN (SELECT id FROM users WHERE disabled_at IS NULL) RETURNING user_id",
         purpose.as_str(),
         token_hash,
     )

@@ -22,6 +22,7 @@ if [[ $status -ne 0 && "$step" == Behavior* ]]; then
     echo "All checks passed after one rerun. First-run failures ($cause):"
     printf '%s\n' "${first_failures:-  (none listed: the run failed before tests started)}"
     echo "Full log: $log"
+    grep '^State machine report:' "$log" | tail -1
     exit 0
   fi
   grep -Eq "$environment" "$log" && echo "ENVIRONMENT FAILURE (not the code): the browser or test server didn't start. Rerun when the machine is less busy."
@@ -30,10 +31,12 @@ fi
 if [[ $status -eq 0 ]]; then
   tests=$(grep -Eo '[0-9]+ passed' "$log" | tr '\n' ' ')
   echo "All checks passed (${tests% }). Full log: $log"
+  grep '^State machine report:' "$log" | tail -1
   exit 0
 fi
 
 echo "FAILED at: $step (full log: $log)"
+grep '^State machine report:' "$log" | tail -1
 echo
 
 if [[ "$step" == Behavior* ]]; then

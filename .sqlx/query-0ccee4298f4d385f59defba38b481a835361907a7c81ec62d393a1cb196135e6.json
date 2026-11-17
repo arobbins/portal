@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM user_devices WHERE user_id = $1 AND public_id <> $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0ccee4298f4d385f59defba38b481a835361907a7c81ec62d393a1cb196135e6"
+}

@@ -4,6 +4,7 @@ use tower_sessions_sqlx_store::PostgresStore;
 
 use crate::api_tokens::lifecycle::delete_long_expired;
 use crate::auth::links::delete_stale_sign_ups;
+use crate::devices::lifecycle::delete_stale_devices;
 use crate::env::App;
 use crate::jobs::{Job, JobError, delete_old_failed_jobs};
 use crate::user::events::delete_old_events;
@@ -26,13 +27,14 @@ async fn run(app: &App) -> Result<(), JobError> {
     let hits = app.limits.forget_old_hits(app.clock.now()).await?;
     let events = delete_old_events(app).await?;
     let jobs = delete_old_failed_jobs(app).await?;
+    let devices = delete_stale_devices(app).await?;
     PostgresStore::new(app.db.clone())
         .delete_expired()
         .await
         .map_err(JobError::new)?;
 
     tracing::info!(
-        "cleanup removed {links} expired links, {sign_ups} abandoned sign-ups, {api_tokens} expired API tokens, {hits} rate-limit hits, {events} old account events and {jobs} failed jobs"
+        "cleanup removed {links} expired links, {sign_ups} abandoned sign-ups, {api_tokens} expired API tokens, {hits} rate-limit hits, {events} old account events, {jobs} failed jobs and {devices} signed-out devices"
     );
     Ok(())
 }

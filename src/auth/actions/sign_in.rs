@@ -1,5 +1,6 @@
 use schemars::JsonSchema;
 use serde::Deserialize;
+use topcoat::router::StatusCode;
 
 use crate::action::{ActionProblem, Outcome, ProblemSpec, TooManyAttempts, fail};
 use crate::auth::password::password_matches;
@@ -21,7 +22,21 @@ pub struct SignIn {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SignInProblem {
     InvalidCredentials,
+    Disabled,
     TooManyAttempts,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AccountDisabled;
+
+impl ActionProblem for AccountDisabled {
+    fn spec(self) -> ProblemSpec {
+        ProblemSpec::new(
+            "account_disabled",
+            "This account has been disabled. Contact support if you think this is a mistake.",
+        )
+        .with_status(StatusCode::FORBIDDEN)
+    }
 }
 
 impl ActionProblem for SignInProblem {
@@ -30,6 +45,7 @@ impl ActionProblem for SignInProblem {
             Self::InvalidCredentials => {
                 ProblemSpec::new("invalid_credentials", "Invalid email or password.")
             }
+            Self::Disabled => AccountDisabled.spec(),
             Self::TooManyAttempts => TooManyAttempts.spec(),
         }
     }
@@ -49,6 +65,9 @@ pub async fn sign_in_with_password(env: &Env<'_>, input: &SignIn) -> Outcome<Use
     match verified_user(env, &email, &input.password).await? {
         Some(user) => {
             env.limits().clear_failed_logins(&email, env.ip).await?;
+            if matches!(user.status(), AccountStatus::Disabled { .. }) {
+                return fail(SignInProblem::Disabled);
+            }
             Ok(Ok(user))
         }
         None => {
@@ -66,6 +85,7 @@ async fn verified_user(
     let user = query_get_user_by_email(email, env.db()).await?;
     let hash = user.as_ref().and_then(|user| match user.status() {
         AccountStatus::Active { password_hash } => Some(password_hash),
+        AccountStatus::Disabled { password_hash } => password_hash,
         AccountStatus::AwaitingPassword => None,
     });
     let matches = password_matches(hash, password);

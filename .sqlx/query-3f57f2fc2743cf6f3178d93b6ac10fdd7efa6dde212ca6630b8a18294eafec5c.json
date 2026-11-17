@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT count(*) AS \"count!\" FROM account_events WHERE user_id = $1 AND kind IN ('passkey_prompt_snoozed', 'passkey_prompt_declined')",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "3f57f2fc2743cf6f3178d93b6ac10fdd7efa6dde212ca6630b8a18294eafec5c"
+}

@@ -4,7 +4,7 @@ use serde_json::Value;
 use sqlx::PgExecutor;
 use topcoat::Result;
 
-use crate::action::{Caller, Channel};
+pub use super::event_source::{EventChannel, EventSource};
 use crate::env::Env;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12,9 +12,11 @@ pub enum AccountEventKind {
     AccountCreated,
     ApiTokenCreated,
     ApiTokenRevoked,
+    DeviceSignedOut,
     EmailChangeRequested,
     EmailChanged,
     EmailVerified,
+    OtherDevicesSignedOut,
     PasskeyAdded,
     PasskeyPromptDeclined,
     PasskeyPromptSnoozed,
@@ -23,17 +25,25 @@ pub enum AccountEventKind {
     PasswordChanged,
     PasswordReset,
     ProfileUpdated,
+    SignedIn,
+    AccountDisabled,
+    AccountEnabled,
+    AdminGranted,
+    AdminRevoked,
+    SignedOutEverywhere,
+    VerificationResent,
 }
 
 impl AccountEventKind {
-    #[cfg(test)]
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 23] = [
         Self::AccountCreated,
         Self::ApiTokenCreated,
         Self::ApiTokenRevoked,
+        Self::DeviceSignedOut,
         Self::EmailChangeRequested,
         Self::EmailChanged,
         Self::EmailVerified,
+        Self::OtherDevicesSignedOut,
         Self::PasskeyAdded,
         Self::PasskeyPromptDeclined,
         Self::PasskeyPromptSnoozed,
@@ -42,6 +52,13 @@ impl AccountEventKind {
         Self::PasswordChanged,
         Self::PasswordReset,
         Self::ProfileUpdated,
+        Self::SignedIn,
+        Self::AccountDisabled,
+        Self::AccountEnabled,
+        Self::AdminGranted,
+        Self::AdminRevoked,
+        Self::SignedOutEverywhere,
+        Self::VerificationResent,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -49,9 +66,11 @@ impl AccountEventKind {
             Self::AccountCreated => "account_created",
             Self::ApiTokenCreated => "api_token_created",
             Self::ApiTokenRevoked => "api_token_revoked",
+            Self::DeviceSignedOut => "device_signed_out",
             Self::EmailChangeRequested => "email_change_requested",
             Self::EmailChanged => "email_changed",
             Self::EmailVerified => "email_verified",
+            Self::OtherDevicesSignedOut => "other_devices_signed_out",
             Self::PasskeyAdded => "passkey_added",
             Self::PasskeyPromptDeclined => "passkey_prompt_declined",
             Self::PasskeyPromptSnoozed => "passkey_prompt_snoozed",
@@ -60,27 +79,13 @@ impl AccountEventKind {
             Self::PasswordChanged => "password_changed",
             Self::PasswordReset => "password_reset",
             Self::ProfileUpdated => "profile_updated",
-        }
-    }
-}
-
-pub struct EventSource {
-    pub user_id: i32,
-    pub channel: Channel,
-}
-
-impl EventSource {
-    pub fn of(caller: &Caller) -> Self {
-        Self {
-            user_id: caller.user.id,
-            channel: caller.via.clone(),
-        }
-    }
-
-    pub fn browser(user_id: i32) -> Self {
-        Self {
-            user_id,
-            channel: Channel::Browser,
+            Self::SignedIn => "signed_in",
+            Self::AccountDisabled => "account_disabled",
+            Self::AccountEnabled => "account_enabled",
+            Self::AdminGranted => "admin_granted",
+            Self::AdminRevoked => "admin_revoked",
+            Self::SignedOutEverywhere => "signed_out_everywhere",
+            Self::VerificationResent => "verification_resent",
         }
     }
 }
@@ -168,13 +173,7 @@ mod tests {
         .await
         .unwrap()
         .unwrap();
-        let channels = [
-            Channel::Browser,
-            Channel::ApiToken {
-                id: 42,
-                scopes: vec![],
-            },
-        ];
+        let channels = [EventChannel::Browser, EventChannel::ApiToken(42)];
         for channel in channels {
             query_insert_account_event(
                 &NewAccountEvent {

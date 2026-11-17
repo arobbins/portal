@@ -1,5 +1,7 @@
 mod account;
 mod action;
+mod activity;
+mod admin;
 mod api;
 mod api_tokens;
 mod app;
@@ -7,6 +9,7 @@ mod auth;
 mod cleanup;
 mod components;
 mod config;
+mod devices;
 mod env;
 mod flash;
 mod health;
@@ -24,6 +27,8 @@ mod secret;
 mod seed;
 mod server;
 mod sql_console;
+#[cfg(test)]
+mod state_machines;
 mod syntax;
 mod theme;
 mod user;
@@ -37,6 +42,7 @@ enum Command {
     Work,
     Seed,
     Sql,
+    Admin,
 }
 
 impl Command {
@@ -45,6 +51,7 @@ impl Command {
             Some("work") => Self::Work,
             Some("seed") => Self::Seed,
             Some("sql") => Self::Sql,
+            Some("admin") => Self::Admin,
             _ => Self::Serve,
         }
     }
@@ -59,6 +66,10 @@ async fn main() {
         Command::Serve => server::serve().await,
         Command::Work => server::work().await,
         Command::Seed => seed::run(&server::database_url()).await,
+        Command::Admin => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            admin::console::run(&server::database_url(), &args).await
+        }
         Command::Sql => sql_console::run(&server::database_url(), std::env::args().nth(2)).await,
     }
 }

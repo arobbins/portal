@@ -52,6 +52,8 @@ impl AccountTab {
             Self::Security => &[
                 AccountSection::Password,
                 AccountSection::Passkeys,
+                AccountSection::Devices,
+                AccountSection::Activity,
                 AccountSection::TwoFactor,
                 AccountSection::SingleSignOn,
             ],
@@ -72,6 +74,8 @@ pub enum AccountSection {
     Passkeys,
     TwoFactor,
     SingleSignOn,
+    Devices,
+    Activity,
     Subscriptions,
     Invoices,
     PaymentMethods,
@@ -82,11 +86,13 @@ pub enum AccountSection {
 
 impl AccountSection {
     #[cfg(test)]
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 12] = [
         Self::Password,
         Self::Passkeys,
         Self::TwoFactor,
         Self::SingleSignOn,
+        Self::Devices,
+        Self::Activity,
         Self::Subscriptions,
         Self::Invoices,
         Self::PaymentMethods,
@@ -108,6 +114,8 @@ impl AccountSection {
             Self::Passkeys => "passkeys",
             Self::TwoFactor => "two-factor",
             Self::SingleSignOn => "single-sign-on",
+            Self::Devices => "devices",
+            Self::Activity => "activity",
             Self::Subscriptions => "subscriptions",
             Self::Invoices => "invoices",
             Self::PaymentMethods => "payment-methods",
@@ -123,6 +131,8 @@ impl AccountSection {
             Self::Passkeys => "Passkeys",
             Self::TwoFactor => "Two-factor authentication",
             Self::SingleSignOn => "Single sign-on",
+            Self::Devices => "Devices",
+            Self::Activity => "Recent activity",
             Self::Subscriptions => "Subscriptions",
             Self::Invoices => "Invoices",
             Self::PaymentMethods => "Payment methods",

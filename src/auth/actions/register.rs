@@ -97,6 +97,7 @@ async fn remind_existing_user(env: &Env<'_>, user: &User) -> Result<(), sqlx::Er
         AccountStatus::AwaitingPassword => {
             send_verification_link(env.app, user.id, &user.email).await
         }
+        AccountStatus::Disabled { .. } => Ok(()),
     }
 }
 

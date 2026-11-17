@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (SELECT name FROM users WHERE id = $1) AS name,\n                (SELECT count(*) FROM account_events WHERE user_id = $1 AND kind = 'profile_updated') AS \"count!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "678b1d8fbb970e675580fc7ff6d2ee1ac98e059642a7701e82ab3e7e4db63293"
+}

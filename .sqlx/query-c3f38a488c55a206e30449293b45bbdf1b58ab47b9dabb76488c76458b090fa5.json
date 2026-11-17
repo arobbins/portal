@@ -1,0 +1,83 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users SET password = $1, session_version = session_version + 1, updated_at = now() WHERE id = $2 AND verified_at IS NOT NULL RETURNING id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "email",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "password",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "role: Role",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "verified_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "session_version",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "webauthn_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 8,
+        "name": "public_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "disabled_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "admin_granted_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "c3f38a488c55a206e30449293b45bbdf1b58ab47b9dabb76488c76458b090fa5"
+}

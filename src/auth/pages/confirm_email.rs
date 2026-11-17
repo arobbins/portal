@@ -16,12 +16,12 @@ use crate::app::page_title;
 use crate::auth::actions::{ConfirmEmailProblem, confirm_email_change, pending_email_change};
 use crate::auth::links::TokenPurpose;
 use crate::auth::pages::expired_link::expired_link;
-use crate::auth::session::{current_user, sign_in};
+use crate::auth::session::{current_user, stay_signed_in};
 use crate::components::button::{ButtonType, button};
 use crate::components::form::{FormVariant, form, form_actions, form_error};
 use crate::flash::{Flash, set_flash};
 use crate::layout::page_heading::page_heading;
-use crate::web::{env, redisplay, session};
+use crate::web::{app, env, redisplay, session};
 
 path_param!(token);
 
@@ -101,7 +101,7 @@ pub async fn confirm_email_submit(cx: &Cx) -> Result<SeeOther> {
         Ok(user) => {
             let session = session(cx)?;
             if current_user(cx).is_some_and(|signed_in| signed_in.id == user.id) {
-                sign_in(&session, &user).await?;
+                stay_signed_in(app(cx), &session, &user).await?;
             }
             set_flash(&session, Flash::EmailChanged).await?;
             Ok(see_other(AccountTab::Profile.path()))

@@ -1,4 +1,4 @@
-mod router;
+pub mod router;
 #[cfg(test)]
 mod tests;
 
@@ -13,13 +13,14 @@ use tokio::net::TcpListener;
 use topcoat::asset::AssetBundle;
 use tower::Layer;
 use tower_http::normalize_path::NormalizePathLayer;
-use tower_sessions::cookie::{SameSite, time::Duration};
+use tower_sessions::cookie::SameSite;
 use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::PostgresStore;
 
 use crate::auth::actions::{EmailChangeJob, PasswordResetJob};
 use crate::cleanup::CleanupJob;
 use crate::config::Config;
+use crate::devices::lifecycle::DEVICE_IDLE_LIMIT;
 use crate::env::{App, Clock};
 use crate::jobs::{Handler, Worker};
 use crate::mail::SendEmail;
@@ -114,7 +115,7 @@ fn session_layer(config: &Config, sessions: PostgresStore) -> SessionManagerLaye
         .with_secure(config.secure_cookies())
         .with_http_only(true)
         .with_same_site(SameSite::Lax)
-        .with_expiry(Expiry::OnInactivity(Duration::days(1)))
+        .with_expiry(Expiry::OnInactivity(DEVICE_IDLE_LIMIT))
 }
 
 async fn listener(bind_address: &str) -> TcpListener {

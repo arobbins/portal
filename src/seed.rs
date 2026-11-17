@@ -8,6 +8,7 @@ struct SeedUser {
     name: &'static str,
     email: &'static str,
     password: Option<&'static str>,
+    admin: bool,
 }
 
 const SEED_PASSWORD: &str = "correct-horse-battery-staple";
@@ -17,11 +18,19 @@ const SEED_USERS: &[SeedUser] = &[
         name: "Verified Tester",
         email: "verified@example.test",
         password: Some(SEED_PASSWORD),
+        admin: false,
     },
     SeedUser {
         name: "Awaiting Password Tester",
         email: "awaiting-password@example.test",
         password: None,
+        admin: false,
+    },
+    SeedUser {
+        name: "Admin Tester",
+        email: "admin@example.test",
+        password: Some(SEED_PASSWORD),
+        admin: true,
     },
 ];
 
@@ -55,6 +64,9 @@ pub async fn run(database_url: &str) {
                 .unwrap();
             never_prompt_for_passkeys(user_id, &db).await.unwrap();
         }
+        if user.admin {
+            query_make_admin(user_id, &db).await.unwrap();
+        }
     }
 
     tracing::info!("seeded {} users into `{database_name}`", SEED_USERS.len());
@@ -63,6 +75,17 @@ pub async fn run(database_url: &str) {
 fn database_name(database_url: &str) -> &str {
     let path = database_url.rsplit('/').next().unwrap_or_default();
     path.split('?').next().unwrap_or_default()
+}
+
+async fn query_make_admin(user_id: i32, db: &PgPool) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "UPDATE users SET role = 'admin', admin_granted_at = now() WHERE id = $1",
+        user_id
+    )
+    .execute(db)
+    .await?;
+
+    Ok(())
 }
 
 async fn query_reset_users(db: &PgPool) -> Result<(), sqlx::Error> {

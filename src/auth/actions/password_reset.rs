@@ -80,6 +80,7 @@ impl Job for PasswordResetJob {
             AccountStatus::AwaitingPassword => {
                 Ok(send_verification_link(app, user.id, &user.email).await?)
             }
+            AccountStatus::Disabled { .. } => Ok(()),
         }
     }
 }

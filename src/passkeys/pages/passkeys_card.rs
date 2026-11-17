@@ -10,6 +10,7 @@ use super::passkey_routes::{remove_passkey_submit, rename_passkey_submit};
 use super::passkey_view::PasskeyRow;
 use crate::account::tabs::AccountSection;
 use crate::action::{ID_FIELD, require_browser_caller};
+use crate::auth::pages::reauth_field::reauth_field;
 use crate::auth::password::CURRENT_PASSWORD_FIELD;
 use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
 use crate::components::card::{card, card_body, card_header};
@@ -148,6 +149,7 @@ async fn passkey_dialogs(cx: &Cx, row: &PasskeyRow, only_one: bool) -> Result<im
     let rename_modal = format!("{RENAME_MODAL}-{}", row.id);
     let remove_modal = format!("{REMOVE_MODAL}-{}", row.id);
     let name_field = format!("passkey-name-{}", row.id);
+    let password_field = format!("remove-passkey-password-{}", row.id);
 
     let is_renaming = signal(cx, || false);
     let is_removing = signal(cx, || false);
@@ -194,6 +196,7 @@ async fn passkey_dialogs(cx: &Cx, row: &PasskeyRow, only_one: bool) -> Result<im
                         "This is your only passkey. You'll still be able to sign in with your password."
                     </p>
                 }
+                reauth_field(id: &password_field, suggest_passkey: false)
                 form_actions(
                     button(
                         button_type: ButtonType::Submit,

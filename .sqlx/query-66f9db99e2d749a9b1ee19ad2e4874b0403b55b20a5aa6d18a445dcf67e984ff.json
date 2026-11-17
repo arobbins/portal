@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE user_devices SET session_version = $1 WHERE public_id = $2 AND user_id = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "66f9db99e2d749a9b1ee19ad2e4874b0403b55b20a5aa6d18a445dcf67e984ff"
+}

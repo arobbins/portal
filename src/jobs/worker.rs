@@ -2,8 +2,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use super::queue::{
-    ClaimedJob, query_claim_job, query_delete_job, query_fail_job, query_retry_job,
-    query_schedule_if_missing,
+    ClaimedJob, query_claim_job, query_delete_job, query_fail_abandoned_jobs, query_fail_job,
+    query_retry_job, query_schedule_if_missing,
 };
 use super::{Handler, JobError};
 use crate::env::App;
@@ -12,6 +12,7 @@ const IDLE_POLL: Duration = Duration::from_millis(500);
 const ERROR_PAUSE: Duration = Duration::from_secs(5);
 const LOCK_FOR_SECONDS: f64 = 300.0;
 const MAX_BACKOFF_SECONDS: i64 = 60 * 60;
+const ABANDONED: &str = "A worker stopped during the job's last attempt.";
 
 #[derive(Clone)]
 pub struct Worker {
@@ -58,9 +59,20 @@ impl Worker {
         Ok(())
     }
 
+    #[cfg(test)]
+    pub async fn claim_and_stop(&self) -> Result<bool, sqlx::Error> {
+        Ok(query_claim_job(LOCK_FOR_SECONDS, &self.app.db)
+            .await?
+            .is_some())
+    }
+
     pub async fn run_next(&self) -> Result<bool, sqlx::Error> {
+        let abandoned = query_fail_abandoned_jobs(ABANDONED, &self.app.db).await?;
+        if abandoned > 0 {
+            tracing::error!(count = abandoned, "{ABANDONED}");
+        }
         let Some(claimed) = query_claim_job(LOCK_FOR_SECONDS, &self.app.db).await? else {
-            return Ok(false);
+            return Ok(abandoned > 0);
         };
         let outcome = self.perform(&claimed).await;
         self.settle(&claimed, outcome).await?;

@@ -8,20 +8,26 @@ pub enum Permission {
     ManageEmail,
     ConfirmIdentity,
     ManagePasskeys,
+    ManageDevices,
+    ViewActivity,
     ManageApiTokens,
     DeleteAccount,
+    AdministerUsers,
 }
 
 impl Permission {
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 11] = [
         Self::ViewProfile,
         Self::EditProfile,
         Self::ManagePassword,
         Self::ManageEmail,
         Self::ConfirmIdentity,
         Self::ManagePasskeys,
+        Self::ManageDevices,
+        Self::ViewActivity,
         Self::ManageApiTokens,
         Self::DeleteAccount,
+        Self::AdministerUsers,
     ];
 
     pub fn api_scope(self) -> Option<ApiScope> {
@@ -32,9 +38,16 @@ impl Permission {
             | Self::ManageEmail
             | Self::ConfirmIdentity
             | Self::ManagePasskeys
+            | Self::ManageDevices
+            | Self::ViewActivity
             | Self::ManageApiTokens
-            | Self::DeleteAccount => None,
+            | Self::DeleteAccount
+            | Self::AdministerUsers => None,
         }
+    }
+
+    pub fn admins_only(self) -> bool {
+        matches!(self, Self::AdministerUsers)
     }
 }
 
@@ -62,8 +75,11 @@ mod tests {
             Permission::ManageEmail,
             Permission::ConfirmIdentity,
             Permission::ManagePasskeys,
+            Permission::ManageDevices,
+            Permission::ViewActivity,
             Permission::ManageApiTokens,
             Permission::DeleteAccount,
+            Permission::AdministerUsers,
         ] {
             assert_eq!(permission.api_scope(), None);
         }

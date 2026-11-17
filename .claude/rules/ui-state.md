@@ -24,7 +24,9 @@ paths:
   itself when it matches, so only one toast can ever be open. Build the
   signal with `flash_toast(cx, flash)`, or `page_toast(cx, failed.is_some(),
   flash)` on a page with a modal form. Other toast names are per-page
-  `const`s, never literals. Errors inside a `<dialog>` go in the dialog, not
+  `const`s, never literals. Each toaster is a `role="status"` live region and a closed
+  toast's message is `visibility: hidden`, so screen readers announce a toast
+  when it opens and never read closed ones. Errors inside a `<dialog>` go in the dialog, not
   a toast (an open modal covers toasts).
 - **Success messages after a redirect are session flashes** (`src/flash.rs`):
   `set_flash(&session, Flash::ProfileSaved)` before `see_other(...)`; the

@@ -42,10 +42,7 @@ pub async fn after_password_sign_in(cx: &Cx, session: &Session, user: &User) -> 
 #[page("/passkey-setup", with(Metadata::new().title(page_title("Add passkey"))))]
 pub async fn passkey_setup_page(cx: &Cx) -> Result<impl View> {
     let user = require_user(cx)?;
-    let app = app(cx);
-    let prompt_ready = passkey_prompt_granted(&session(cx)?, &user, app.clock.now()).await?
-        && passkey_prompt_due(&env(cx), user.id).await?;
-    if !prompt_ready {
+    if !prompt_showing(cx, &user).await? {
         return Err(redirect(ACCOUNT_PATH).into());
     }
 
@@ -120,8 +117,17 @@ pub async fn decline_passkey_prompt(cx: &Cx) -> Result<SeeOther> {
     answer_prompt(cx, PromptAnswer::Never).await
 }
 
+async fn prompt_showing(cx: &Cx, user: &User) -> Result<bool> {
+    let now = app(cx).clock.now();
+    Ok(passkey_prompt_granted(&session(cx)?, user, now).await?
+        && passkey_prompt_due(&env(cx), user.id).await?)
+}
+
 async fn answer_prompt(cx: &Cx, answer: PromptAnswer) -> Result<SeeOther> {
     let caller = require_browser_caller(cx)?;
+    if !prompt_showing(cx, &caller.user).await? {
+        return Ok(see_other(ACCOUNT_PATH));
+    }
     if let Err(error) = answer_passkey_prompt(&env(cx), &session(cx)?, &caller, answer).await? {
         match error.for_browser()? {}
     }

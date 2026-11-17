@@ -24,8 +24,10 @@ skipped by any path. New features follow the `new-action` skill.
 
 `src/<feature>.rs` + `src/<feature>/`: `actions.rs`, `queries.rs`, `pages/`,
 `emails.rs`. Features today: `auth` (sign-in, sign-up, emailed links, password,
-session), `passkeys`, `profile`, `api_tokens`, `account` (the account shell:
-tabs, sections, nav, security tab). `user/` is only the `User` model, its
+session), `passkeys`, `profile`, `api_tokens`, `devices` (signed-in
+browsers), `activity` (the account event log as a list), `admin` (the admin
+area: users list and detail, `webserver admin` command), `account` (the
+account shell: tabs, sections, nav, security tab). `user/` is only the `User` model, its
 queries, `name.rs` and the event log; `api/` is only HTTP plumbing (auth,
 bodies, problems, scopes, catalog, `v1` routes).
 
@@ -44,8 +46,8 @@ bodies, problems, scopes, catalog, `v1` routes).
   `Permission` is checked twice: the caller's workspace role must grant it
   (`WorkspaceRole::Owner` grants everything today), and a token caller also
   needs the permission's `api_scope()` (with `implies`). Security-sensitive
-  permissions (password, email, passkeys, API tokens, account deletion) have
-  no API scope, so a token is always `Denied::BrowserOnly`. Add a permission
+  permissions (password, email, passkeys, API tokens, account deletion,
+  administering users) have no API scope, so a token is always `Denied::BrowserOnly`. Add a permission
   for every new capability; never check scopes directly. Return problems
   with `return fail(Problem::X)`.
 - Owned rows are scoped by `caller.owner_id()`. **Tenancy plan**: `Caller` has

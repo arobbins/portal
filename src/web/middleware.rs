@@ -78,7 +78,7 @@ pub async fn inject_globals(
     mut req: Request,
     next: Next,
 ) -> Response {
-    let current_user = match load_signed_in_user(&session, &app.db).await {
+    let current_user = match load_signed_in_user(&session, &app).await {
         Ok(user) => user,
         Err(e) => {
             tracing::error!("Failed to load signed-in user: {e}");

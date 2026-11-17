@@ -10,3 +10,9 @@ export const awaitingPasswordUser = {
   name: "Awaiting Password Tester",
   email: "awaiting-password@example.test",
 };
+
+export const adminUser = {
+  name: "Admin Tester",
+  email: "admin@example.test",
+  password: SEED_PASSWORD,
+};
