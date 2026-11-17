@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use sqlx::PgPool;
 
 use super::*;
-use crate::account::tabs::AccountTab;
+use crate::account::tabs::{AccountPage, AccountTab};
 use crate::env::App;
 use crate::flash::{Flash, SESSION_FLASH};
 use crate::state_machines::testing::{Browser, assets, location};
@@ -74,7 +74,8 @@ impl Visitor {
         match event {
             E::ChangePassword => self.change_password().await,
             E::SignOutOthers => self.sign_out_others().await,
-            E::OpenSecurity => shown_page = Some(self.open(&AccountTab::Security.path()).await),
+            E::OpenSignIn => shown_page = Some(self.open(&AccountPage::SignIn.path()).await),
+            E::OpenDevices => shown_page = Some(self.open(&AccountPage::Devices.path()).await),
             E::OpenProfile => shown_page = Some(self.open(&AccountTab::Profile.path()).await),
             E::SignOut => {
                 self.browser.post(crate::routes::LOGOUT_PATH, "").await;
@@ -89,13 +90,21 @@ impl Visitor {
             broken.push(NEVER_IN_THE_URL);
         }
         let waiting = flash_of(from);
-        if let (E::OpenSecurity, Some(flash), Some(page)) = (event, waiting, &shown_page) {
-            let again = self.open(&AccountTab::Security.path()).await;
+        let accepts = matches!(
+            (from, event),
+            (S::PasswordChanged, E::OpenSignIn) | (S::OthersSignedOut, E::OpenDevices)
+        );
+        if let (true, Some(flash), Some(page)) = (accepts, waiting, &shown_page) {
+            let path = match event {
+                E::OpenDevices => AccountPage::Devices.path(),
+                _ => AccountPage::SignIn.path(),
+            };
+            let again = self.open(&path).await;
             if !shows(page, flash) || shows(&again, flash) {
                 broken.push(SHOWN_EXACTLY_ONCE);
             }
         }
-        if let (E::OpenProfile, Some(page)) = (event, &shown_page)
+        if let (false, Some(page)) = (accepts, &shown_page)
             && page.contains(OPEN_TOAST)
         {
             broken.push(OTHER_PAGES_LEAVE_IT);

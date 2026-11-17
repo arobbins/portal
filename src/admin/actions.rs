@@ -5,10 +5,13 @@ use serde::Deserialize;
 use sqlx::PgConnection;
 use topcoat::router::StatusCode;
 
-use super::queries::{UserCounts, UserListing, query_count_user_things, query_search_users};
+use super::queries::{
+    UserCounts, UserListing, UserOrder, query_count_user_things, query_search_users,
+};
 use crate::action::{ActionProblem, ActionResult, Caller, Outcome, ProblemSpec, authorize, fail};
 use crate::activity::actions::{ActivityView, activity_of};
 use crate::env::Env;
+use crate::listing::{ListQuery, SortDirection, SortKey};
 use crate::permission::Permission;
 use crate::secret::PublicIdKind;
 use crate::user::model::{Role, User};
@@ -17,10 +20,12 @@ use crate::user::queries::{query_get_user_by_public_id, query_lock_user_by_publi
 mod confirm;
 mod log;
 mod manage;
+mod sort;
 
 pub use confirm::{ConfirmAdmin, confirm_admin};
 pub use log::{LOG_ENTRIES_SHOWN, list_admin_log};
 pub use manage::{delete_user, disable_user, enable_user, resend_verification, sign_out_user};
+pub use sort::UserSort;
 
 pub const USERS_PER_PAGE: i64 = 50;
 const MAX_SEARCH_LENGTH: usize = 254;
@@ -34,6 +39,23 @@ pub struct FindUsers {
     #[serde(default)]
     #[schemars(description = "Which page of results, starting at 0.")]
     pub page: u32,
+    #[serde(default)]
+    #[schemars(description = "The column to sort by.")]
+    pub sort: UserSort,
+    #[serde(default, rename = "dir")]
+    #[schemars(description = "The sort direction.")]
+    pub direction: SortDirection,
+}
+
+impl From<ListQuery<UserSort>> for FindUsers {
+    fn from(list: ListQuery<UserSort>) -> Self {
+        Self {
+            q: list.q,
+            page: list.page,
+            sort: list.sort,
+            direction: list.direction,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -106,7 +128,12 @@ pub async fn list_users(
     authorize!(caller.require(Permission::AdministerUsers));
     let search: String = input.q.trim().chars().take(MAX_SEARCH_LENGTH).collect();
     let offset = i64::from(input.page) * USERS_PER_PAGE;
-    let mut users = query_search_users(&search, USERS_PER_PAGE + 1, offset, env.db()).await?;
+    let order = UserOrder {
+        sort: input.sort.as_str(),
+        descending: input.direction == SortDirection::Descending,
+    };
+    let mut users =
+        query_search_users(&search, order, USERS_PER_PAGE + 1, offset, env.db()).await?;
     let has_next = users.len() as i64 > USERS_PER_PAGE;
     users.truncate(USERS_PER_PAGE as usize);
 

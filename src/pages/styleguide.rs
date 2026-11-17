@@ -10,6 +10,7 @@ mod modal;
 mod navigation;
 mod notices;
 mod property_list;
+mod tables;
 mod text;
 mod theme_switcher;
 mod toaster;
@@ -35,7 +36,7 @@ const GROUPS: &[(&str, &[&str])] = &[
     ("Actions", &["Buttons", "Toggles", "Modals"]),
     ("Feedback", &["Notices", "Toaster", "Badges", "Avatars"]),
     ("Forms", &["Forms"]),
-    ("Content", &["Cards and tables", "Property lists", "Code"]),
+    ("Content", &["Cards", "Tables", "Property lists", "Code"]),
     ("Navigation", &["Navigation"]),
 ];
 
@@ -96,6 +97,7 @@ pub async fn styleguide_page(cx: &Cx) -> Result<impl View> {
                 avatars::avatars_section()
                 forms::forms_section()
                 cards::cards_section()
+                tables::tables_section()
                 property_list::property_list_section()
                 code::code_section()
                 navigation::navigation_section()

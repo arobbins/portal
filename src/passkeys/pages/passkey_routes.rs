@@ -8,7 +8,7 @@ use topcoat::{
     },
 };
 
-use crate::account::tabs::{AccountSection, AccountTab};
+use crate::account::tabs::AccountSection;
 use crate::action::require_browser_caller;
 use crate::auth::reauth::{forget_passkey_proof, return_passkey_proof, take_passkey_proof};
 use crate::flash::{Flash, set_flash};
@@ -38,7 +38,7 @@ pub async fn rename_passkey_submit(cx: &Cx, Form(input): Form<RenamePasskey>) ->
         Err(error) => match error.for_browser()? {
             RenamePasskeyProblem::NotFound => Err(not_found().into()),
             problem => Err(redisplay(
-                AccountTab::Security.path(),
+                AccountSection::Passkeys.page().path(),
                 PasskeyRenameFailed { problem },
             )),
         },
@@ -57,7 +57,7 @@ pub async fn remove_passkey_submit(cx: &Cx, Form(input): Form<RemovePasskey>) ->
         return match error.for_browser()? {
             RemovePasskeyProblem::NotFound => Err(not_found().into()),
             problem => Err(redisplay(
-                AccountTab::Security.path(),
+                AccountSection::Passkeys.page().path(),
                 PasskeyRemoveFailed { problem },
             )),
         };

@@ -2,6 +2,7 @@ use axum::http::StatusCode;
 use sqlx::PgPool;
 
 use super::*;
+use crate::account::tabs::AccountTab;
 use crate::env::App;
 use crate::routes::ACCOUNT_PATH;
 use crate::state_machines::testing::{Browser, assets, location};
@@ -16,15 +17,15 @@ struct Seen {
 }
 
 #[test]
-fn every_tab_is_a_state_and_an_event() {
-    for tab in AccountTab::ALL {
+fn every_page_is_a_state_and_an_event() {
+    for page in AccountPage::ALL {
         assert!(
-            ACCOUNT_TAB.states.contains(&S::Shows(tab)),
-            "{tab:?} isn't a state"
+            ACCOUNT_TAB.states.contains(&S::Shows(page)),
+            "{page:?} isn't a state"
         );
         assert!(
-            ACCOUNT_TAB.events.contains(&E::Open(tab)),
-            "{tab:?} has no event"
+            ACCOUNT_TAB.events.contains(&E::Open(page)),
+            "{page:?} has no event"
         );
     }
 }
@@ -77,7 +78,7 @@ async fn every_account_tab_and_event_behaves_as_declared(db: PgPool) {
 
 async fn arrange(browser: &mut Browser, from: TabState) -> String {
     let path = match from {
-        S::Shows(tab) => tab.path(),
+        S::Shows(page) => page.path(),
         S::NotFound | S::SignedOut => UNKNOWN_TAB.to_string(),
     };
     if from == S::SignedOut {
@@ -90,8 +91,9 @@ async fn arrange(browser: &mut Browser, from: TabState) -> String {
 
 async fn apply(browser: &mut Browser, event: TabEvent, path: &mut String) -> Seen {
     *path = match event {
-        E::Open(tab) => tab.path(),
+        E::Open(page) => page.path(),
         E::OpenAccount => ACCOUNT_PATH.to_string(),
+        E::OpenSecurity => format!("{ACCOUNT_PATH}/{}", AccountTab::Security.slug()),
         E::OpenUnknown => UNKNOWN_TAB.to_string(),
         E::SignOut => {
             browser.post(crate::routes::LOGOUT_PATH, "").await;
@@ -111,65 +113,60 @@ async fn open(browser: &mut Browser, path: &str) -> Seen {
     let html = String::from_utf8_lossy(&body).into_owned();
     let state = match (status, location.as_deref()) {
         (StatusCode::SEE_OTHER, Some("/login")) => S::SignedOut,
+        (StatusCode::SEE_OTHER, Some(next)) if next.starts_with(ACCOUNT_PATH) => {
+            return Box::pin(open(browser, next)).await;
+        }
         (StatusCode::NOT_FOUND, _) => S::NotFound,
         (StatusCode::OK, _) => {
-            S::Shows(current_tab(&html).unwrap_or_else(|| panic!("no current tab on {path}")))
+            S::Shows(current_page(&html).unwrap_or_else(|| panic!("no current page on {path}")))
         }
         (status, location) => panic!("unexpected {status} to {location:?} from {path}"),
     };
     Seen { state, html }
 }
 
-fn tab_links(html: &str) -> Vec<(AccountTab, &str)> {
-    html.split("<a ")
+fn marked_current(html: &str) -> Vec<AccountPage> {
+    let mut pages: Vec<AccountPage> = html
+        .split("<a ")
         .skip(1)
         .filter_map(|tag| tag.split_once('>').map(|(attributes, _)| attributes))
+        .filter(|attributes| attributes.contains("aria-current=\"page\""))
         .filter_map(|attributes| {
-            AccountTab::ALL
+            AccountPage::ALL
                 .into_iter()
-                .find(|tab| attributes.contains(&format!("href=\"{}\"", tab.path())))
-                .map(|tab| (tab, attributes))
+                .find(|page| attributes.contains(&format!("href=\"{}\"", page.path())))
         })
-        .collect()
+        .collect();
+    pages.dedup();
+    pages
 }
 
-fn current_tab(html: &str) -> Option<AccountTab> {
-    tab_links(html)
-        .into_iter()
-        .find(|(_, attributes)| attributes.contains("l-nav__link--active"))
-        .map(|(tab, _)| tab)
-}
-
-fn marked_current(html: &str) -> Vec<AccountTab> {
-    tab_links(html)
-        .into_iter()
-        .filter(|(_, attributes)| attributes.contains("aria-current=\"page\""))
-        .map(|(tab, _)| tab)
-        .collect()
+fn current_page(html: &str) -> Option<AccountPage> {
+    marked_current(html).first().copied()
 }
 
 fn broken_rules(seen: &Seen) -> Vec<&'static str> {
-    let S::Shows(tab) = seen.state else {
+    let S::Shows(page) = seen.state else {
         return Vec::new();
     };
     let mut broken = Vec::new();
-    if marked_current(&seen.html) != [tab] {
-        broken.push(ONE_CURRENT_TAB);
+    if marked_current(&seen.html) != [page] {
+        broken.push(ONE_CURRENT_PAGE);
     }
     let title = seen
         .html
         .split_once("<title>")
         .and_then(|(_, rest)| rest.split_once("</title>"))
         .map_or("", |(title, _)| title);
-    if !title.starts_with(tab.heading()) {
-        broken.push(TITLE_NAMES_THE_TAB);
+    if !title.starts_with(page.heading()) {
+        broken.push(TITLE_NAMES_THE_PAGE);
     }
-    let anchors_present = tab
+    let anchors_present = page
         .sections()
         .iter()
         .all(|section| seen.html.contains(&format!("id=\"{}\"", section.anchor())));
     if !anchors_present {
-        broken.push(SECTIONS_ARE_ON_THEIR_TAB);
+        broken.push(SECTIONS_ARE_ON_THEIR_PAGE);
     }
     broken
 }

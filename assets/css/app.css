@@ -25,6 +25,7 @@
 @import "./components/copy-field.css";
 @import "./components/empty-state.css";
 @import "./components/menu.css";
+@import "./components/pager.css";
 @import "./components/table.css";
 @import "./components/tabs.css";
 @import "./components/toggle.css";

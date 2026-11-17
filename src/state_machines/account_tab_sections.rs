@@ -1,26 +1,25 @@
 use super::{Expect, Labeled, Machine};
-use crate::account::tabs::{AccountSection, AccountTab};
+use crate::account::tabs::{AccountPage, AccountSection};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SectionState {
     Section(AccountSection),
-    OnTab(AccountTab),
+    OnPage(AccountPage),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SectionEvent {
-    FollowSidebarLink,
     OpenItsPath,
 }
 
+use AccountPage as P;
 use AccountSection as A;
-use AccountTab as T;
 use SectionEvent as E;
-use SectionState::{OnTab, Section};
+use SectionState::{OnPage, Section};
 
 pub const ACCOUNT_TAB_SECTIONS: Machine<SectionState, SectionEvent> = Machine {
-    name: "Account tab sections",
-    summary: "Where each account settings section lives: its sidebar link and its path both land on its tab, at its anchor.",
+    name: "Account sections",
+    summary: "Where each account settings card lives: its path lands on its page, at its anchor.",
     states: &[
         Section(A::Password),
         Section(A::Passkeys),
@@ -34,20 +33,24 @@ pub const ACCOUNT_TAB_SECTIONS: Machine<SectionState, SectionEvent> = Machine {
         Section(A::Notifications),
         Section(A::ApiTokens),
         Section(A::DeleteAccount),
-        OnTab(T::Profile),
-        OnTab(T::Security),
-        OnTab(T::Billing),
-        OnTab(T::Settings),
-        OnTab(T::Developer),
+        OnPage(P::Profile),
+        OnPage(P::SignIn),
+        OnPage(P::Devices),
+        OnPage(P::Plan),
+        OnPage(P::Invoices),
+        OnPage(P::Settings),
+        OnPage(P::Developer),
     ],
     terminal: &[
-        OnTab(T::Profile),
-        OnTab(T::Security),
-        OnTab(T::Billing),
-        OnTab(T::Settings),
-        OnTab(T::Developer),
+        OnPage(P::Profile),
+        OnPage(P::SignIn),
+        OnPage(P::Devices),
+        OnPage(P::Plan),
+        OnPage(P::Invoices),
+        OnPage(P::Settings),
+        OnPage(P::Developer),
     ],
-    events: &[E::FollowSidebarLink, E::OpenItsPath],
+    events: &[E::OpenItsPath],
     stored_in: &[],
     rules: &[LANDS_AT_ITS_ANCHOR, ONE_HOME_EACH],
     writers: &[],
@@ -55,26 +58,38 @@ pub const ACCOUNT_TAB_SECTIONS: Machine<SectionState, SectionEvent> = Machine {
 
 pub const LANDS_AT_ITS_ANCHOR: &str =
     "The page it lands on has the section's anchor, so the browser scrolls to it.";
-pub const ONE_HOME_EACH: &str = "Every section belongs to exactly one tab.";
+pub const ONE_HOME_EACH: &str = "Every section belongs to exactly one page.";
 
-const A_TAB: &str = "A tab, not a section.";
+const A_PAGE: &str = "A page, not a section.";
 
-pub fn home_of(section: AccountSection) -> AccountTab {
+pub fn home_of(section: AccountSection) -> AccountPage {
     match section {
-        A::Password | A::Passkeys | A::TwoFactor | A::SingleSignOn | A::Devices | A::Activity => {
-            T::Security
-        }
-        A::Subscriptions | A::Invoices | A::PaymentMethods => T::Billing,
-        A::Notifications => T::Settings,
-        A::ApiTokens => T::Developer,
-        A::DeleteAccount => T::Profile,
+        A::Password | A::Passkeys | A::TwoFactor | A::SingleSignOn => P::SignIn,
+        A::Devices | A::Activity => P::Devices,
+        A::Subscriptions | A::PaymentMethods => P::Plan,
+        A::Invoices => P::Invoices,
+        A::Notifications => P::Settings,
+        A::ApiTokens => P::Developer,
+        A::DeleteAccount => P::Profile,
     }
 }
 
 pub fn expect(from: SectionState, _event: SectionEvent) -> Expect<SectionState> {
     match from {
-        Section(section) => Expect::Moves(OnTab(home_of(section))),
-        OnTab(_) => Expect::Unreachable(A_TAB),
+        Section(section) => Expect::Moves(OnPage(home_of(section))),
+        OnPage(_) => Expect::Unreachable(A_PAGE),
+    }
+}
+
+pub fn page_id(page: AccountPage) -> &'static str {
+    match page {
+        P::Profile => "profile",
+        P::SignIn => "sign_in",
+        P::Devices => "devices",
+        P::Plan => "plan",
+        P::Invoices => "invoices",
+        P::Settings => "settings",
+        P::Developer => "developer",
     }
 }
 
@@ -82,14 +97,14 @@ impl Labeled for SectionState {
     fn id(self) -> &'static str {
         match self {
             Section(section) => section.anchor(),
-            OnTab(tab) => tab.slug(),
+            OnPage(page) => page_id(page),
         }
     }
 
     fn label(self) -> &'static str {
         match self {
             Section(section) => section.label(),
-            OnTab(tab) => tab.heading(),
+            OnPage(page) => page.heading(),
         }
     }
 }
@@ -97,14 +112,12 @@ impl Labeled for SectionState {
 impl Labeled for SectionEvent {
     fn id(self) -> &'static str {
         match self {
-            E::FollowSidebarLink => "follow_sidebar_link",
             E::OpenItsPath => "open_its_path",
         }
     }
 
     fn label(self) -> &'static str {
         match self {
-            E::FollowSidebarLink => "Follows its sidebar link",
             E::OpenItsPath => "Opens its path directly",
         }
     }

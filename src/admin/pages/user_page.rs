@@ -7,6 +7,7 @@ use topcoat::{
 };
 
 use super::admin_access::require_admin;
+use super::admin_shell::{AdminSection, admin_shell};
 use super::user_actions::user_actions_card;
 use super::user_routes::admin_action_problem;
 use super::user_view::{listed_status, role_label, status_label};
@@ -20,7 +21,6 @@ use crate::components::notice::notice;
 use crate::components::property_list::{PropertyTag, property, property_list};
 use crate::components::tone::Tone;
 use crate::flash::{Flash, flash_toast, flash_toasts, take_flash};
-use crate::layout::page_heading::page_heading;
 use crate::web::env;
 
 path_param!(pub id);
@@ -47,9 +47,11 @@ pub async fn admin_user_page(cx: &Cx) -> Result<impl View> {
     let back = href!(admin_users_page).resolve(cx);
 
     Ok(view! {
-        <section class="l-contain p-admin">
+        admin_shell(
+            user: caller.user.as_ref(),
+            section: AdminSection::Users,
             <a class="p-admin__back" href=(back)>"All users"</a>
-            page_heading(text: overview.user.name.as_str())
+            <h2 class="p-admin__user-name">(overview.user.name.as_str())</h2>
             if let Some(problem) = problem {
                 notice(tone: Tone::Error, (problem.message()))
             }
@@ -60,7 +62,7 @@ pub async fn admin_user_page(cx: &Cx) -> Result<impl View> {
                 card_body(activity_list(activity: &overview.activity))
             )
             flash_toasts(toast: &toast, flashes: FLASHES)
-        </section>
+        )
     })
 }
 

@@ -12,6 +12,7 @@ pub mod label;
 pub mod menu;
 pub mod modal;
 pub mod notice;
+pub mod pager;
 pub mod property_list;
 pub mod table;
 pub mod tabs;

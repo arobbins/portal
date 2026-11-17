@@ -138,7 +138,7 @@ test("without a passkey, the password is asked for and adding one is suggested",
   await expect(dialog(page).getByRole("button", { name: "Use a passkey instead" })).toHaveCount(0);
   await expect(
     dialog(page).getByRole("link", { name: "Add a passkey for faster authentication" }),
-  ).toHaveAttribute("href", "/account/security#passkeys");
+  ).toHaveAttribute("href", "/account/security/sign-in#passkeys");
 });
 
 test.describe("with a passkey", () => {

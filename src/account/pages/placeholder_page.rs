@@ -4,17 +4,15 @@ use topcoat::{
     view::{View, component, view},
 };
 
-use crate::account::tabs::{AccountSection, AccountTab};
+use crate::account::tabs::{AccountPage, AccountSection};
 use crate::components::button::{ButtonSize, ButtonVariant, button};
 use crate::components::card::{card, card_body, card_header};
-use crate::layout::page_heading::{PageHeadingVariant, page_heading};
 
 #[component]
-pub async fn placeholder_tab(cx: &Cx, tab: AccountTab) -> Result<impl View> {
+pub async fn placeholder_page(cx: &Cx, page: AccountPage) -> Result<impl View> {
     Ok(view! {
         <div class="p-account__sub-page-content">
-            page_heading(text: tab.heading(), variant: PageHeadingVariant::Compact)
-            for section in tab.sections() {
+            for section in page.sections() {
                 coming_soon_card(
                     section: *section,
                     action: upcoming(*section).0,

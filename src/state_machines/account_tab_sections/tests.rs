@@ -2,7 +2,6 @@ use sqlx::PgPool;
 
 use super::*;
 use crate::env::App;
-use crate::routes::ACCOUNT_PATH;
 use crate::state_machines::testing::{Browser, assets};
 use crate::state_machines::{CellResult, failures, write_results};
 use crate::user::testing::{TEST_PASSWORD, active_user};
@@ -18,7 +17,7 @@ fn every_section_is_a_state() {
 }
 
 #[sqlx::test]
-async fn every_section_lands_on_its_tab(db: PgPool) {
+async fn every_section_lands_on_its_page(db: PgPool) {
     let app = App::for_tests(db.clone());
     let assets = assets();
     active_user("sections@example.test", &db).await;
@@ -28,7 +27,6 @@ async fn every_section_lands_on_its_tab(db: PgPool) {
             .sign_in("sections@example.test", TEST_PASSWORD)
             .await
     );
-    let sidebar = page(&mut browser, ACCOUNT_PATH).await;
     let mut cells = Vec::new();
     for &from in ACCOUNT_TAB_SECTIONS.states {
         for &event in ACCOUNT_TAB_SECTIONS.events {
@@ -45,13 +43,9 @@ async fn every_section_lands_on_its_tab(db: PgPool) {
                 continue;
             };
             let target = match event {
-                E::FollowSidebarLink => sidebar_link(&sidebar, section),
-                E::OpenItsPath => Some(section.path()),
+                E::OpenItsPath => section.path(),
             };
-            let (actual, broken) = match target {
-                Some(target) => land(&mut browser, section, &target).await,
-                None => (None, Vec::new()),
-            };
+            let (actual, broken) = land(&mut browser, section, &target).await;
             cells.push(CellResult {
                 from,
                 event,
@@ -75,30 +69,21 @@ async fn land(
 ) -> (Option<SectionState>, Vec<&'static str>) {
     let (path, anchor) = target.split_once('#').unwrap_or((target, ""));
     let html = page(browser, path).await;
-    let tab = AccountTab::ALL
+    let shown = AccountPage::ALL
         .into_iter()
-        .find(|tab| html.contains(&format!("href=\"{}\" aria-current=\"page\"", tab.path())));
+        .find(|page| html.contains(&format!("href=\"{}\" aria-current=\"page\"", page.path())));
     let mut broken = Vec::new();
     if anchor != section.anchor() || !html.contains(&format!("id=\"{anchor}\"")) {
         broken.push(LANDS_AT_ITS_ANCHOR);
     }
-    let homes = AccountTab::ALL
+    let homes = AccountPage::ALL
         .into_iter()
-        .filter(|tab| tab.sections().contains(&section))
+        .filter(|page| page.sections().contains(&section))
         .count();
     if homes != 1 {
         broken.push(ONE_HOME_EACH);
     }
-    (tab.map(OnTab), broken)
-}
-
-fn sidebar_link(html: &str, section: AccountSection) -> Option<String> {
-    let href = section.path();
-    let tag = format!("href=\"{href}\"");
-    html.match_indices(&tag)
-        .filter_map(|(at, _)| html[at..].split_once('>')?.1.split_once('<'))
-        .any(|(text, _)| text.trim() == section.label())
-        .then_some(href)
+    (shown.map(OnPage), broken)
 }
 
 async fn page(browser: &mut Browser, path: &str) -> String {

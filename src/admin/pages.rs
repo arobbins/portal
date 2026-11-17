@@ -1,5 +1,6 @@
 pub mod admin_access;
 pub mod admin_confirm;
+pub mod admin_shell;
 pub mod log_page;
 mod user_actions;
 pub mod user_page;

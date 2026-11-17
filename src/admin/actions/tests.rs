@@ -9,6 +9,7 @@ use crate::api::scope::ApiScope;
 use crate::auth::actions::{SignIn, SignInProblem, sign_in_with_password};
 use crate::devices::lifecycle::{SignInMethod, load_device, start_device};
 use crate::env::App;
+use crate::listing::SortDirection;
 use crate::user::queries::query_get_user_by_public_id;
 use crate::user::queries::{NewUser, query_get_user_by_id, query_insert_user};
 use crate::user::testing::{TEST_PASSWORD, active_user};
@@ -91,6 +92,7 @@ async fn users_are_searched_by_email_or_name_and_paged(db: PgPool) {
     let search = |q: &str, page| FindUsers {
         q: q.to_string(),
         page,
+        ..FindUsers::default()
     };
 
     let first = list_users(&env, &admin, &search("", 0))
@@ -116,6 +118,77 @@ async fn users_are_searched_by_email_or_name_and_paged(db: PgPool) {
         .unwrap()
         .unwrap();
     assert_eq!(by_name.users[0].email, "boss@example.test");
+}
+
+#[sqlx::test]
+async fn users_are_sorted_by_the_chosen_column_in_either_direction(db: PgPool) {
+    let app = App::for_tests(db.clone());
+    let env = app.env(None);
+    let admin = admin(&db).await;
+    for (name, email) in [
+        ("Carol", "carol@example.test"),
+        ("alice", "zed@example.test"),
+        ("Bob", "bob@example.test"),
+    ] {
+        query_insert_user(&NewUser { name, email }, &db)
+            .await
+            .unwrap();
+    }
+    let emails = async |sort, direction| {
+        let find = FindUsers {
+            sort,
+            direction,
+            ..FindUsers::default()
+        };
+        let page = list_users(&env, &admin, &find).await.unwrap().unwrap();
+        page.users
+            .into_iter()
+            .map(|user| user.email)
+            .collect::<Vec<_>>()
+    };
+
+    assert_eq!(
+        emails(UserSort::Joined, SortDirection::Descending).await,
+        [
+            "bob@example.test",
+            "zed@example.test",
+            "carol@example.test",
+            "boss@example.test"
+        ]
+    );
+    assert_eq!(
+        emails(UserSort::Email, SortDirection::Ascending).await,
+        [
+            "bob@example.test",
+            "boss@example.test",
+            "carol@example.test",
+            "zed@example.test"
+        ]
+    );
+    assert_eq!(
+        emails(UserSort::Email, SortDirection::Descending).await,
+        [
+            "zed@example.test",
+            "carol@example.test",
+            "boss@example.test",
+            "bob@example.test"
+        ]
+    );
+    assert_eq!(
+        emails(UserSort::Name, SortDirection::Ascending).await,
+        [
+            "zed@example.test",
+            "bob@example.test",
+            "carol@example.test",
+            "boss@example.test"
+        ]
+    );
+    assert_eq!(
+        emails(UserSort::Status, SortDirection::Ascending).await[0],
+        "boss@example.test"
+    );
+    assert_eq!(FindUsers::default().sort, UserSort::Joined);
+    assert_eq!(FindUsers::default().direction, SortDirection::Descending);
 }
 
 #[sqlx::test]
@@ -320,7 +393,7 @@ async fn the_listed_status_matches_the_account_status(db: PgPool) {
     );
     let literal = FindUsers {
         q: "%".to_string(),
-        page: 0,
+        ..FindUsers::default()
     };
     assert!(
         list_users(&env, &admin, &literal)

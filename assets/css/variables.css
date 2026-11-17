@@ -178,7 +178,11 @@
   --duration-fast: 0.15s;
   --duration-normal: 0.25s;
 
+  --z-sticky: 1;
   --z-toast: 100;
+
+  --table-sticky-max-height: 70vh;
+  --table-truncate-width: 28ch;
 
   --control-font-size: var(--text-md);
   --control-line-height: 1.25;

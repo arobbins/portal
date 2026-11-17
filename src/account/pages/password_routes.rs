@@ -9,7 +9,7 @@ use topcoat::{
     runtime::procedure,
 };
 
-use crate::account::tabs::AccountTab;
+use crate::account::tabs::AccountSection;
 use crate::action::{FieldError, browser_caller, require_browser_caller};
 use crate::auth::actions::{ChangePassword, ChangePasswordProblem, change_password};
 use crate::auth::session::stay_signed_in;
@@ -57,12 +57,12 @@ pub async fn change_password_submit(
             let session = session(cx)?;
             stay_signed_in(app(cx), &session, &user).await?;
             set_flash(&session, Flash::PasswordChanged).await?;
-            Ok(see_other(AccountTab::Security.path()))
+            Ok(see_other(AccountSection::Password.page().path()))
         }
         Err(error) => {
             let problem = error.for_browser()?;
             Err(redisplay(
-                AccountTab::Security.path(),
+                AccountSection::Password.page().path(),
                 ChangePasswordFailed { problem },
             ))
         }

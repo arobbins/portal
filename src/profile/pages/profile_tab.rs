@@ -20,7 +20,6 @@ use crate::components::form::{
 };
 use crate::components::icon::{IconName, icon};
 use crate::flash::{Flash, flash_toasts, take_flash};
-use crate::layout::page_heading::{PageHeadingVariant, page_heading};
 use crate::user::model::User;
 use crate::user::name::NAME_FIELD;
 
@@ -61,7 +60,6 @@ pub async fn profile_tab(cx: &Cx, user: &User, display_name: &Signal<String>) ->
 
     Ok(view! {
         <div class="p-account__sub-page-content">
-            page_heading(text: "Profile", variant: PageHeadingVariant::Compact)
             profile_card(display_name: display_name, form: &form, drafts: &drafts)
             email_card(email: &user.email, form: &email_form, drafts: &email_drafts)
             delete_account_card(form: &delete_form, drafts: &delete_drafts)

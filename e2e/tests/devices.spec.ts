@@ -20,7 +20,7 @@ function devices(page: Page) {
 }
 
 async function expectSignedOut(page: Page) {
-  await page.goto("/account/security");
+  await page.goto("/account/security/devices");
   await expect(page).toHaveURL("/login");
 }
 
@@ -31,7 +31,7 @@ test("another device can be signed out from the devices list", async ({
   const email = await createAccount(page, testInfo, "Device Owner");
   const laptop = await signInElsewhere(browser, email, FIREFOX_ON_LINUX);
 
-  await page.goto("/account/security");
+  await page.goto("/account/security/devices");
   await expect(devices(page).getByText("This device")).toBeVisible();
   await expect(devices(page).getByText("Firefox on Linux")).toBeVisible();
 
@@ -41,8 +41,8 @@ test("another device can be signed out from the devices list", async ({
   await expect(page.getByText("That device has been signed out.")).toBeVisible();
   await expect(devices(page).getByText("Firefox on Linux")).toHaveCount(0);
   await expectSignedOut(laptop);
-  await page.goto("/account/security");
-  await expect(page).toHaveURL("/account/security");
+  await page.goto("/account/security/devices");
+  await expect(page).toHaveURL("/account/security/devices");
   await laptop.context().close();
 });
 
@@ -51,7 +51,7 @@ test("signing out other devices keeps this one signed in", async ({ page, browse
   const laptop = await signInElsewhere(browser, email, FIREFOX_ON_LINUX);
   const phone = await signInElsewhere(browser, email, SAFARI_ON_IPHONE);
 
-  await page.goto("/account/security");
+  await page.goto("/account/security/devices");
   await expect(devices(page).getByText("Safari on iOS")).toBeVisible();
   await page.getByRole("button", { name: "Sign out other devices" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Sign out other devices" }).click();
@@ -61,8 +61,8 @@ test("signing out other devices keeps this one signed in", async ({ page, browse
   await expect(page.getByRole("button", { name: "Sign out other devices" })).toHaveCount(0);
   await expectSignedOut(laptop);
   await expectSignedOut(phone);
-  await page.goto("/account/security");
-  await expect(page).toHaveURL("/account/security");
+  await page.goto("/account/security/devices");
+  await expect(page).toHaveURL("/account/security/devices");
   await laptop.context().close();
   await phone.context().close();
 });
@@ -78,7 +78,7 @@ test("signing out from the menu removes the device from the list", async ({
   await phone.getByRole("button", { name: "Sign out" }).click();
   await expect(phone).toHaveURL("/login");
 
-  await page.goto("/account/security");
+  await page.goto("/account/security/devices");
   await expect(devices(page).getByText("Safari on iOS")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Sign out other devices" })).toHaveCount(0);
   await phone.context().close();
@@ -92,7 +92,7 @@ test("recent activity lists sign-ins and account changes, newest first", async (
   const phone = await signInElsewhere(browser, email, SAFARI_ON_IPHONE);
   await phone.context().close();
 
-  await page.goto("/account/security");
+  await page.goto("/account/security/devices");
   const activity = page.locator("#activity").getByRole("listitem");
 
   await expect(activity.first()).toContainText("Signed in with a password");
@@ -109,7 +109,7 @@ test("the devices list works without JavaScript", async ({ browser }, testInfo) 
   await logIn(page, email, ACCOUNT_PASSWORD);
   const laptop = await signInElsewhere(browser, email, FIREFOX_ON_LINUX);
 
-  await page.goto("/account/security");
+  await page.goto("/account/security/devices");
   await devices(page).getByRole("button", { name: "Sign out Firefox on Linux" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Sign out device" }).click();
 

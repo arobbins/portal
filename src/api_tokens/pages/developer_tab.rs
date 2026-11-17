@@ -13,7 +13,6 @@ use crate::action::{ActionProblem, require_browser_caller};
 use crate::api_tokens::actions::list_api_tokens;
 use crate::components::form::{DialogForm, dialog_error_toast, page_toast};
 use crate::flash::{Flash, flash_toasts, take_flash};
-use crate::layout::page_heading::{PageHeadingVariant, page_heading};
 use crate::web::env;
 
 const FLASHES: &[Flash] = &[Flash::ApiTokenRevoked];
@@ -31,7 +30,6 @@ pub async fn developer_tab(cx: &Cx) -> Result<impl View> {
 
     Ok(view! {
         <div class="p-account__sub-page-content">
-            page_heading(text: "Developer", variant: PageHeadingVariant::Compact)
             if let Some(token) = &created {
                 new_token_card(token: token)
             }

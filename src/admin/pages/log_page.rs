@@ -7,14 +7,14 @@ use topcoat::{
 };
 
 use super::admin_access::require_admin;
+use super::admin_shell::{AdminSection, admin_shell};
 use super::user_page::{admin_user_page, id};
-use super::users_page::admin_users_page;
 use crate::admin::actions::{LOG_ENTRIES_SHOWN, list_admin_log};
 use crate::admin::queries::LogEntry;
 use crate::app::page_title;
-use crate::components::empty_state::empty_state;
-use crate::components::table::{table, table_cell, table_heading, table_row};
-use crate::layout::page_heading::page_heading;
+use crate::components::table::{
+    Column, TableLayout, table, table_cell, table_row, table_row_heading,
+};
 use crate::utils::format_date_time;
 use crate::web::env;
 
@@ -27,56 +27,51 @@ pub async fn admin_log_page(cx: &Cx) -> Result<impl View> {
         Ok(entries) => entries,
         Err(error) => match error.for_browser()? {},
     };
-    let back = href!(admin_users_page).resolve(cx);
     let caption = format!("The last {LOG_ENTRIES_SHOWN} admin actions, newest first");
 
     Ok(view! {
-        <section class="l-contain p-admin">
-            <a class="p-admin__back" href=(back)>"All users"</a>
-            page_heading(text: "Admin log")
-            if entries.is_empty() {
-                empty_state(heading: "No admin actions yet.")
-            } else {
-                <div class="p-admin__log">
-                    log_table(entries: &entries, caption: &caption)
-                </div>
-            }
-        </section>
+        admin_shell(
+            user: caller.user.as_ref(),
+            section: AdminSection::Log,
+            log_table(entries: &entries, caption: &caption)
+        )
     })
 }
 
+const COLUMNS: [Column; 4] = [
+    Column::new("Action"),
+    Column::new("When").date(),
+    Column::new("Admin").truncated(),
+    Column::new("User").truncated(),
+];
+
 #[component]
 async fn log_table(cx: &Cx, entries: &[LogEntry], caption: &str) -> Result<impl View> {
+    let [action, when, admin, user] = COLUMNS;
+    let empty = entries.is_empty().then_some("No admin actions yet.");
+
     Ok(view! {
         table(
-            caption: Some(caption),
-            <thead>
+            caption: caption,
+            columns: &COLUMNS,
+            empty: empty,
+            layout: TableLayout::Stacked,
+            for entry in entries {
                 table_row(
-                    table_heading("When")
-                    table_heading("Admin")
-                    table_heading("Action")
-                    table_heading("User")
-                )
-            </thead>
-            <tbody>
-                for entry in entries {
-                    table_row(
-                        table_cell((format_date_time(entry.created_at)))
-                        table_cell((admin_of(entry)))
-                        table_cell(
-                            (entry.action.label())
-                            <span class="p-admin__detail">
-                                (format!(
-                                    "{} · {}",
-                                    format_date_time(entry.created_at),
-                                    admin_of(entry),
-                                ))
-                            </span>
-                        )
-                        table_cell(log_target(entry: entry))
+                    table_row_heading(column: action, (entry.action.label()))
+                    table_cell(column: when, (format_date_time(entry.created_at)))
+                    table_cell(
+                        column: admin,
+                        title: Some(admin_of(entry)),
+                        (admin_of(entry))
                     )
-                }
-            </tbody>
+                    table_cell(
+                        column: user,
+                        title: Some(entry.target_email.as_str()),
+                        log_target(entry: entry)
+                    )
+                )
+            }
         )
     })
 }

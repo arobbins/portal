@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH listed AS (\n            SELECT u.id, u.public_id, u.name, u.email, u.role,\n                CASE WHEN u.disabled_at IS NOT NULL THEN 'disabled' WHEN u.verified_at IS NULL THEN 'awaiting_password' ELSE 'active' END AS status,\n                u.created_at, GREATEST(\n                    (SELECT max(d.last_seen_at) FROM user_devices d WHERE d.user_id = u.id),\n                    (SELECT max(e.created_at) FROM account_events e WHERE e.user_id = u.id AND e.kind = 'signed_in')\n                ) AS last_active_at\n            FROM users u\n            WHERE $1 = '' OR strpos(lower(u.email), lower($1)) > 0 OR strpos(lower(u.name), lower($1)) > 0\n        )\n        SELECT public_id AS \"public_id!\", name AS \"name!\", email AS \"email!\", role AS \"role!: Role\",\n            status AS \"status!: ListedStatus\", created_at AS \"created_at!\", last_active_at\n        FROM listed\n        ORDER BY\n            CASE WHEN NOT $3 THEN CASE $2 WHEN 'name' THEN lower(name) WHEN 'email' THEN email WHEN 'status' THEN status WHEN 'role' THEN role END END ASC,\n            CASE WHEN $3 THEN CASE $2 WHEN 'name' THEN lower(name) WHEN 'email' THEN email WHEN 'status' THEN status WHEN 'role' THEN role END END DESC,\n            CASE WHEN NOT $3 THEN CASE $2 WHEN 'joined' THEN created_at WHEN 'last_active' THEN last_active_at END END ASC NULLS LAST,\n            CASE WHEN $3 THEN CASE $2 WHEN 'joined' THEN created_at WHEN 'last_active' THEN last_active_at END END DESC NULLS LAST,\n            created_at DESC, id DESC\n        LIMIT $4 OFFSET $5",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "public_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "email!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "role!: Role",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "status!: ListedStatus",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at!",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "last_active_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Bool",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      null,
+      false,
+      null
+    ]
+  },
+  "hash": "c1b6728374be60445dd7b00265228ec179afd7288ee314c716266ecd4054e3fe"
+}

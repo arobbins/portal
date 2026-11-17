@@ -69,3 +69,70 @@ test("the active tab is marked as the current page", async ({ page }) => {
     "aria-current",
   );
 });
+
+test("a table that scrolls sideways can be reached with the keyboard", async ({ page }) => {
+  const region = page.getByRole("region", { name: "Invoices" });
+
+  await region.focus();
+  await expect(region).toBeFocused();
+  await expect(region.getByRole("table", { name: "Invoices" })).toBeVisible();
+  await expect(region.getByRole("rowheader", { name: "Nov 1, 2026" })).toBeVisible();
+});
+
+test("a sortable column says how it's sorted", async ({ page }) => {
+  const table = page.getByRole("table", { name: "Invoices" });
+
+  await expect(table.getByRole("columnheader", { name: "Date" })).toHaveAttribute(
+    "aria-sort",
+    "descending",
+  );
+  await expect(table.getByRole("columnheader", { name: "Amount" }).getByRole("link")).toBeVisible();
+  await expect(table.getByRole("columnheader", { name: "Plan" })).not.toHaveAttribute("aria-sort");
+});
+
+test("a sticky table header stays in view while its rows scroll", async ({ page }) => {
+  const region = page.getByRole("region", { name: "Recent events" });
+  const heading = region.getByRole("columnheader", { name: "When" });
+  await region.scrollIntoViewIfNeeded();
+
+  await region.evaluate((element) => element.scrollTo({ top: 200 }));
+
+  const regionBox = (await region.boundingBox())!;
+  await expect.poll(async () => (await heading.boundingBox())!.y).toBeCloseTo(regionBox.y + 1, 0);
+});
+
+test("a pager links to the previous and next pages", async ({ page }) => {
+  const pages = page.getByRole("navigation", { name: "Pages" });
+
+  await expect(pages.getByRole("link", { name: "Previous" })).toBeVisible();
+  await expect(pages.getByRole("link", { name: "Next" })).toBeVisible();
+});
+
+test("an empty table says so inside the table", async ({ page }) => {
+  const table = page.getByRole("table", { name: "Refunds" });
+
+  await expect(table.getByText("No refunds yet.")).toBeVisible();
+});
+
+test("a stacked table fits a phone screen", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const region = page.getByRole("region", { name: "Invoices" });
+
+  await expect(region.getByRole("rowheader", { name: "Nov 1, 2026" })).toBeVisible();
+  await expect(region.getByRole("columnheader", { name: "Date" })).toBeVisible();
+  await expect(region.getByRole("cell", { name: "Paid" }).first()).toBeHidden();
+  const overflow = await region.evaluate((element) => element.scrollWidth - element.clientWidth);
+  expect(overflow).toBe(0);
+});
+
+test("a row heading with a link opens it from anywhere in the cell", async ({ page }) => {
+  const table = page.getByRole("table", { name: "Invoices" });
+  const cell = table.getByRole("rowheader", { name: "Nov 1, 2026" });
+  await cell.scrollIntoViewIfNeeded();
+  const box = (await cell.boundingBox())!;
+
+  await expect(cell.getByRole("link", { name: "Nov 1, 2026" })).toBeVisible();
+  await page.mouse.click(box.x + box.width - 3, box.y + 3);
+
+  await expect(page).toHaveURL(/#invoice-2026-11-01$/);
+});

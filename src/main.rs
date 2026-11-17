@@ -15,6 +15,7 @@ mod flash;
 mod health;
 mod jobs;
 mod layout;
+mod listing;
 mod mail;
 mod mcp;
 mod pages;

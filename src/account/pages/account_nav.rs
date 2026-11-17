@@ -5,29 +5,72 @@ use topcoat::{
     view::{View, component, view},
 };
 
-use crate::account::tabs::AccountTab;
+use crate::account::tabs::{AccountArea, AccountTab};
+use crate::admin::pages::admin_shell::AdminSection;
 use crate::components::icon::{IconName, icon};
 
-struct NavTab {
-    tab: AccountTab,
+struct NavPage {
+    label: &'static str,
     href: String,
-    links: Vec<(&'static str, String)>,
+    current: bool,
+}
+
+struct NavSection {
+    label: &'static str,
+    href: String,
+    active: bool,
+    current: bool,
+    pages: Vec<NavPage>,
+}
+
+impl NavSection {
+    fn of(label: &'static str, pages: Vec<NavPage>) -> Self {
+        let href = pages[0].href.clone();
+        let active = pages.iter().any(|page| page.current);
+        let single = pages.len() == 1;
+        Self {
+            label,
+            href,
+            active,
+            current: single && active,
+            pages: if single { Vec::new() } else { pages },
+        }
+    }
+}
+
+fn sections(cx: &Cx, active: AccountArea, is_admin: bool) -> Vec<NavSection> {
+    let mut sections: Vec<NavSection> = AccountTab::ALL
+        .into_iter()
+        .map(|tab| {
+            let pages = tab
+                .pages()
+                .iter()
+                .map(|page| NavPage {
+                    label: page.heading(),
+                    href: page.path(),
+                    current: active == AccountArea::Page(*page),
+                })
+                .collect();
+            NavSection::of(tab.heading(), pages)
+        })
+        .collect();
+    if is_admin {
+        let pages = AdminSection::ALL
+            .into_iter()
+            .map(|section| NavPage {
+                label: section.label(),
+                href: section.path(cx),
+                current: active == AccountArea::Admin(section),
+            })
+            .collect();
+        sections.push(NavSection::of("Admin", pages));
+    }
+    sections
 }
 
 #[component]
-pub async fn account_nav(cx: &Cx, active: AccountTab) -> Result<impl View> {
-    let tabs: Vec<NavTab> = AccountTab::ALL
-        .into_iter()
-        .map(|tab| NavTab {
-            tab,
-            href: tab.path(),
-            links: tab
-                .sections()
-                .iter()
-                .map(|section| (section.label(), section.path()))
-                .collect(),
-        })
-        .collect();
+pub async fn account_nav(cx: &Cx, active: AccountArea, is_admin: bool) -> Result<impl View> {
+    let sections = sections(cx, active, is_admin);
     let external_links = [
         ("Support", "/support".to_string()),
         ("Documentation", API_DOCS_PATH.to_string()),
@@ -36,24 +79,24 @@ pub async fn account_nav(cx: &Cx, active: AccountTab) -> Result<impl View> {
 
     Ok(view! {
         <ul class="l-nav__list l-nav__list--flush-left l-flex-col p-account__nav-list">
-            for NavTab { tab, href: tab_href, links } in &tabs {
+            for section in &sections {
                 <li class="l-nav__list-item l-nav__list-item-group">
-                    <a
-                        href=(tab_href.as_str())
-                        aria-current=((*tab == active).then_some("page"))
-                        class=(if *tab == active {
-                            "l-nav__link l-nav__link--active"
-                        } else {
-                            "l-nav__link"
-                        })
-                    >
-                        (tab.heading())
-                    </a>
-                    if !links.is_empty() {
+                    nav_link(
+                        href: section.href.as_str(),
+                        active: section.active,
+                        current: section.current,
+                        text: section.label
+                    )
+                    if !section.pages.is_empty() {
                         <ul class="l-nav__list p-account__nav-links">
-                            for (label, href) in links {
+                            for page in &section.pages {
                                 <li class="l-nav__list-item">
-                                    <a href=(href.as_str()) class="l-nav__link">(*label)</a>
+                                    nav_link(
+                                        href: page.href.as_str(),
+                                        active: page.current,
+                                        current: page.current,
+                                        text: page.label
+                                    )
                                 </li>
                             }
                         </ul>
@@ -70,5 +113,24 @@ pub async fn account_nav(cx: &Cx, active: AccountTab) -> Result<impl View> {
                 </li>
             }
         </ul>
+    })
+}
+
+#[component]
+async fn nav_link(
+    cx: &Cx,
+    href: &str,
+    active: bool,
+    current: bool,
+    text: &str,
+) -> Result<impl View> {
+    let class = if active {
+        "l-nav__link l-nav__link--active"
+    } else {
+        "l-nav__link"
+    };
+
+    Ok(view! {
+        <a href=(href) aria-current=(current.then_some("page")) class=(class)>(text)</a>
     })
 }

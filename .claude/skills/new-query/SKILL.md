@@ -55,6 +55,13 @@ pub async fn query_<verb>_<thing>(
 - Always use the checked macros (`query!`, `query_as!`, `query_scalar!`), never string SQL.
 - Enum columns: select as `role AS "role: Role"`; bind with the enum's `as_str()`.
 - Never call sqlx inline in a handler, page or procedure.
+- **A sort column chosen at runtime** (list pages): keep the checked macro and bind the
+  `SortKey::as_str()` value plus a `descending: bool`. Compute derived columns in a `WITH`
+  CTE, then order with one `CASE` per type and direction, e.g.
+  `CASE WHEN NOT $3 THEN CASE $2 WHEN 'name' THEN lower(name) WHEN 'email' THEN email END END ASC,
+  CASE WHEN $3 THEN … END DESC`, a second pair for timestamps with `NULLS LAST`, and a
+  stable tiebreak (`created_at DESC, id DESC`) last. `admin/queries.rs` `query_search_users`
+  is the reference.
 
 ## 3. Security checks for the query
 

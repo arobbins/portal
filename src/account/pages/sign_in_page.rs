@@ -7,10 +7,9 @@ use topcoat::{
 };
 
 use super::password_routes::{ChangePasswordFailed, change_password_submit, save_new_password};
-use super::placeholder_tab::coming_soon_card;
+use super::placeholder_page::coming_soon_card;
 use crate::account::tabs::AccountSection;
 use crate::action::ActionProblem;
-use crate::activity::pages::activity_card::activity_card;
 use crate::auth::pages::new_password_form::new_password_fields;
 use crate::auth::password::{CONFIRMATION_FIELD, CURRENT_PASSWORD_FIELD, PASSWORD_FIELD};
 use crate::components::button::{ButtonSize, ButtonVariant, button};
@@ -20,9 +19,7 @@ use crate::components::form::{
     DialogForm, ModalSubmit, dialog_error_toast, dialog_input, modal_form, page_toast,
 };
 use crate::components::icon::{IconName, icon};
-use crate::devices::pages::devices_card::devices_card;
 use crate::flash::{Flash, flash_toasts, take_flash};
-use crate::layout::page_heading::{PageHeadingVariant, page_heading};
 use crate::passkeys::pages::passkey_routes::{remove_problem, rename_problem};
 use crate::passkeys::pages::passkeys_card::passkeys_card;
 
@@ -33,8 +30,6 @@ const FLASHES: &[Flash] = &[
     Flash::PasskeyAdded,
     Flash::PasskeyRenamed,
     Flash::PasskeyRemoved,
-    Flash::DeviceSignedOut,
-    Flash::OtherDevicesSignedOut,
 ];
 
 struct PasswordDrafts {
@@ -56,7 +51,7 @@ impl PasswordDrafts {
 }
 
 #[component]
-pub async fn security_tab(cx: &Cx) -> Result<impl View> {
+pub async fn sign_in_page(cx: &Cx) -> Result<impl View> {
     let flash = take_flash(cx, FLASHES).await?;
     let password_failure =
         try_context::<ChangePasswordFailed>(cx).map(|failed| failed.problem.spec());
@@ -69,11 +64,8 @@ pub async fn security_tab(cx: &Cx) -> Result<impl View> {
 
     Ok(view! {
         <div class="p-account__sub-page-content">
-            page_heading(text: "Security", variant: PageHeadingVariant::Compact)
             password_card(form: &form, drafts: &drafts)
             passkeys_card()
-            devices_card()
-            activity_card()
             coming_soon_card(
                 section: AccountSection::TwoFactor,
                 action: "Set up",

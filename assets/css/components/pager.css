@@ -1,0 +1,8 @@
+.a-pager {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.a-pager__next {
+  margin-left: auto;
+}

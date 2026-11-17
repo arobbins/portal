@@ -1,4 +1,11 @@
+use crate::admin::pages::admin_shell::AdminSection;
 use crate::routes::ACCOUNT_PATH;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AccountArea {
+    Page(AccountPage),
+    Admin(AdminSection),
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AccountTab {
@@ -43,25 +50,101 @@ impl AccountTab {
     }
 
     pub fn path(self) -> String {
-        format!("{ACCOUNT_PATH}/{}", self.slug())
+        self.pages()[0].path()
+    }
+
+    pub fn pages(self) -> &'static [AccountPage] {
+        match self {
+            Self::Profile => &[AccountPage::Profile],
+            Self::Security => &[AccountPage::SignIn, AccountPage::Devices],
+            Self::Billing => &[AccountPage::Plan, AccountPage::Invoices],
+            Self::Settings => &[AccountPage::Settings],
+            Self::Developer => &[AccountPage::Developer],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AccountPage {
+    Profile,
+    SignIn,
+    Devices,
+    Plan,
+    Invoices,
+    Settings,
+    Developer,
+}
+
+impl AccountPage {
+    pub const ALL: [Self; 7] = [
+        Self::Profile,
+        Self::SignIn,
+        Self::Devices,
+        Self::Plan,
+        Self::Invoices,
+        Self::Settings,
+        Self::Developer,
+    ];
+
+    pub fn tab(self) -> AccountTab {
+        AccountTab::ALL
+            .into_iter()
+            .find(|tab| tab.pages().contains(&self))
+            .expect("every page belongs to a tab")
+    }
+
+    pub fn slug(self) -> Option<&'static str> {
+        match self {
+            Self::Profile | Self::Settings | Self::Developer => None,
+            Self::SignIn => Some("sign-in"),
+            Self::Devices => Some("devices"),
+            Self::Plan => Some("plan"),
+            Self::Invoices => Some("invoices"),
+        }
+    }
+
+    pub fn from_slugs(tab: &str, page: Option<&str>) -> Option<Self> {
+        let tab = AccountTab::from_slug(tab)?;
+        tab.pages()
+            .iter()
+            .copied()
+            .find(|candidate| candidate.slug() == page)
+    }
+
+    pub fn heading(self) -> &'static str {
+        match self {
+            Self::Profile => "Profile",
+            Self::SignIn => "Sign-in",
+            Self::Devices => "Devices and activity",
+            Self::Plan => "Plan and payment",
+            Self::Invoices => "Invoices",
+            Self::Settings => "Settings",
+            Self::Developer => "Developer",
+        }
+    }
+
+    pub fn path(self) -> String {
+        match self.slug() {
+            Some(slug) => format!("{ACCOUNT_PATH}/{}/{slug}", self.tab().slug()),
+            None => format!("{ACCOUNT_PATH}/{}", self.tab().slug()),
+        }
     }
 
     pub fn sections(self) -> &'static [AccountSection] {
         match self {
             Self::Profile => &[AccountSection::DeleteAccount],
-            Self::Security => &[
+            Self::SignIn => &[
                 AccountSection::Password,
                 AccountSection::Passkeys,
-                AccountSection::Devices,
-                AccountSection::Activity,
                 AccountSection::TwoFactor,
                 AccountSection::SingleSignOn,
             ],
-            Self::Billing => &[
+            Self::Devices => &[AccountSection::Devices, AccountSection::Activity],
+            Self::Plan => &[
                 AccountSection::Subscriptions,
-                AccountSection::Invoices,
                 AccountSection::PaymentMethods,
             ],
+            Self::Invoices => &[AccountSection::Invoices],
             Self::Settings => &[AccountSection::Notifications],
             Self::Developer => &[AccountSection::ApiTokens],
         }
@@ -101,11 +184,11 @@ impl AccountSection {
         Self::DeleteAccount,
     ];
 
-    pub fn tab(self) -> AccountTab {
-        AccountTab::ALL
+    pub fn page(self) -> AccountPage {
+        AccountPage::ALL
             .into_iter()
-            .find(|tab| tab.sections().contains(&self))
-            .expect("every section belongs to a tab")
+            .find(|page| page.sections().contains(&self))
+            .expect("every section belongs to a page")
     }
 
     pub fn anchor(self) -> &'static str {
@@ -143,7 +226,7 @@ impl AccountSection {
     }
 
     pub fn path(self) -> String {
-        format!("{}#{}", self.tab().path(), self.anchor())
+        format!("{}#{}", self.page().path(), self.anchor())
     }
 }
 
@@ -160,14 +243,40 @@ mod tests {
     }
 
     #[test]
-    fn every_section_belongs_to_exactly_one_tab() {
-        let sections: Vec<AccountSection> = AccountTab::ALL
-            .into_iter()
-            .flat_map(|tab| tab.sections().iter().copied())
-            .collect();
-        for section in &sections {
-            assert_eq!(sections.iter().filter(|other| *other == section).count(), 1);
-            assert!(section.tab().sections().contains(section));
+    fn every_page_belongs_to_one_tab_and_every_section_to_one_page() {
+        for page in AccountPage::ALL {
+            let homes = AccountTab::ALL
+                .into_iter()
+                .filter(|tab| tab.pages().contains(&page))
+                .count();
+            assert_eq!(homes, 1, "{page:?}");
         }
+        for section in AccountSection::ALL {
+            let homes = AccountPage::ALL
+                .into_iter()
+                .filter(|page| page.sections().contains(&section))
+                .count();
+            assert_eq!(homes, 1, "{section:?}");
+        }
+    }
+
+    #[test]
+    fn a_page_has_its_own_path_only_when_its_tab_has_several() {
+        assert_eq!(AccountPage::Profile.path(), "/account/profile");
+        assert_eq!(AccountPage::Devices.path(), "/account/security/devices");
+        assert_eq!(AccountTab::Security.path(), "/account/security/sign-in");
+        assert_eq!(
+            AccountSection::Activity.path(),
+            "/account/security/devices#activity"
+        );
+        for page in AccountPage::ALL {
+            assert_eq!(page.slug().is_some(), page.tab().pages().len() > 1);
+            assert_eq!(
+                AccountPage::from_slugs(page.tab().slug(), page.slug()),
+                Some(page)
+            );
+        }
+        assert_eq!(AccountPage::from_slugs("security", None), None);
+        assert_eq!(AccountPage::from_slugs("profile", Some("x")), None);
     }
 }

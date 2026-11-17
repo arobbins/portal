@@ -26,7 +26,19 @@ paths:
   above fields; pass `for_id` to tie it to a control, which `form_label`
   and fieldset legends already do),
   `menu` (popover, opened by any button with `popovertarget`), `tabs` + `tab`
-  (link tabs), `table` + `table_row`/`table_heading`/`table_cell`,
+  (link tabs), `table` (columns are `Column` consts built with
+  `.sortable(key)` / `.number()` / `.date()` / `.wide_only()` /
+  `.truncated()`; the component renders the header from them, rows use
+  `table_row` + `table_row_heading` for the row's main cell (give it
+  `href` to make the whole cell the row's one link; never make the whole
+  row clickable, so other cells stay selectable) + `table_cell`,
+  each given its `Column`, so alignment and phone visibility follow the
+  column; props: required `caption` (`caption_hidden` to hide it visually),
+  `sorting`, `empty`, `density`, `layout: TableLayout::Stacked` for rows
+  that become cards on phones, `sticky_header`; list pages read
+  `?q&sort&dir&page` with `listing::ListQuery<K>` (`K: SortKey`), which
+  builds the sort links, page links and the `FindX` action input, so never
+  parse those params by hand), `pager` (Previous / Next links),
   `empty_state`, `toggle` (a `role="switch"` checkbox), `copy_field`,
   `property_list` + `property` (name, badge tags, description, detail and
   actions: lists of fields, passkeys, tokens), `code_panel` + `code_block`

@@ -27,7 +27,7 @@ skipped by any path. New features follow the `new-action` skill.
 session), `passkeys`, `profile`, `api_tokens`, `devices` (signed-in
 browsers), `activity` (the account event log as a list), `admin` (the admin
 area: users list and detail, `webserver admin` command), `account` (the
-account shell: tabs, sections, nav, security tab). `user/` is only the `User` model, its
+account shell: sections, pages, cards, nav, the sign-in and devices pages). `user/` is only the `User` model, its
 queries, `name.rs` and the event log; `api/` is only HTTP plumbing (auth,
 bodies, problems, scopes, catalog, `v1` routes).
 

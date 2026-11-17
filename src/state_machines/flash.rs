@@ -11,7 +11,8 @@ pub enum FlashState {
 pub enum FlashEvent {
     ChangePassword,
     SignOutOthers,
-    OpenSecurity,
+    OpenSignIn,
+    OpenDevices,
     OpenProfile,
     SignOut,
 }
@@ -27,7 +28,8 @@ pub const FLASH: Machine<FlashState, FlashEvent> = Machine {
     events: &[
         E::ChangePassword,
         E::SignOutOthers,
-        E::OpenSecurity,
+        E::OpenSignIn,
+        E::OpenDevices,
         E::OpenProfile,
         E::SignOut,
     ],
@@ -42,7 +44,7 @@ pub const FLASH: Machine<FlashState, FlashEvent> = Machine {
         Writer {
             caller: "src/flash.rs:take_flash",
             query: "take_flash",
-            events: &[E::OpenSecurity],
+            events: &[E::OpenSignIn, E::OpenDevices],
         },
     ],
 };
@@ -59,8 +61,11 @@ pub fn expect(from: FlashState, event: FlashEvent) -> Expect<FlashState> {
     match (from, event) {
         (_, E::ChangePassword) => Moves(S::PasswordChanged),
         (_, E::SignOutOthers) => Moves(S::OthersSignedOut),
-        (S::Empty, E::OpenSecurity | E::SignOut) | (_, E::OpenProfile) => Refused,
-        (_, E::OpenSecurity | E::SignOut) => Moves(S::Empty),
+        (S::PasswordChanged, E::OpenSignIn) | (S::OthersSignedOut, E::OpenDevices) => {
+            Moves(S::Empty)
+        }
+        (_, E::OpenSignIn | E::OpenDevices | E::OpenProfile) | (S::Empty, E::SignOut) => Refused,
+        (_, E::SignOut) => Moves(S::Empty),
     }
 }
 
@@ -87,7 +92,8 @@ impl Labeled for FlashEvent {
         match self {
             E::ChangePassword => "change_password",
             E::SignOutOthers => "sign_out_others",
-            E::OpenSecurity => "open_security",
+            E::OpenSignIn => "open_sign_in",
+            E::OpenDevices => "open_devices",
             E::OpenProfile => "open_profile",
             E::SignOut => "sign_out",
         }
@@ -97,7 +103,8 @@ impl Labeled for FlashEvent {
         match self {
             E::ChangePassword => "Changes the password (no-JS form)",
             E::SignOutOthers => "Signs out other devices",
-            E::OpenSecurity => "Opens Security (accepts both)",
+            E::OpenSignIn => "Opens Sign-in (accepts \"Password changed\")",
+            E::OpenDevices => "Opens Devices and activity (accepts \"Signed out elsewhere\")",
             E::OpenProfile => "Opens Profile (accepts neither)",
             E::SignOut => "Signs out",
         }

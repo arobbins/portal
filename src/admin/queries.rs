@@ -31,25 +31,44 @@ pub struct UserCounts {
     pub api_tokens: i64,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct UserOrder {
+    pub sort: &'static str,
+    pub descending: bool,
+}
+
 pub async fn query_search_users(
     search: &str,
+    order: UserOrder,
     limit: i64,
     offset: i64,
     db: impl PgExecutor<'_>,
 ) -> Result<Vec<UserListing>, sqlx::Error> {
     sqlx::query_as!(
         UserListing,
-        r#"SELECT u.public_id, u.name, u.email, u.role AS "role: Role",
-            CASE WHEN u.disabled_at IS NOT NULL THEN 'disabled' WHEN u.verified_at IS NULL THEN 'awaiting_password' ELSE 'active' END AS "status!: ListedStatus",
-            u.created_at, GREATEST(
-                (SELECT max(d.last_seen_at) FROM user_devices d WHERE d.user_id = u.id),
-                (SELECT max(e.created_at) FROM account_events e WHERE e.user_id = u.id AND e.kind = 'signed_in')
-            ) AS last_active_at
-        FROM users u
-        WHERE $1 = '' OR strpos(lower(u.email), lower($1)) > 0 OR strpos(lower(u.name), lower($1)) > 0
-        ORDER BY u.created_at DESC, u.id DESC
-        LIMIT $2 OFFSET $3"#,
+        r#"WITH listed AS (
+            SELECT u.id, u.public_id, u.name, u.email, u.role,
+                CASE WHEN u.disabled_at IS NOT NULL THEN 'disabled' WHEN u.verified_at IS NULL THEN 'awaiting_password' ELSE 'active' END AS status,
+                u.created_at, GREATEST(
+                    (SELECT max(d.last_seen_at) FROM user_devices d WHERE d.user_id = u.id),
+                    (SELECT max(e.created_at) FROM account_events e WHERE e.user_id = u.id AND e.kind = 'signed_in')
+                ) AS last_active_at
+            FROM users u
+            WHERE $1 = '' OR strpos(lower(u.email), lower($1)) > 0 OR strpos(lower(u.name), lower($1)) > 0
+        )
+        SELECT public_id AS "public_id!", name AS "name!", email AS "email!", role AS "role!: Role",
+            status AS "status!: ListedStatus", created_at AS "created_at!", last_active_at
+        FROM listed
+        ORDER BY
+            CASE WHEN NOT $3 THEN CASE $2 WHEN 'name' THEN lower(name) WHEN 'email' THEN email WHEN 'status' THEN status WHEN 'role' THEN role END END ASC,
+            CASE WHEN $3 THEN CASE $2 WHEN 'name' THEN lower(name) WHEN 'email' THEN email WHEN 'status' THEN status WHEN 'role' THEN role END END DESC,
+            CASE WHEN NOT $3 THEN CASE $2 WHEN 'joined' THEN created_at WHEN 'last_active' THEN last_active_at END END ASC NULLS LAST,
+            CASE WHEN $3 THEN CASE $2 WHEN 'joined' THEN created_at WHEN 'last_active' THEN last_active_at END END DESC NULLS LAST,
+            created_at DESC, id DESC
+        LIMIT $4 OFFSET $5"#,
         search,
+        order.sort,
+        order.descending,
         limit,
         offset,
     )

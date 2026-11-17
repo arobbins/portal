@@ -2,58 +2,77 @@ use topcoat::{
     Result,
     context::Cx,
     metadata::Metadata,
-    router::{href, page, parse_query_params},
+    router::{href, page, request},
     view::{View, attributes, component, view},
 };
 
 use super::admin_access::require_admin;
-use super::log_page::admin_log_page;
+use super::admin_shell::{AdminSection, admin_shell};
 use super::user_page::{admin_user_page, id};
 use super::user_view::UserRow;
-use crate::admin::actions::{FindUsers, UserPage, list_users};
+use crate::admin::actions::{FindUsers, UserSort, list_users};
 use crate::app::page_title;
 use crate::components::badge::badge;
 use crate::components::button::{ButtonType, ButtonVariant, button};
-use crate::components::empty_state::empty_state;
 use crate::components::form::{form, form_actions, form_field};
-use crate::components::table::{table, table_cell, table_heading, table_row};
+use crate::components::pager::pager;
+use crate::components::table::{
+    Column, TableLayout, table, table_cell, table_row, table_row_heading,
+};
 use crate::flash::{Flash, flash_toast, flash_toasts, take_flash};
-use crate::layout::page_heading::page_heading;
+use crate::listing::{ListQuery, SortKey};
 use crate::web::env;
 
 const FLASHES: &[Flash] = &[Flash::UserDeleted];
 
+fn columns() -> [Column; 6] {
+    [
+        Column::new("Name").sortable(UserSort::Name.as_str()),
+        Column::new("Email")
+            .sortable(UserSort::Email.as_str())
+            .truncated(),
+        Column::new("Status").sortable(UserSort::Status.as_str()),
+        Column::new("Role")
+            .sortable(UserSort::Role.as_str())
+            .wide_only(),
+        Column::new("Joined")
+            .sortable(UserSort::Joined.as_str())
+            .date()
+            .wide_only(),
+        Column::new("Last active")
+            .sortable(UserSort::LastActive.as_str())
+            .date(),
+    ]
+}
+
 #[page("/admin/users", with(Metadata::new().title(page_title("Users"))))]
 pub async fn admin_users_page(cx: &Cx) -> Result<impl View> {
     let caller = require_admin(cx).await?;
-    let find: FindUsers = parse_query_params(cx).unwrap_or_default();
-    let page = match list_users(&env(cx), &caller, &find).await? {
+    let list: ListQuery<UserSort> = ListQuery::parse(request::uri(cx).query());
+    let page = match list_users(&env(cx), &caller, &FindUsers::from(list.clone())).await? {
         Ok(page) => page,
         Err(error) => match error.for_browser()? {},
     };
     let rows: Vec<UserRow> = page.users.iter().map(UserRow::of).collect();
+    let base = href!(admin_users_page).resolve(cx);
+    let previous = (page.page > 0).then(|| list.page_href(&base, page.page - 1));
+    let next = page.has_next.then(|| list.page_href(&base, page.page + 1));
     let toast = flash_toast(cx, take_flash(cx, FLASHES).await?);
 
     Ok(view! {
-        <section class="l-contain p-admin">
-            page_heading(text: "Users")
-            <a class="p-admin__back" href=(href!(admin_log_page).resolve(cx))>
-                "Admin log"
-            </a>
-            users_search(query: &find.q)
-            if rows.is_empty() {
-                empty_state(heading: "No users match that search.")
-            } else {
-                <div class="p-admin__users">users_table(rows: &rows)</div>
-            }
-            pager(page: &page, query: &find.q)
+        admin_shell(
+            user: caller.user.as_ref(),
+            section: AdminSection::Users,
+            users_search(list: &list)
+            users_table(rows: &rows, list: &list)
+            pager(previous: previous.as_deref(), next: next.as_deref())
             flash_toasts(toast: &toast, flashes: FLASHES)
-        </section>
+        )
     })
 }
 
 #[component]
-async fn users_search(cx: &Cx, query: &str) -> Result<impl View> {
+async fn users_search(cx: &Cx, list: &ListQuery<UserSort>) -> Result<impl View> {
     let action = href!(admin_users_page).resolve(cx);
 
     Ok(view! {
@@ -68,8 +87,10 @@ async fn users_search(cx: &Cx, query: &str) -> Result<impl View> {
                 label: "Search by email or name",
                 id: "admin-user-search",
                 name: "q",
-                value: Some(query)
+                value: Some(list.q.as_str())
             )
+            <input type="hidden" name="sort" value=(list.sort.as_str())>
+            <input type="hidden" name="dir" value=(list.direction.as_str())>
             form_actions(
                 button(
                     variant: ButtonVariant::Secondary,
@@ -82,67 +103,49 @@ async fn users_search(cx: &Cx, query: &str) -> Result<impl View> {
 }
 
 #[component]
-async fn users_table(cx: &Cx, rows: &[UserRow]) -> Result<impl View> {
+async fn users_table(cx: &Cx, rows: &[UserRow], list: &ListQuery<UserSort>) -> Result<impl View> {
+    let columns = columns();
+    let [name, email, status, role, joined, last_active] = columns;
+    let sorting = list.sorting(&href!(admin_users_page).resolve(cx));
+    let empty = rows.is_empty().then_some("No users match that search.");
+    let rows: Vec<(&UserRow, String)> = rows
+        .iter()
+        .map(|row| {
+            let link = href!(admin_user_page, id: row.id.as_str()).resolve(cx);
+            (row, link)
+        })
+        .collect();
+
     Ok(view! {
         table(
-            caption: Some("Users, newest first"),
-            <thead>
+            caption: "Users",
+            caption_hidden: true,
+            columns: &columns,
+            sorting: Some(&sorting),
+            empty: empty,
+            layout: TableLayout::Stacked,
+            #[key(row.id.as_str())]
+            for (row, link) in &rows {
                 table_row(
-                    table_heading("Name")
-                    table_heading("Email")
-                    table_heading("Status")
-                    table_heading("Role")
-                    table_heading("Joined")
-                    table_heading("Last active")
-                )
-            </thead>
-            <tbody>
-                #[key(row.id.as_str())]
-                for row in rows {
-                    table_row(
-                        table_cell(
-                            <a
-                                href=(href!(admin_user_page, id: row.id.as_str()).resolve(
-                                    cx,
-                                ))
-                            >
-                                (row.name.as_str())
-                            </a>
-                            <span class="p-admin__detail">(row.email.as_str())</span>
-                        )
-                        table_cell((row.email.as_str()))
-                        table_cell(badge(tone: row.status.1, (row.status.0)))
-                        table_cell((row.role))
-                        table_cell((row.joined.as_str()))
-                        table_cell((row.last_active.as_str()))
+                    table_row_heading(
+                        column: name,
+                        href: Some(link.as_str()),
+                        (row.name.as_str())
                     )
-                }
-            </tbody>
+                    table_cell(
+                        column: email,
+                        title: Some(row.email.as_str()),
+                        (row.email.as_str())
+                    )
+                    table_cell(
+                        column: status,
+                        badge(tone: row.status.1, (row.status.0))
+                    )
+                    table_cell(column: role, (row.role))
+                    table_cell(column: joined, (row.joined.as_str()))
+                    table_cell(column: last_active, (row.last_active.as_str()))
+                )
+            }
         )
-    })
-}
-
-#[component]
-async fn pager(cx: &Cx, page: &UserPage, query: &str) -> Result<impl View> {
-    let base = href!(admin_users_page).resolve(cx);
-    let link = |number: u32| {
-        let query = url::form_urlencoded::Serializer::new(String::new())
-            .append_pair("q", query)
-            .append_pair("page", &number.to_string())
-            .finish();
-        format!("{base}?{query}")
-    };
-    let newer = (page.page > 0).then(|| link(page.page - 1));
-    let older = page.has_next.then(|| link(page.page + 1));
-
-    Ok(view! {
-        <nav class="p-admin__pager" aria-label="Pages">
-            if let Some(newer) = newer {
-                button(variant: ButtonVariant::Secondary, href: Some(&newer), "Newer")
-            }
-            if let Some(older) = older {
-                button(variant: ButtonVariant::Secondary, href: Some(&older), "Older")
-            }
-        </nav>
     })
 }
