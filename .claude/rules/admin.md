@@ -4,6 +4,7 @@ paths:
   - "src/admin.rs"
   - "e2e/tests/admin.spec.ts"
   - "e2e/support/console.ts"
+  - "e2e/support/admin.ts"
 ---
 
 # Admin area
@@ -31,4 +32,7 @@ paths:
   100 (`Server console` when there's no admin). A self-service deletion
   records no event, because events cascade with the row; it's logged with
   `tracing`. The e2e seed includes `admin@example.test`; e2e tests make
-  their own admin with `grantAdmin(email)` (`support/console.ts`).
+  their own admin with `grantAdmin(email)` (`support/console.ts`), or sign
+  in as the seed admin and unlock with `openAdmin(page)`
+  (`support/admin.ts`). `/admin/feedback` lists API feedback
+  (`api-feedback.md`).

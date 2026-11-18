@@ -6,6 +6,7 @@ use topcoat::{
 
 use crate::account::tabs::AccountSection;
 use crate::api::catalog::{TITLE, endpoints};
+use crate::api::registry::feedback_tool;
 use crate::api::v1::docs::openapi_document;
 use crate::app::SITE_NAME;
 use crate::mcp::{PROTOCOL_VERSION, mcp_endpoint};
@@ -34,6 +35,10 @@ pub async fn llms_txt(cx: &Cx) -> Result<String> {
     let tokens = app(cx).url(&AccountSection::ApiTokens.path());
     let mcp = app(cx).url(&href!(mcp_endpoint).resolve(cx));
     let endpoints = endpoint_lines();
+    let feedback = feedback_tool();
+    let feedback_method = feedback.endpoint.method.as_str();
+    let feedback_path = feedback.endpoint.path;
+    let feedback_name = feedback.name();
 
     Ok(format!(
         "# {SITE_NAME}\n\n\
@@ -52,7 +57,7 @@ pub async fn llms_txt(cx: &Cx) -> Result<String> {
          and send it as a Bearer token; `tools/list` shows only the tools the token's scopes allow.\n\n\
          ## Feedback\n\n\
          If an endpoint, its schema, an error or these docs got in your way, tell us: \
-         `POST /api/v1/feedback` (MCP tool `send_feedback`) works with any token, whatever its \
+         `{feedback_method} {feedback_path}` (MCP tool `{feedback_name}`) works with any token, whatever its \
          scopes. Say what you tried, what you expected and what happened; include the endpoint, \
          the error `code` and the `x-request-id` header if you have them. Never include secrets.\n",
         endpoints.join("\n")

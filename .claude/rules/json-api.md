@@ -18,8 +18,9 @@ paths:
 
 - **Registry** (`api/registry.rs`): every API endpoint is an `ApiAction`
   impl next to its action (id, group, method, path, summary, description,
-  scope, `Input`/`Output`/`Problem` types, examples, problem docs) listed
-  in `endpoints()`. The docs page, `/api/v1/openapi.json`, `/llms.txt` and
+  permission, `Input`/`Output`/`Problem` types, examples, problem docs) listed
+  in `tools()`. `Endpoint.scope` is `None` for `AnyToken` actions
+  (`send_feedback`): docs use `access_note()` / `scope_name()`. The docs page, `/api/v1/openapi.json`, `/llms.txt` and
   the MCP tools are generated from it; nothing about an endpoint is
   written twice.
 - Routes live in `api/v1/<feature>.rs` as Topcoat `#[route]`s named
@@ -66,7 +67,7 @@ paths:
   descriptions and length limits, so write good `#[schemars(description)]`s.
   Never hand-write an error code or field list on the page.
 - Adding an endpoint means an `ApiAction` impl plus a line in
-  `registry::endpoints()`; `server/tests.rs` tests that every catalog entry exists and needs a token, and
+  `registry::tools()`; `server/tests.rs` tests that every catalog entry exists and needs a token, and
   `api-docs.spec.ts` checks the page and the OpenAPI document.
 - Error enums the docs list need `pub const ALL` (`ApiAuthProblem`,
   `BodyProblem`, `NameProblem`); shared API errors are `ApiFailure`.

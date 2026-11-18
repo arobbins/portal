@@ -11,7 +11,7 @@ use crate::api::auth::authenticate;
 use crate::api::body::{MAX_JSON_BODY, read_json};
 use crate::api::openapi::without_meta;
 use crate::api::problem::{ApiResponse, no_store, or_internal_error};
-use crate::api::registry::{Tool, ToolOutcome, tools};
+use crate::api::registry::{Tool, ToolOutcome, feedback_tool, tools};
 use crate::api::scope::TokenAudience;
 use crate::app::SITE_NAME;
 use crate::env::Env;
@@ -94,7 +94,10 @@ fn initialize(params: &Value) -> Value {
         "protocolVersion": version,
         "capabilities": { "tools": { "listChanged": false } },
         "serverInfo": { "name": SITE_NAME, "version": env!("CARGO_PKG_VERSION") },
-        "instructions": "Tools act on the account that owns the token, within the token's scopes. Errors come back as problem JSON with a stable `code` and a `detail` that says how to fix the call. If a tool, its schema or an error got in your way, call `send_feedback` to tell the people who run this API; they use it to fix the API and its docs.",
+        "instructions": format!(
+            "Tools act on the account that owns the token, within the token's scopes. Errors come back as problem JSON with a stable `code` and a `detail` that says how to fix the call. If a tool, its schema or an error got in your way, call `{}` to tell the people who run this API; they use it to fix the API and its docs.",
+            feedback_tool().name()
+        ),
     })
 }
 

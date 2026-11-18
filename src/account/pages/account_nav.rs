@@ -8,6 +8,7 @@ use topcoat::{
 use crate::account::tabs::{AccountArea, AccountTab};
 use crate::admin::pages::admin_shell::AdminSection;
 use crate::components::icon::{IconName, icon};
+use crate::web::config;
 
 struct NavPage {
     label: &'static str,
@@ -73,21 +74,17 @@ fn sections(cx: &Cx, active: AccountArea, is_admin: bool) -> Vec<NavSection> {
 fn tab_icon(tab: AccountTab) -> IconName {
     match tab {
         AccountTab::Profile => IconName::User,
-        AccountTab::Security => IconName::Passkey,
+        AccountTab::Security => IconName::Shield,
         AccountTab::Billing => IconName::CreditCard,
         AccountTab::Settings => IconName::Settings,
-        AccountTab::Developer => IconName::Monitor,
+        AccountTab::Developer => IconName::Code,
     }
 }
 
 #[component]
 pub async fn account_nav(cx: &Cx, active: AccountArea, is_admin: bool) -> Result<impl View> {
     let sections = sections(cx, active, is_admin);
-    let external_links = [
-        ("Support", "/support".to_string()),
-        ("Documentation", API_DOCS_PATH.to_string()),
-        ("System status", "/status".to_string()),
-    ];
+    let external_links = external_links(cx);
 
     Ok(view! {
         <ul class="l-nav__list l-nav__list--flush-left l-flex-col p-account__nav-list">
@@ -127,6 +124,18 @@ pub async fn account_nav(cx: &Cx, active: AccountArea, is_admin: bool) -> Result
             }
         </ul>
     })
+}
+
+fn external_links(cx: &Cx) -> Vec<(&'static str, String)> {
+    let config = config(cx);
+    [
+        ("Support", config.support_url.clone()),
+        ("Documentation", Some(API_DOCS_PATH.to_string())),
+        ("System status", config.status_url.clone()),
+    ]
+    .into_iter()
+    .filter_map(|(label, href)| Some((label, href?)))
+    .collect()
 }
 
 #[component]

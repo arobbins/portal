@@ -24,7 +24,8 @@ paths:
   `DATABASE_URL`, read by `server::database_url()` so `webserver seed` needs nothing else).
   Read it with `web::config(cx)` / `app.config`; build absolute URLs with `app.url(path)`. Cookies are `Secure`
   automatically when `APP_BASE_URL` is `https://`. Settings are listed in
-  `.env.example`.
+  `.env.example`. Optional `SUPPORT_URL` / `STATUS_URL` (full http(s) URLs)
+  add Support / System status links to the account sidebar.
 - **Security headers** (`server/router.rs`): every response gets `X-Frame-Options:
   DENY`, `frame-ancestors 'none'`, `nosniff` and a strict referrer policy;
   HSTS is added when `APP_BASE_URL` is https. `inject_globals` adds

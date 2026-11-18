@@ -28,6 +28,15 @@ pub enum FeedbackCategory {
 }
 
 impl FeedbackCategory {
+    #[cfg(test)]
+    pub const ALL: [Self; 5] = [
+        Self::ConfusingDocs,
+        Self::UnexpectedError,
+        Self::MissingCapability,
+        Self::WrongSchema,
+        Self::Other,
+    ];
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::ConfusingDocs => "confusing_docs",

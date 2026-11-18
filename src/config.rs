@@ -27,6 +27,18 @@ impl Reader<'_> {
         })
     }
 
+    fn optional_url(&mut self, key: &str) -> Option<String> {
+        let raw = self.optional(key)?;
+        match Url::parse(&raw) {
+            Ok(url) if matches!(url.scheme(), "http" | "https") => Some(raw),
+            _ => {
+                self.problems
+                    .push(format!("{key} must be a full http(s) URL (got `{raw}`)"));
+                None
+            }
+        }
+    }
+
     fn parse_optional<T: std::str::FromStr>(&mut self, key: &str, what: &str) -> Option<T> {
         let raw = self.optional(key)?;
         let parsed = raw.parse::<T>().ok();
@@ -113,6 +125,8 @@ pub struct Config {
     pub rate_limit_mode: RateLimitMode,
     pub trusted_proxy_hops: Option<usize>,
     pub job_workers: usize,
+    pub support_url: Option<String>,
+    pub status_url: Option<String>,
 }
 
 impl Config {
@@ -136,6 +150,8 @@ impl Config {
             job_workers: reader
                 .parse_optional("JOB_WORKERS", "a whole number")
                 .unwrap_or(DEFAULT_JOB_WORKERS),
+            support_url: reader.optional_url("SUPPORT_URL"),
+            status_url: reader.optional_url("STATUS_URL"),
         };
 
         if reader.problems.is_empty() {
@@ -236,6 +252,39 @@ mod tests {
         .unwrap();
 
         assert!(config.secure_cookies());
+    }
+
+    #[test]
+    fn support_and_status_links_are_optional_full_urls() {
+        let local = [
+            ("APP_BASE_URL", "http://localhost"),
+            ("MAIL_TRANSPORT", "log"),
+        ];
+        let unset = config(&local).unwrap();
+        assert_eq!(unset.support_url, None);
+        assert_eq!(unset.status_url, None);
+
+        let set = config(&[
+            local[0],
+            local[1],
+            ("SUPPORT_URL", "https://help.example.com"),
+            ("STATUS_URL", "https://status.example.com/"),
+        ])
+        .unwrap();
+        assert_eq!(set.support_url.as_deref(), Some("https://help.example.com"));
+        assert_eq!(
+            set.status_url.as_deref(),
+            Some("https://status.example.com/")
+        );
+
+        let problems = config_problems(&[
+            local[0],
+            local[1],
+            ("SUPPORT_URL", "/support"),
+            ("STATUS_URL", "mailto:ops@example.com"),
+        ]);
+        assert_eq!(problems.len(), 2, "{problems:?}");
+        assert!(problems[0].starts_with("SUPPORT_URL"), "{problems:?}");
     }
 
     #[test]

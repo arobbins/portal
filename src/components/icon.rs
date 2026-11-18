@@ -8,6 +8,7 @@ use topcoat::{
 pub enum IconName {
     Checkmark,
     ChevronDown,
+    Code,
     CreditCard,
     Edit,
     ErrorCircle,
@@ -22,6 +23,7 @@ pub enum IconName {
     Pinwheel,
     Plus,
     Settings,
+    Shield,
     Sun,
     User,
     UserSquare,
@@ -29,9 +31,10 @@ pub enum IconName {
 }
 
 impl IconName {
-    pub const ALL: [Self; 20] = [
+    pub const ALL: [Self; 22] = [
         Self::Checkmark,
         Self::ChevronDown,
+        Self::Code,
         Self::CreditCard,
         Self::Edit,
         Self::ErrorCircle,
@@ -46,6 +49,7 @@ impl IconName {
         Self::Pinwheel,
         Self::Plus,
         Self::Settings,
+        Self::Shield,
         Self::Sun,
         Self::User,
         Self::UserSquare,
@@ -56,6 +60,7 @@ impl IconName {
         match self {
             Self::Checkmark => "Checkmark",
             Self::ChevronDown => "Chevron Down",
+            Self::Code => "Code",
             Self::CreditCard => "Credit Card",
             Self::Edit => "Edit",
             Self::ErrorCircle => "Error Circle",
@@ -70,6 +75,7 @@ impl IconName {
             Self::Pinwheel => "Pinwheel",
             Self::Plus => "Plus",
             Self::Settings => "Settings",
+            Self::Shield => "Shield",
             Self::Sun => "Sun",
             Self::User => "User",
             Self::UserSquare => "User Square",
@@ -81,6 +87,7 @@ impl IconName {
         match self {
             Self::Checkmark => include_str!("../../assets/icons/checkmark.svg"),
             Self::ChevronDown => include_str!("../../assets/icons/chevron-down.svg"),
+            Self::Code => include_str!("../../assets/icons/code.svg"),
             Self::CreditCard => include_str!("../../assets/icons/credit-card.svg"),
             Self::Edit => include_str!("../../assets/icons/edit.svg"),
             Self::ErrorCircle => include_str!("../../assets/icons/error-circle.svg"),
@@ -95,6 +102,7 @@ impl IconName {
             Self::Plus => include_str!("../../assets/icons/plus.svg"),
             Self::Pinwheel => include_str!("../../assets/icons/pinwheel.svg"),
             Self::Settings => include_str!("../../assets/icons/settings.svg"),
+            Self::Shield => include_str!("../../assets/icons/shield.svg"),
             Self::Sun => include_str!("../../assets/icons/sun.svg"),
             Self::User => include_str!("../../assets/icons/user.svg"),
             Self::UserSquare => include_str!("../../assets/icons/user-square.svg"),

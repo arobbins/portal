@@ -57,6 +57,10 @@ pub fn tools() -> Vec<Tool> {
     ]
 }
 
+pub fn feedback_tool() -> Tool {
+    tool::<SendFeedbackAction>()
+}
+
 pub fn endpoints() -> Vec<Endpoint> {
     tools().into_iter().map(|tool| tool.endpoint).collect()
 }

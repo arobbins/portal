@@ -82,8 +82,10 @@ pub async fn do_thing(env: &Env<'_>, caller: &Caller, input: &DoThing) -> Action
 ```
 
 - Every write records an event inside the write's transaction; `detail` is a JSON object
-  (ids and names, never secrets). Add the `AccountEventKind` (+ `ALL`) and a migration
-  extending the `kind` CHECK.
+  (ids and names, never secrets). A new `AccountEventKind` touches four places: the
+  variant + `ALL` and its name (`src/user/events.rs`), a migration extending the
+  `account_events_kind_check`, and its label in `fixed_summary`
+  (`src/activity/actions.rs`). `check_conventions.py` catches a CHECK mismatch.
 - Owned rows are scoped by `caller.owner_id()` (the workspace; today the user).
 - Emails are jobs: `enqueue(&SendEmail(template.to(&email)), &mut *tx)` inside the
   transaction, with the email built by `mail::EmailTemplate`. Other network calls only
@@ -119,11 +121,14 @@ to the page's own URL. Redirect targets come from `href!(…)`, `AccountTab::X.p
 `AccountSection::X.path()` or a `routes.rs` constant. The procedure and POST route go in
 `<feature>/pages/<thing>_routes.rs`. The rest follows `new-form-flow`.
 
-## 6. Expose it to the API (scoped actions only)
+## 6. Expose it to the API (actions a token may call)
 
 Implement `ApiAction` in `<feature>/api.rs` (`profile/api.rs` is the reference): one
 declaration drives the route handler, the `/docs/api` page, the OpenAPI document,
-`/llms.txt` and the MCP tool list.
+`/llms.txt` and the MCP tool list. A first use of an `HttpMethod` (e.g. `Delete`) also
+needs its arms in `api/catalog.rs` (`as_str`, class name), its `Tone` and class in
+`pages/api_docs.rs`, `--color-code-method-<verb>` in `variables.css` with its
+styleguide token class, and `p-api-docs__code-method--<verb>` in `api-docs.css`.
 
 ```rust
 pub struct CreateThingAction;

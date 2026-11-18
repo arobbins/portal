@@ -233,3 +233,36 @@ async fn feedback_is_deleted_once_it_is_older_than_the_retention(db: PgPool) {
     );
     assert_eq!(crate::feedback::delete_old_feedback(&app).await.unwrap(), 1);
 }
+
+#[test]
+fn each_category_is_stored_under_its_api_name() {
+    for category in FeedbackCategory::ALL {
+        assert_eq!(
+            serde_json::to_value(category).unwrap(),
+            category.as_str(),
+            "{category:?}"
+        );
+    }
+}
+
+#[sqlx::test]
+async fn feedback_of_every_category_is_stored(db: PgPool) {
+    let user = active_user("categories@example.test", &db).await;
+    let app = App::for_tests(db.clone());
+    let env = app.env(None);
+    let caller = bare_token(&user);
+
+    for category in FeedbackCategory::ALL {
+        let input = SendApiFeedback {
+            category,
+            ..feedback("Hi")
+        };
+        send_api_feedback(&env, &caller, &input)
+            .await
+            .unwrap_or_else(|e| panic!("{category:?}: {e:?}"))
+            .unwrap_or_else(|e| panic!("{category:?}: {e:?}"));
+    }
+
+    let rows = query_list_recent_api_feedback(10, &db).await.unwrap();
+    assert_eq!(rows.len(), FeedbackCategory::ALL.len());
+}
