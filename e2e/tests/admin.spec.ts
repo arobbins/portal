@@ -95,6 +95,13 @@ test("the admin area opens inside the account layout", async ({ page }) => {
 
   await tabs.getByRole("link", { name: "Users" }).click();
   await expect(page).toHaveURL("/admin/users");
+  const search = page.getByLabel("Search by email or name");
+  await expect(search).toHaveAttribute(
+    "placeholder",
+    "Search by email or name",
+  );
+  const label = await page.getByText("Search by email or name").boundingBox();
+  expect(label?.width).toBeLessThanOrEqual(1);
   await nav.getByRole("link", { name: "Profile" }).click();
   await expect(page).toHaveURL("/account");
 });

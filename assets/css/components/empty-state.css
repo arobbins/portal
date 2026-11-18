@@ -10,7 +10,6 @@
 
 .a-empty-state__icon {
   font-size: var(--text-3xl);
-  color: var(--color-text-muted);
 }
 
 .a-empty-state__heading {

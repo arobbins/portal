@@ -32,13 +32,21 @@ cargo clippy --all-targets -- -D warnings
 step "sqlx offline query data is up to date"
 cargo sqlx prepare --check -- --all-targets
 
-step "Rust tests"
+step "Rust tests (building the e2e server alongside)"
+CARGO_TARGET_DIR=target/e2e topcoat asset bundle >target/e2e-build.log 2>&1 &
+e2e_build=$!
+trap 'kill "$e2e_build" 2>/dev/null || true' EXIT
 topcoat asset bundle
 rm -f target/state-machines/*.json
 cargo test || { python3 scripts/state_machine_report.py; exit 1; }
 
 step "State machine report"
 python3 scripts/state_machine_report.py
+
+if ! wait "$e2e_build"; then
+  cat target/e2e-build.log
+  exit 1
+fi
 
 step "Behavior tests (Playwright) ${e2e_args[*]:-}"
 (cd e2e && npx playwright test ${e2e_args[@]+"${e2e_args[@]}"}) || { python3 scripts/state_machine_report.py; exit 1; }

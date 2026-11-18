@@ -54,6 +54,7 @@ pub async fn form_field(
     #[default] autocomplete: Option<Autocomplete>,
     #[default] invalid: bool,
     #[default] label_link: Option<LabelLink<'_>>,
+    #[default] hide_label: bool,
     #[default] max_length: Option<usize>,
     #[default] attrs: Attributes,
 ) -> Result<impl View> {
@@ -65,7 +66,7 @@ pub async fn form_field(
                     <a class="a-form-label-row__link" href=(link.href)>(link.text)</a>
                 </div>
             } else {
-                form_label(for_id: id, (label))
+                form_label(for_id: id, hidden: hide_label, (label))
             }
             form_input(
                 id: id,

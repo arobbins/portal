@@ -21,7 +21,7 @@ pub async fn tab(
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
     let class = if active {
-        "a-tabs__tab a-tabs__tab--active"
+        "a-tabs__tab a-tabs__tab--is-active"
     } else {
         "a-tabs__tab"
     };

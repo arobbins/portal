@@ -1,5 +1,4 @@
 .l-header {
-  box-sizing: border-box;
   width: 100%;
   padding-inline: var(--space-4);
   display: flex;
@@ -36,7 +35,7 @@
   margin-left: var(--space-4);
 }
 
-@media (max-width: 760px) {
+@media (--phone) {
   .l-header {
     padding-block: var(--space-2-5);
   }

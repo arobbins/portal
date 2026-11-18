@@ -21,7 +21,7 @@ pub async fn home_page(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         <section class="l-contain l-skinny p-home">
             <h1 class="p-home__title">(SITE_NAME)</h1>
-            <p class="p-home__intro">
+            <p class="a-lead p-home__intro">
                 "A starting point for your next product: accounts, passkeys, API tokens and a documented JSON API, ready to build on."
             </p>
             <div class="p-home__actions">

@@ -9,7 +9,7 @@ use super::button::{ButtonVariant, button};
 use super::form::{form_group, form_label};
 
 const INPUT_CLASS: &str = "a-form-input a-copy-field__input";
-const COPIED_INPUT_CLASS: &str = "a-form-input a-copy-field__input a-copy-field__input--copied";
+const COPIED_INPUT_CLASS: &str = "a-form-input a-copy-field__input a-copy-field__input--is-copied";
 
 #[component]
 pub async fn copy_field(

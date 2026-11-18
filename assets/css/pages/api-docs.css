@@ -1,19 +1,8 @@
-.p-api-docs__nav-method {
-  display: inline-flex;
-  flex-shrink: 0;
-  width: 4.2em;
-}
-
 .p-api-docs__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2-5);
   margin-top: var(--space-5);
-}
-
-.p-api-docs__lead {
-  font-size: 1.2em;
-  color: var(--color-text-muted);
 }
 
 .p-api-docs__heading {
@@ -80,7 +69,7 @@
 .p-api-docs__code-method {
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .p-api-docs__code-method--get {

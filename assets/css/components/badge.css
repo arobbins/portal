@@ -10,6 +10,11 @@
   white-space: nowrap;
 }
 
+.a-badge--neutral {
+  color: var(--color-neutral-text);
+  border-color: var(--color-neutral-border);
+}
+
 .a-badge--success {
   color: var(--color-success-text);
   border-color: var(--color-success-border);

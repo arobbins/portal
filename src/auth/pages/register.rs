@@ -85,7 +85,7 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
                     required: true,
                     invalid: problem.is_some_and(RegisterProblem::invalid_email)
                 )
-                <div class="a-form__trap" aria-hidden="true">
+                <div class="u-visually-hidden" aria-hidden="true">
                     <label for="website">"Website"</label>
                     <input
                         type="text"

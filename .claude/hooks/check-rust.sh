@@ -26,8 +26,8 @@ fingerprint=$(
 
 [[ -f "$stamp" && "$(cat "$stamp")" == "$fingerprint" ]] && exit 0
 
-if output=$(CARGO_TARGET_DIR="$state_dir" cargo clippy --all-targets --message-format short --quiet -- -D warnings 2>&1); then
-  CARGO_TARGET_DIR="$state_dir" cargo sqlx prepare -- --all-targets >/dev/null 2>&1
+if output=$(cargo clippy --all-targets --message-format short --quiet -- -D warnings 2>&1); then
+  cargo sqlx prepare -- --all-targets >/dev/null 2>&1
   echo "$fingerprint" > "$stamp"
   exit 0
 fi

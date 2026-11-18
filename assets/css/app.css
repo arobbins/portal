@@ -8,8 +8,10 @@
 @import "./layout/parts/header.css";
 @import "./layout/parts/footer.css";
 @import "./layout/parts/nav.css";
+@import "./layout/parts/page-heading.css";
 @import "./components/icon.css";
 @import "./components/label.css";
+@import "./components/lead.css";
 @import "./components/button.css";
 @import "./components/form.css";
 @import "./components/notice.css";
@@ -31,9 +33,11 @@
 @import "./components/toggle.css";
 @import "./components/setting-toggle.css";
 @import "./pages/auth.css";
+@import "./pages/passkey-setup.css";
 @import "./pages/home.css";
 @import "./pages/not-found.css";
 @import "./pages/api-docs.css";
 @import "./pages/account.css";
 @import "./pages/styleguide.css";
+@import "./pages/styleguide-tokens.css";
 @import "./pages/admin.css";

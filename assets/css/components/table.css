@@ -129,7 +129,7 @@
   transform: rotate(180deg);
 }
 
-@media (max-width: 760px) {
+@media (--phone) {
   .a-table--stacked {
     max-height: none;
     overflow: visible;

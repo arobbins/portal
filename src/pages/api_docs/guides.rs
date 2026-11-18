@@ -35,7 +35,7 @@ pub(super) async fn overview_section(
                     text: "API reference",
                     variant: PageHeadingVariant::Compact
                 )
-                <p class="p-api-docs__lead">
+                <p class="a-lead">
                     "Use your account from your own scripts, apps and AI assistants. Every endpoint takes and returns JSON, and this page is generated from the same code the app runs, so it's always up to date."
                 </p>
                 <div class="p-api-docs__actions">

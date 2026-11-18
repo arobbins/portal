@@ -11,7 +11,7 @@
     box-shadow var(--duration-normal);
 }
 
-.a-copy-field__input--copied {
+.a-copy-field__input--is-copied {
   border-color: var(--color-copy-border);
   box-shadow: 0 0 0 3px var(--color-copy-ring);
 

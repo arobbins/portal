@@ -41,3 +41,12 @@ test("on phones the sections are in a menu above the content", async ({ page }) 
 
   await expect(page).toHaveURL(/#buttons$/);
 });
+
+test("the tokens section shows the colours, spacing, type and radii", async ({ page }) => {
+  await page.goto("/styleguide#tokens");
+  const section = page.locator("#tokens");
+
+  for (const token of ["--color-text-muted", "--color-border-control", "--space-4", "--text-md", "--radius-md"]) {
+    await expect(section.getByText(token, { exact: true })).toBeVisible();
+  }
+});

@@ -90,6 +90,8 @@ async fn users_search(cx: &Cx, list: &ListQuery<UserSort>) -> Result<impl View> 
             },
             form_field(
                 label: "Search by email or name",
+                hide_label: true,
+                placeholder: Some("Search by email or name"),
                 id: "admin-user-search",
                 name: "q",
                 value: Some(list.q.as_str())

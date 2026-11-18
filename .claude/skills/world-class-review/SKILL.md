@@ -1,6 +1,7 @@
 ---
 name: world-class-review
-description: Judge whether this codebase meets a "world class" software-quality bar — score ten dimensions (correctness and tests, security, design, reliability, performance, accessibility, supply chain, delivery, documentation, developer experience) from 0 to 4 against fixed level descriptors, citing evidence for every score, and give a yes/no verdict with the gaps that block it, ranked. Read-only. Use when asked "is this world class?", "how good is this codebase?", "is it production ready?", or for an outside-in quality assessment; use clean-code-audit instead to clean the code up.
+description: Judge whether this codebase meets a "world class" software-quality bar — score ten dimensions from 0 to 4 against fixed level descriptors, citing evidence, and give a yes/no verdict with the blocking gaps ranked. Read-only; run manually with /world-class-review.
+disable-model-invocation: true
 ---
 
 # World-class review

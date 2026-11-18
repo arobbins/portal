@@ -14,7 +14,7 @@ pub enum PageHeadingVariant {
 impl PageHeadingVariant {
     fn class(self) -> &'static str {
         match self {
-            Self::Centered => "l-page-heading",
+            Self::Centered => "l-page-heading l-page-heading--centered",
             Self::Compact => "l-page-heading l-page-heading--compact",
         }
     }

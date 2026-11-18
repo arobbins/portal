@@ -7,7 +7,7 @@ use topcoat::{
 use super::styleguide_section;
 use crate::components::button::{ButtonVariant, button};
 use crate::components::icon::{IconName, icon};
-use crate::components::menu::{menu, menu_link};
+use crate::components::menu::{menu, menu_form_button, menu_link};
 use crate::components::tabs::{tab, tabs};
 
 const MENU_ID: &str = "styleguide-menu";
@@ -43,8 +43,8 @@ pub async fn navigation_section(cx: &Cx) -> Result<impl View> {
                     icon(name: IconName::Settings)
                     "Settings"
                 )
-                menu_link(
-                    href: "#styleguide-menu",
+                menu_form_button(
+                    action: "#styleguide-menu",
                     icon(name: IconName::Logout)
                     "Sign out"
                 )

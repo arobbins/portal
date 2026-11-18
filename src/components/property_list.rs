@@ -37,17 +37,15 @@ pub async fn property(
     #[default] detail: Option<&str>,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
-    let name_class = if code {
-        "a-property-list__name a-property-list__name--code"
-    } else {
-        "a-property-list__name"
-    };
-
     Ok(view! {
         <li class="a-property-list__item">
             <div class="a-property-list__info">
                 <p class="a-property-list__head">
-                    <span class=(name_class)>(name)</span>
+                    if code {
+                        <code class="a-property-list__name">(name)</code>
+                    } else {
+                        <span class="a-property-list__name">(name)</span>
+                    }
                     for tag in tags {
                         badge(tone: tag.tone, (tag.label.as_str()))
                     }

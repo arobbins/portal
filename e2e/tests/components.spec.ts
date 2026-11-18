@@ -146,3 +146,57 @@ test("a setting toggle saves as soon as it's switched", async ({ page }) => {
   await expect(setting).toBeChecked();
   await expect(setting).toBeEnabled();
 });
+
+test("busy spinners stand still when the system asks for less motion", async ({ page }) => {
+  const busy = page.getByRole("button", { name: "Busy" }).first();
+  const spin = () => busy.evaluate((el) => getComputedStyle(el, "::after").animationName);
+
+  expect(await spin()).toBe("spin");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  expect(await spin()).toBe("none");
+});
+
+test("text follows the browser's font size", async ({ page }) => {
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "20px";
+  });
+
+  await expect(page.locator("body")).toHaveCSS("font-size", "20px");
+});
+
+test("a menu can hold a button that posts a form", async ({ page }) => {
+  await page.getByRole("button", { name: "Open menu" }).click();
+
+  await expect(page.locator("#styleguide-menu").getByRole("button", { name: "Sign out" })).toBeVisible();
+});
+
+test("a modal form shows a field error and closes once it's fixed", async ({ page }) => {
+  await page.getByRole("button", { name: "Rename project" }).click();
+  const dialog = page.getByRole("dialog", { name: "Rename project" });
+  const name = dialog.getByLabel("Project name");
+
+  await name.fill("");
+  await name.press("Enter");
+  await expect(dialog.getByText("Enter a project name.")).toBeVisible();
+  await expect(name).toHaveAttribute("aria-invalid", "true");
+
+  await name.fill("Atlas");
+  await name.press("Enter");
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText("Project: Atlas")).toBeVisible();
+  await expect(page.getByText("Project renamed.")).toBeVisible();
+});
+
+test("a search field can hide its label and still be named by it", async ({ page }) => {
+  const search = page.getByLabel("Search people");
+
+  await expect(search).toHaveAttribute("placeholder", "Search people");
+  const label = await page.getByText("Search people", { exact: true }).boundingBox();
+  expect(label?.width).toBeLessThanOrEqual(1);
+});
+
+test("page headings are left-aligned unless they ask to be centred", async ({ page }) => {
+  await expect(page.getByRole("heading", { level: 1, name: "Heading 1" })).toHaveCSS("text-align", "start");
+  await page.goto("/login");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCSS("text-align", "center");
+});

@@ -21,7 +21,7 @@ pub async fn not_found_page(cx: &Cx) -> Result<impl View> {
         <section class="l-contain l-skinny p-not-found">
             <p class="p-not-found__code">"Error 404"</p>
             page_heading(text: "Page not found")
-            <p class="p-not-found__text">
+            <p class="a-lead p-not-found__text">
                 "We couldn't find "
                 <span class="p-not-found__path">(path)</span>
                 ". The link may be mistyped, or the page may have moved."

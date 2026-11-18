@@ -22,7 +22,6 @@
 
   &:hover {
     color: var(--color-text-strong);
-    opacity: 1;
   }
 
   &:focus-visible {
@@ -31,7 +30,7 @@
   }
 }
 
-.a-tabs__tab--active {
-  border-bottom-color: var(--color-button-primary-bg);
+.a-tabs__tab--is-active {
+  border-bottom-color: var(--color-accent);
   color: var(--color-text-strong);
 }

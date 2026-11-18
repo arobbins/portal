@@ -125,9 +125,8 @@ async fn nav_link(
     text: &str,
 ) -> Result<impl View> {
     let class = match (active, current) {
-        (_, true) => "l-nav__link l-nav__link--active p-account__nav-link--current",
-        (true, false) => "l-nav__link l-nav__link--active",
-        (false, false) => "l-nav__link",
+        (_, true) => "l-nav__link p-account__nav-link--is-current",
+        _ => "l-nav__link",
     };
 
     Ok(view! {

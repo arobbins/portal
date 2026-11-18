@@ -42,7 +42,6 @@
   gap: var(--space-2-5);
   width: 100%;
   padding: var(--space-2-5) var(--space-4);
-  box-sizing: border-box;
   border: none;
   background: none;
   font: inherit;
@@ -54,7 +53,6 @@
 
   &:hover {
     background-color: var(--color-surface-hover);
-    opacity: 1;
   }
 
   &:focus-visible {

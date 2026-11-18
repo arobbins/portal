@@ -1,3 +1,9 @@
+*,
+::before,
+::after {
+  box-sizing: border-box;
+}
+
 ::view-transition {
   background-color: var(--color-bg);
 }

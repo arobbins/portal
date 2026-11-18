@@ -13,7 +13,6 @@
 .p-not-found__text {
   max-width: 32em;
   margin: 0 auto var(--space-8);
-  font-size: var(--text-lg);
   overflow-wrap: anywhere;
 }
 

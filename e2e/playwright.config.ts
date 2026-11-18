@@ -8,6 +8,7 @@ const baseURL = `http://localhost:${port}`;
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
+  workers: process.env.CI ? undefined : "75%",
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: [["list"], ["html", { open: "never" }]],

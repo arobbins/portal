@@ -6,12 +6,15 @@
   padding: var(--control-padding-block) 0.7em;
   font-family: var(--font-body);
   font-weight: 500;
-  transition: all ease-out var(--duration-fast);
+  transition-property: background-color, border-color, color, transform;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: ease-out;
   border: 1px solid var(--color-border-control);
   border-radius: var(--radius-md);
   color: var(--color-text);
   display: flex;
   align-items: center;
+  gap: var(--space-2);
   position: relative;
   text-decoration: none;
 
@@ -47,22 +50,18 @@
   }
 }
 
-.a-button svg {
-  margin-right: var(--space-2);
-}
-
 .a-button--is-busy {
-  padding-right: 2.4em;
+  padding-inline: var(--button-busy-padding-start, 0.7em) var(--button-busy-padding-end, 2.4em);
   color: var(--color-busy);
 
-  &:after {
+  &::after {
     content: "";
     background-color: var(--color-busy);
-    mask: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNvbG9yPSJjdXJyZW50Q29sb3IiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iOSIvPjxwYXRoIGQ9Ik05IDMuNTE3YTUuNiA1LjYgMCAwIDEgMS43NS4xMzRjMS4zLjMxIDIuNDEgMS4wNyAzLjA4NyAyLjExNmE0LjE2IDQuMTYgMCAwIDEgLjUxOCAzLjQ1OGMtLjM0NCAxLjE2OC0xLjE5IDIuMTY2LTIuMzU0IDIuNzc0LTEuMTYzLjYwOC0yLjAxIDEuNjA2LTIuMzU0IDIuNzc1YTQuMTYgNC4xNiAwIDAgMCAuNTE4IDMuNDU4Yy42NzYgMS4wNDUgMS43ODcgMS44MDYgMy4wODggMi4xMTVhNS42IDUuNiAwIDAgMCAxLjc0Ny4xMzQiLz48cGF0aCBkPSJNMTcuODQ2IDUuMTZjLjMzLjQ4LjU5IDEuMDE1Ljc1OCAxLjU4Mi4zODMgMS4yODEuMjggMi42MjMtLjI4OCAzLjczMmE0LjE2IDQuMTYgMCAwIDEtMi43MzUgMi4xNzhjLTEuMTg1LjI4Ni0yLjQ3My4wNTItMy41OC0uNjUycy0yLjM5Ni0uOTM4LTMuNTgtLjY1MmE0LjE2IDQuMTYgMCAwIDAtMi43MzYgMi4xNzhjLS41NjcgMS4xMDgtLjY3IDIuNDUtLjI4OCAzLjczMi4xNjkuNTY2LjQyNiAxLjEuNzU3IDEuNTgiLz48cGF0aCBkPSJNMjAuODQ2IDEzLjY0MmE1LjYgNS42IDAgMCAxLS45OSAxLjQ0OGMtLjkxOS45NzItMi4xMzMgMS41NTMtMy4zNzcgMS42MTZhNC4xNiA0LjE2IDAgMCAxLTMuMjU0LTEuMjhjLS44NC0uODgyLTEuMjgtMi4xMTUtMS4yMjUtMy40MjZzLS4zODYtMi41NDQtMS4yMjYtMy40MjZhNC4xNiA0LjE2IDAgMCAwLTMuMjU0LTEuMjhjLTEuMjQzLjA2My0yLjQ1OC42NDQtMy4zNzYgMS42MTYtLjQwNi40My0uNzM5LjkyLS45OSAxLjQ0NiIvPjwvc3ZnPg==")
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' color='currentColor' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M9 3.517a5.6 5.6 0 0 1 1.75.134c1.3.31 2.41 1.07 3.087 2.116a4.16 4.16 0 0 1 .518 3.458c-.344 1.168-1.19 2.166-2.354 2.774-1.163.608-2.01 1.606-2.354 2.775a4.16 4.16 0 0 0 .518 3.458c.676 1.045 1.787 1.806 3.088 2.115a5.6 5.6 0 0 0 1.747.134'/%3E%3Cpath d='M17.846 5.16c.33.48.59 1.015.758 1.582.383 1.281.28 2.623-.288 3.732a4.16 4.16 0 0 1-2.735 2.178c-1.185.286-2.473.052-3.58-.652s-2.396-.938-3.58-.652a4.16 4.16 0 0 0-2.736 2.178c-.567 1.108-.67 2.45-.288 3.732.169.566.426 1.1.757 1.58'/%3E%3Cpath d='M20.846 13.642a5.6 5.6 0 0 1-.99 1.448c-.919.972-2.133 1.553-3.377 1.616a4.16 4.16 0 0 1-3.254-1.28c-.84-.882-1.28-2.115-1.225-3.426s-.386-2.544-1.226-3.426a4.16 4.16 0 0 0-3.254-1.28c-1.243.063-2.458.644-3.376 1.616-.406.43-.739.92-.99 1.446'/%3E%3C/svg%3E")
       no-repeat center / contain;
     position: absolute;
-    top: calc(50% - 0.7em);
-    right: 0.72em;
+    top: calc(50% - 0.65em);
+    inset-inline: var(--button-spinner-start, auto) var(--button-spinner-end, 0.72em);
     width: 1.3em;
     height: 1.3em;
     margin: 0;
@@ -78,20 +77,6 @@
     transform: none;
     box-shadow: none;
   }
-}
-
-.a-form-actions > .a-button--is-busy:last-child:not(:first-child) {
-  padding-right: 0.7em;
-  padding-left: 2.4em;
-
-  &:after {
-    right: auto;
-    left: 0.72em;
-  }
-}
-
-.a-form--page .a-form-actions > .a-button--is-busy {
-  padding-right: 0.7em;
 }
 
 .a-button--sm {
@@ -158,5 +143,15 @@
 
   &.a-button--is-busy::after {
     background-color: var(--color-button-danger-muted-text);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .a-button:active {
+    transform: none;
+  }
+
+  .a-button--is-busy::after {
+    animation: none;
   }
 }

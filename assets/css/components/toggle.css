@@ -2,12 +2,29 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1em;
+  gap: var(--space-4);
   cursor: pointer;
 
   &:has(.a-toggle__input:disabled) {
     cursor: not-allowed;
     opacity: 0.55;
+  }
+}
+
+.a-toggle,
+.a-setting-toggle {
+  &:has(+ :is(.a-toggle, .a-setting-toggle)) {
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--color-border-strong);
+  }
+
+  &:not(
+      :is(.a-toggle, .a-setting-toggle) + *,
+      :has(+ :is(.a-toggle, .a-setting-toggle)),
+      .a-setting-toggle > *
+    ) {
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-border-strong);
   }
 }
 
@@ -52,7 +69,7 @@
   }
 
   &:checked {
-    background-color: var(--color-button-primary-bg);
+    background-color: var(--color-accent);
 
     &::before {
       translate: 1.1em 0;
@@ -62,5 +79,11 @@
   &:focus-visible {
     outline: 2px solid var(--color-focus);
     outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .a-toggle__input::before {
+    transition: none;
   }
 }

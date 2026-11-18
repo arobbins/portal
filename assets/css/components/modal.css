@@ -1,9 +1,8 @@
 .a-modal {
   color: var(--color-text);
-  border: none;
   border-radius: var(--radius-md);
   padding: var(--space-6);
-  width: min(500px, calc(100vw - 82px));
+  width: min(550px, calc(100vw - 2 * var(--space-4)));
   box-shadow: var(--shadow-modal);
   margin-top: 20vh;
   background-color: var(--color-surface-modal);
@@ -13,7 +12,6 @@
 
 .a-modal__heading {
   font-size: var(--text-xl);
-  text-transform: initial;
   border-bottom: 1px solid var(--color-border-divider);
   padding-bottom: var(--space-2-5);
   margin-bottom: var(--space-5);

@@ -1,15 +1,14 @@
 use topcoat::{
     Result,
     context::Cx,
-    view::{View, attributes, component, view},
+    view::{View, component, view},
 };
 
-use super::styleguide_section;
+use super::{special_fields, styleguide_section};
 use crate::components::button::{ButtonType, ButtonVariant, button};
-use crate::components::copy_field::copy_field;
 use crate::components::form::{
-    Choice, InputType, LabelLink, checkbox, checkbox_group, code_field, form, form_actions,
-    form_col, form_error, form_field, form_row, radio_group, select_field, textarea_field,
+    Choice, InputType, checkbox, checkbox_group, form, form_actions, form_col, form_error,
+    form_field, form_row, radio_group, select_field, textarea_field,
 };
 
 const PLANS: &[Choice<'static>] = &[
@@ -109,7 +108,7 @@ pub async fn forms_section(cx: &Cx) -> Result<impl View> {
             all_controls_demo()
             <h3 class="p-styleguide__subheading">"Error state"</h3>
             error_state_demo()
-            special_fields_demo()
+            special_fields::special_fields_demo()
         )
     })
 }
@@ -199,65 +198,6 @@ async fn error_state_demo(cx: &Cx) -> Result<impl View> {
             )
             form_error("Please fix the highlighted fields.")
             form_actions(button(button_type: ButtonType::Submit, "Submit"))
-        )
-    })
-}
-
-#[component]
-async fn special_fields_demo(cx: &Cx) -> Result<impl View> {
-    Ok(view! {
-        <h3 class="p-styleguide__subheading">"Disabled"</h3>
-        form(
-            form_field(
-                label: "Email",
-                id: "styleguide-disabled-email",
-                name: "email",
-                value: Some("hello@andrewrobbins.dev"),
-                attrs: attributes! { disabled=(true) }
-            )
-        )
-        <h3 class="p-styleguide__subheading">"Read-only"</h3>
-        form(
-            form_field(
-                label: "Current email",
-                id: "styleguide-readonly-email",
-                name: "current_email",
-                input_type: InputType::Email,
-                value: Some("hello@andrewrobbins.dev"),
-                attrs: attributes! { readonly="" }
-            )
-        )
-        <h3 class="p-styleguide__subheading">"Label link"</h3>
-        form(
-            form_field(
-                label: "Password",
-                id: "styleguide-label-link-password",
-                name: "password",
-                input_type: InputType::Password,
-                placeholder: Some("Enter password"),
-                label_link: Some(
-                    LabelLink {
-                        href: "#styleguide-label-link-password",
-                        text: "Forgot password?",
-                    },
-                )
-            )
-        )
-        <h3 class="p-styleguide__subheading">"One-time code"</h3>
-        form(
-            code_field(
-                label: "Authentication code",
-                id: "styleguide-code",
-                name: "code"
-            )
-        )
-        <h3 class="p-styleguide__subheading">"Copy field"</h3>
-        form(
-            copy_field(
-                label: "API token",
-                id: "styleguide-token",
-                value: "wsk_live_4f9a2c7e1b8d3f60"
-            )
         )
     })
 }

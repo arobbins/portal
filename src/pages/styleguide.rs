@@ -7,14 +7,17 @@ mod forms;
 mod icons;
 mod labels;
 mod modal;
+mod modal_forms;
 mod navigation;
 mod notices;
 mod property_list;
+mod special_fields;
 mod tables;
 mod text;
 mod theme_switcher;
 mod toaster;
 mod toggles;
+mod tokens;
 
 use topcoat::{
     Result,
@@ -31,9 +34,15 @@ use crate::layout::page_heading::{PageHeadingVariant, page_heading};
 const GROUPS: &[(&str, &[&str])] = &[
     (
         "Foundations",
-        &["Text", "Labels", "Icons and layout", "Theme switcher"],
+        &[
+            "Tokens",
+            "Text",
+            "Labels",
+            "Icons and layout",
+            "Theme switcher",
+        ],
     ),
-    ("Actions", &["Buttons", "Toggles", "Modals"]),
+    ("Actions", &["Buttons", "Toggles", "Modals", "Modal forms"]),
     ("Feedback", &["Notices", "Toaster", "Badges", "Avatars"]),
     ("Forms", &["Forms"]),
     ("Content", &["Cards", "Tables", "Property lists", "Code"]),
@@ -79,11 +88,12 @@ pub async fn styleguide_page(cx: &Cx) -> Result<impl View> {
                             text: "Styleguide",
                             variant: PageHeadingVariant::Compact
                         )
-                        <p class="p-styleguide__lead">
+                        <p class="a-lead">
                             "Every component in the app, in every variant. Build pages from these before writing page-specific markup."
                         </p>
                     </div>
                 </section>
+                tokens::tokens_section()
                 text::text_section()
                 labels::labels_section()
                 icons::icons_section()
@@ -91,6 +101,7 @@ pub async fn styleguide_page(cx: &Cx) -> Result<impl View> {
                 buttons::buttons_section()
                 toggles::toggles_section()
                 modal::modal_section()
+                modal_forms::modal_forms_section()
                 notices::notices_section()
                 toaster::toaster_section()
                 badges::badges_section()

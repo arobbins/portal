@@ -6,12 +6,10 @@
   font-family: var(--font-heading);
   font-size: var(--text-6xl);
   color: var(--color-text-strong);
-  text-align: left;
   margin: 0 0 var(--space-4);
 }
 
 .p-home__intro {
-  font-size: var(--text-lg);
   max-width: 36em;
   margin: 0 0 var(--space-8);
 }
@@ -22,7 +20,7 @@
   gap: var(--space-3);
 }
 
-@media (max-width: 760px) {
+@media (--phone) {
   .p-home {
     padding-block: var(--space-8);
   }

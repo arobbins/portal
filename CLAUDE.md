@@ -40,8 +40,10 @@ rather than grow one (`check_conventions.py` enforces it).
 - Actions take `env: &Env` (never `cx`/session); time only from `env.now()`.
   Infrastructure never imports a feature. Sizes and boundaries are enforced
   by `scripts/clean_code.py` and `check_conventions.py`.
-- Wording: sentence case, buttons "Verb noun", "Sign in" / "Register";
-  passkeys are *removed*, tokens *revoked*.
+- Wording: sentence case, buttons "Verb noun" (a modal's heading repeats
+  the button that opens it), "Sign in" / "Register"; passkeys are
+  *removed*, tokens *revoked*.
+- No code comments; explanations go in chat or the rule files.
 
 ## Security invariants (never break)
 

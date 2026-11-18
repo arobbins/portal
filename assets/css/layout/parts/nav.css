@@ -42,6 +42,12 @@
   }
 }
 
+.l-nav__list-item-group {
+  margin-bottom: var(--space-2-5);
+  padding-bottom: var(--space-2-5);
+  border-bottom: 1px solid var(--color-border);
+}
+
 .l-nav__link-external svg {
   color: var(--color-text-muted);
 }
@@ -51,12 +57,12 @@
 
   .l-nav__link {
     padding: var(--space-4) clamp(var(--space-2), 1.1vw, var(--space-4));
-    font-size: clamp(15px, 1.4vw, 17px);
+    font-size: clamp(0.9375rem, 1.4vw, 1.0625rem);
     white-space: nowrap;
   }
 }
 
-@media (max-width: 760px) {
+@media (--phone) {
   .l-nav__list--site {
     flex-direction: column;
     margin: 0;

@@ -92,6 +92,16 @@ pub async fn form_col(
 }
 
 #[component]
-pub async fn form_label(cx: &Cx, for_id: &str, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! { <label class=(FORM_LABEL_CLASS) for=(for_id)>(child)</label> })
+pub async fn form_label(
+    cx: &Cx,
+    for_id: &str,
+    #[default] hidden: bool,
+    #[default] child: Child<'_>,
+) -> Result<impl View> {
+    let class = if hidden {
+        "u-visually-hidden"
+    } else {
+        FORM_LABEL_CLASS
+    };
+    Ok(view! { <label class=(class) for=(for_id)>(child)</label> })
 }

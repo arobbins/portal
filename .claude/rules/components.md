@@ -9,6 +9,8 @@ paths:
 
 # Components
 
+- `a-lead` (CSS only, `components/lead.css`): the intro paragraph right
+  under a page heading.
 - `src/components/` — reusable UI, one file per component; each has a matching
   CSS file in `assets/css/components/` and a demo in `src/pages/styleguide/`.
   Import components by module path: `components::button::{button, ButtonSize}`
@@ -16,7 +18,8 @@ paths:
   multi-file component such as `form` re-exports its parts with `pub use`). Available: `button` (Primary /
   Secondary / Danger; pass `href` to render it as a link, which ignores
   `busy`, `disabled` and `button_type`), `form` controls (incl. `code_field`; `form_field` / `form_input` take
-  `max_length`; modal forms use `DialogForm` + `dialog_input`,
+  `max_length`; `form_field(hide_label: true)` keeps the label for screen
+  readers only, for a search box with a placeholder; modal forms use `DialogForm` + `dialog_input`,
   `dialog_form_error`, `dialog_error_toast` from `form/dialog.rs`, and render
   through `modal_form` + `ModalSubmit` from `form/submit.rs`), `card` +
   `card_header` + `card_body` (every settings block), `badge`, `avatar`,

@@ -30,7 +30,7 @@ paths:
   there. Never hard-code a color in a component file; never name a variable
   by lightness.
 - **Scales**: spacing `--space-0-5 … --space-24` (2px … 96px), font sizes
-  `--text-2xs … --text-6xl`, `--radius-sm|md|lg|full`,
+  `--text-2xs … --text-6xl` (rem, so they follow the browser's font size), `--radius-sm|md|lg|full`,
   `--duration-fast|normal`, `--z-*`. Use them for every gap, padding,
   margin, inset, font size, radius and transition. Literal px only for `0`,
   `1px` hairlines and dimensions tied to another element (a header offset);
@@ -49,6 +49,19 @@ paths:
   monospace or all-caps UI text.
 - New components follow the `new-component` skill (Rust + CSS + styleguide
   demo, all registered).
+- Text meets 4.5:1 contrast and control borders, toggles and focus rings
+  3:1 on every surface they sit on, in both themes. Anything that moves
+  (translate, spin) stops under `prefers-reduced-motion: reduce`, in the
+  component's own file; colour and opacity fades may stay.
+- Only plain links (`a:not([class])`) dim on hover; a classed link (button,
+  tab, nav, menu item) styles its own hover. Form-width blocks use
+  `--width-form`. A component restyled in another's context exposes
+  `--<component>-*` custom properties instead (see `--button-busy-*`).
+- Headings are left-aligned; `page_heading` centres by default with
+  `l-page-heading--centered`. The styleguide's Tokens section lists every
+  `--color-*`, `--space-*`, `--text-*` and `--radius-*` from `variables.css`;
+  a new token needs its sample class in `pages/styleguide-tokens.css` (a test
+  checks).
 - Don't use cross-document view transitions (`@view-transition`): Chromium
   flashes white between pages.
 

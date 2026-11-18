@@ -101,7 +101,7 @@
 
 .a-code-block__token--command {
   color: var(--color-code-command);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .a-code-block__copy {

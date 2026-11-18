@@ -13,11 +13,12 @@ paths:
 
 # Responsive layout and page layouts
 
-- **Responsive layout**: one breakpoint, `max-width: 760px` (plus 1100px
-  inside `l-docs`). Below it the header's links and theme switcher move into a native
+- **Responsive layout**: one breakpoint, `@media (--phone)` (760px; plus
+  `--narrow`, 1100px, inside `l-docs`), defined with `@custom-media` in
+  `variables.css` and inlined by `build.rs`; never write the px value. Below it the header's links and theme switcher move into a native
   `popover` (`#site-menu`) opened by the Menu button, and the account
-  sidebar becomes a row of tabs above the content. `.l-contain` uses
-  `box-sizing: border-box`; check new pages at 390px (`mobile.spec.ts`).
+  sidebar becomes a row of tabs above the content. Everything is
+  `box-sizing: border-box` (`reset.css`); check new pages at 390px (`mobile.spec.ts`).
 - **Layouts**: the site header and footer (`l-header`, `l-footer`) are always
   full width with `--space-4` side padding, on every page. `l-contain` +
   `l-skinny` (centered, 800px) for ordinary

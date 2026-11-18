@@ -65,16 +65,14 @@ pub async fn query_<verb>_<thing>(
 
 ## 3. Security checks for the query
 
-- Anything that changes a password, or should sign out every device, sets
-  `session_version = session_version + 1`.
+The security invariants in `CLAUDE.md` apply to every query. Query-specific ones:
+
 - Single-use tokens are consumed with `DELETE ... RETURNING`; only SHA-256 hashes are stored.
 - Rows owned by a user are always filtered by the caller's `owner_id()`, never by an id from
   the browser alone.
 - Tables whose rows a browser or API can name get a `public_id TEXT NOT NULL UNIQUE` with a
   format CHECK (`'^tok_[A-Za-z0-9]{20}$'`) and a `secret::PublicIdKind` variant.
 - Event `detail` is a JSON object (`CHECK (jsonb_typeof(detail) = 'object')`).
-- Emails reaching a query have gone through `utils::parse_email`.
-- Never hold a DB connection or transaction across a network call (email, HTTP).
 
 ## 4. Offline query data
 

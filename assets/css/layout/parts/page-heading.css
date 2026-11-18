@@ -1,0 +1,8 @@
+.l-page-heading--centered {
+  text-align: center;
+}
+
+.l-page-heading--compact {
+  margin-bottom: var(--space-3);
+  font-size: var(--text-5xl);
+}
