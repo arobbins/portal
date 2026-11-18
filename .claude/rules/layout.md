@@ -17,3 +17,14 @@ paths:
 - `src/api/` is HTTP plumbing only; its endpoint catalog (`catalog.rs`)
   generates the `/docs/api` page, `/api/v1/openapi.json` and `/llms.txt`.
 - `src/routes.rs` holds the only cross-feature path constants.
+
+## Feature modules
+
+`src/<feature>.rs` + `src/<feature>/`: `actions.rs`, `queries.rs`, `pages/`,
+`emails.rs`. Features today: `auth` (sign-in, sign-up, emailed links, password,
+session), `passkeys`, `profile`, `api_tokens`, `devices` (signed-in
+browsers), `activity` (the account event log as a list), `admin` (the admin
+area: users list and detail, `webserver admin` command), `account` (the
+account shell: sections, pages, cards, nav, the sign-in and devices pages). `user/` is only the `User` model, its
+queries, `name.rs` and the event log; `api/` is only HTTP plumbing (auth,
+bodies, problems, scopes, catalog, `v1` routes).

@@ -101,6 +101,23 @@ for path in sorted((ROOT / "src/api/v1").rglob("*.rs")):
         if (method, api_path) not in documented:
             problems.append(f"{path.relative_to(ROOT).as_posix()}: {method} {api_path} has no ApiAction in the registry (src/api/registry.rs), so it's undocumented")
 
+RULE_MAX_BYTES = 4096
+RULE_BROAD_GLOBS = {"**", "**/*", "src/**", "src/**/*.rs", "migrations/**", "migrations/*.sql", "e2e/tests/**"}
+RULE_REPO_WIDE = {"layout.md", "topcoat.md"}
+for path in sorted((ROOT / ".claude/rules").glob("*.md")):
+    relative = path.relative_to(ROOT).as_posix()
+    text = path.read_text()
+    size = len(text.encode())
+    if size > RULE_MAX_BYTES:
+        problems.append(f"{relative}: {size} bytes; rule files stay under {RULE_MAX_BYTES} (split it by topic)")
+    front = re.match(r"---\n(.*?)\n---\n", text, re.S)
+    globs = re.findall(r'^\s*-\s*"([^"]+)"', front.group(1), re.M) if front and "paths:" in front.group(1) else []
+    if not globs:
+        problems.append(f"{relative}: no `paths` frontmatter, so it loads in every session; name the files it governs")
+    if path.name not in RULE_REPO_WIDE:
+        for glob in sorted(set(globs) & RULE_BROAD_GLOBS):
+            problems.append(f"{relative}: glob `{glob}` loads it for unrelated files; name the files the topic governs")
+
 sys.path.insert(0, str(ROOT / "scripts"))
 import changed_specs
 import clean_code
@@ -113,4 +130,4 @@ if problems:
     print("Convention check failed:")
     print("\n".join(f"  {problem}" for problem in problems))
     sys.exit(1)
-print("Conventions OK (paths, limits, components, event kinds, job kinds, API registry, clean code, spec areas)")
+print("Conventions OK (paths, limits, components, event kinds, job kinds, API registry, clean code, spec areas, rule files)")

@@ -1,9 +1,11 @@
 ---
 paths:
   - "src/passkeys/**"
+  - "src/passkeys.rs"
   - "src/auth/pages/login.rs"
   - "assets/js/passkeys.js"
   - "e2e/tests/passkeys.spec.ts"
+  - "e2e/support/passkeys.ts"
 ---
 
 # Passkeys
@@ -29,15 +31,6 @@ Passkeys card in `passkeys/pages/passkeys_card.rs`, built on `webauthn-rs`:
   `revoke_passkey_prompt`): issued for one user, for 5 minutes, only when a
   password sign-in shows the prompt; cleared by `sign_in`, by answering the
   prompt and by adding a passkey.
-- **Confirming it's you** (`passkeys/actions/verify.rs`,
-  `auth/reauth.rs`, `auth/pages/reauth_field.rs`, `assets/js/passkeys.js`):
-  a user-verified request for the user's own passkeys stores a 5-minute
-  `PasskeyReauth` grant bound to `session_version`. Routes
-  `take_passkey_proof` (single use) and `return_passkey_proof` when the
-  action fails; removing a passkey `forget_passkey_proof`s. Dialogs that
-  need re-auth render `reauth_field` (passkey first when the user has one)
-  and actions call `check_reauth`. Used by Change email, Delete account,
-  Create API token, Remove passkey and the admin area; Change password and Add passkey keep the password.
 - Registration overrides the library's options to `residentKey: required`
   (passkeys must be discoverable). Sign-in is discoverable (no email typed):
   the login page starts conditional mediation (autofill on the
@@ -53,16 +46,6 @@ Passkeys card in `passkeys/pages/passkeys_card.rs`, built on `webauthn-rs`:
   (`signalUnknownCredential`, `signalAllAcceptedCredentials`,
   `signalCurrentUserDetails`) from the data in `[data-passkey-signals]` on
   account pages; all feature-detected.
-- **Passkey prompt** (`passkey_setup.rs`): after a password login or the
-  first password setup, `after_password_sign_in` sends users with no passkey to `/passkey-setup` unless
-  `users.passkey_prompt_after` is in the future ("Not now" = +30 days,
-  "Don't ask again" = `'infinity'`; the due check lives in SQL so
-  `infinity` is never decoded). The page only shows while the grant is
-  valid, then redirects to `/account`; "Not now" / "Don't ask again"
-  only count while the prompt is showing (`prompt_showing`), so an old tab
-  can't undo an earlier answer. Adding a passkey there
-  needs no password and lands on Security → Passkeys. Passkey sign-ins and
-  password resets never prompt; seeded e2e users have declined it.
 - Automatic (conditional) passkey creation after a password sign-in is
   deliberately not implemented: it creates passkeys without user
   verification, which `webauthn-rs` (correctly) rejects.
@@ -70,3 +53,5 @@ Passkeys card in `passkeys/pages/passkeys_card.rs`, built on `webauthn-rs`:
   virtual authenticator (CDP `WebAuthn.*`, `support/passkeys.ts`); those
   tests skip on Firefox/WebKit. A virtual authenticator approves autofill instantly, so tests of the button path stub
   `isConditionalMediationAvailable` to `false`.
+
+Re-auth with a passkey: `passkey-reauth.md`; the setup prompt: `passkey-prompt.md`.

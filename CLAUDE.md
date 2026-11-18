@@ -5,7 +5,10 @@ request to a [Topcoat](https://github.com/tokio-rs/topcoat) 0.12.1 router.
 Pages render on the server; interactivity is `$(...)` compiled to JS.
 Postgres via sqlx, tower-sessions, argon2, Lightning CSS (`build.rs`).
 Area rules in `.claude/rules/` load with matching files; use existing
-components (`components.md`) before new markup.
+components (`components.md`) before new markup. Rule files are one topic,
+under 4 KB, with `paths` naming only the files they govern (no `src/**`,
+`migrations/**` or `e2e/tests/**` outside `layout.md`/`topcoat.md`); split
+rather than grow one (`check_conventions.py` enforces it).
 
 ## How to work
 
