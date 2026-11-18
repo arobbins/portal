@@ -76,6 +76,10 @@
   color: var(--color-code-method-get);
 }
 
+.p-api-docs__code-method--post {
+  color: var(--color-code-method-post);
+}
+
 .p-api-docs__code-method--patch {
   color: var(--color-code-method-patch);
 }

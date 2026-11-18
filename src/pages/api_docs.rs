@@ -32,6 +32,7 @@ const GUIDES: &[(&str, &str)] = &[
 fn method_tone(method: HttpMethod) -> Tone {
     match method {
         HttpMethod::Get => Tone::Success,
+        HttpMethod::Post => Tone::Info,
         HttpMethod::Patch => Tone::Warning,
     }
 }
@@ -39,6 +40,7 @@ fn method_tone(method: HttpMethod) -> Tone {
 fn code_method_class(method: HttpMethod) -> &'static str {
     match method {
         HttpMethod::Get => "p-api-docs__code-method p-api-docs__code-method--get",
+        HttpMethod::Post => "p-api-docs__code-method p-api-docs__code-method--post",
         HttpMethod::Patch => "p-api-docs__code-method p-api-docs__code-method--patch",
     }
 }

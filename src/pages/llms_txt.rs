@@ -12,13 +12,8 @@ use crate::mcp::{PROTOCOL_VERSION, mcp_endpoint};
 use crate::pages::api_docs::api_docs_page;
 use crate::web::app;
 
-#[route(GET "/llms.txt")]
-pub async fn llms_txt(cx: &Cx) -> Result<String> {
-    let openapi = app(cx).url(&href!(openapi_document).resolve(cx));
-    let docs = app(cx).url(&href!(api_docs_page).resolve(cx));
-    let tokens = app(cx).url(&AccountSection::ApiTokens.path());
-    let mcp = app(cx).url(&href!(mcp_endpoint).resolve(cx));
-    let endpoints: Vec<String> = endpoints()
+fn endpoint_lines() -> Vec<String> {
+    endpoints()
         .iter()
         .map(|endpoint| {
             format!(
@@ -26,10 +21,19 @@ pub async fn llms_txt(cx: &Cx) -> Result<String> {
                 endpoint.method.as_str(),
                 endpoint.path,
                 endpoint.summary,
-                endpoint.scope.as_str()
+                endpoint.scope_name()
             )
         })
-        .collect();
+        .collect()
+}
+
+#[route(GET "/llms.txt")]
+pub async fn llms_txt(cx: &Cx) -> Result<String> {
+    let openapi = app(cx).url(&href!(openapi_document).resolve(cx));
+    let docs = app(cx).url(&href!(api_docs_page).resolve(cx));
+    let tokens = app(cx).url(&AccountSection::ApiTokens.path());
+    let mcp = app(cx).url(&href!(mcp_endpoint).resolve(cx));
+    let endpoints = endpoint_lines();
 
     Ok(format!(
         "# {SITE_NAME}\n\n\
@@ -45,7 +49,12 @@ pub async fn llms_txt(cx: &Cx) -> Result<String> {
          ## MCP\n\n\
          The same actions are MCP tools at `{mcp}` (Streamable HTTP, JSON-RPC 2.0, \
          protocol `{PROTOCOL_VERSION}`). Create a token with \"Used by: AI assistants (MCP)\" \
-         and send it as a Bearer token; `tools/list` shows only the tools the token's scopes allow.\n",
+         and send it as a Bearer token; `tools/list` shows only the tools the token's scopes allow.\n\n\
+         ## Feedback\n\n\
+         If an endpoint, its schema, an error or these docs got in your way, tell us: \
+         `POST /api/v1/feedback` (MCP tool `send_feedback`) works with any token, whatever its \
+         scopes. Say what you tried, what you expected and what happened; include the endpoint, \
+         the error `code` and the `x-request-id` header if you have them. Never include secrets.\n",
         endpoints.join("\n")
     ))
 }

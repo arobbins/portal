@@ -89,6 +89,7 @@ fn fixed_summary(kind: AccountEventKind) -> &'static str {
         AccountEventKind::PasswordChanged => "Password changed",
         AccountEventKind::PasswordReset => "Password reset",
         AccountEventKind::ProfileUpdated => "Profile updated",
+        AccountEventKind::ApiFeedbackSent => "API feedback sent",
         AccountEventKind::RecoveryCodeUsed => "Signed in with a recovery code",
         AccountEventKind::RecoveryCodesRegenerated => "New recovery codes created",
         AccountEventKind::TwoFactorDisabled => "Two-factor authentication turned off",

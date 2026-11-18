@@ -11,6 +11,7 @@ mod components;
 mod config;
 mod devices;
 mod env;
+mod feedback;
 mod flash;
 mod health;
 mod jobs;

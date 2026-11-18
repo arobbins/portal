@@ -6,6 +6,7 @@ use super::*;
 use crate::action::{Caller, Denied};
 use crate::api::registry::tools;
 use crate::api::scope::ApiScope;
+use crate::permission::TokenAccess;
 use crate::state_machines::testing::admin_caller;
 use crate::state_machines::{CellResult, failures, write_results};
 use crate::user::model::User;
@@ -81,14 +82,15 @@ fn decide(caller: &Caller, permission: Permission) -> CallerState {
 
 fn broken_rules(permission: Permission) -> Vec<&'static str> {
     let mut broken = Vec::new();
-    if permission.api_scope().is_none() != SENSITIVE.contains(&permission) {
+    let browser_only = permission.token_access() == TokenAccess::BrowserOnly;
+    if browser_only != SENSITIVE.contains(&permission) {
         broken.push(SENSITIVE_ARE_BROWSER_ONLY);
     }
     if permission.admins_only() != (permission == P::AdministerUsers) {
         broken.push(ONLY_ADMINISTERING_IS_ADMIN_ONLY);
     }
     let has_endpoint = tools().iter().any(|tool| tool.permission == permission);
-    if permission.api_scope().is_some() && !has_endpoint {
+    if !browser_only && !has_endpoint {
         broken.push(TOKEN_PERMISSIONS_HAVE_ENDPOINTS);
     }
     broken

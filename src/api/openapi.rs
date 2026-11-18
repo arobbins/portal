@@ -52,13 +52,9 @@ fn operation(endpoint: &Endpoint, common: &[ErrorDoc]) -> Value {
     let mut operation = json!({
         "operationId": endpoint.id,
         "summary": endpoint.summary,
-        "description": format!(
-            "{} Requires a token with the `{}` scope.",
-            endpoint.description,
-            endpoint.scope.as_str()
-        ),
+        "description": format!("{} {}", endpoint.description, endpoint.access_note()),
         "security": [{ "bearer": [] }],
-        "x-required-scope": endpoint.scope.as_str(),
+        "x-required-scope": endpoint.scope_name(),
         "responses": responses(endpoint, common),
     });
     if let Some(request) = &endpoint.request {
@@ -217,7 +213,7 @@ mod tests {
         for endpoint in endpoints() {
             let operation = &spec["paths"][endpoint.path][endpoint.method.openapi_key()];
             assert_eq!(operation["operationId"], endpoint.id);
-            assert_eq!(operation["x-required-scope"], endpoint.scope.as_str());
+            assert_eq!(operation["x-required-scope"], endpoint.scope_name());
             assert!(operation["responses"]["401"].is_object());
         }
         assert!(spec["paths"]["/api/v1/me"]["patch"]["requestBody"].is_object());

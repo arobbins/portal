@@ -15,6 +15,7 @@ pub const TOKEN_VARIABLE: &str = "WSK_TOKEN";
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HttpMethod {
     Get,
+    Post,
     Patch,
 }
 
@@ -22,6 +23,7 @@ impl HttpMethod {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Get => "GET",
+            Self::Post => "POST",
             Self::Patch => "PATCH",
         }
     }
@@ -29,6 +31,7 @@ impl HttpMethod {
     pub fn openapi_key(self) -> &'static str {
         match self {
             Self::Get => "get",
+            Self::Post => "post",
             Self::Patch => "patch",
         }
     }
@@ -67,7 +70,7 @@ pub struct Endpoint {
     pub path: &'static str,
     pub summary: &'static str,
     pub description: &'static str,
-    pub scope: ApiScope,
+    pub scope: Option<ApiScope>,
     pub request: Option<Schema>,
     pub response: Schema,
     pub example_request: Option<Value>,
@@ -76,6 +79,17 @@ pub struct Endpoint {
 }
 
 impl Endpoint {
+    pub fn access_note(&self) -> String {
+        match self.scope {
+            Some(scope) => format!("Requires a token with the `{}` scope.", scope.as_str()),
+            None => "Works with any valid token, whatever its scopes.".to_string(),
+        }
+    }
+
+    pub fn scope_name(&self) -> &'static str {
+        self.scope.map_or("any", ApiScope::as_str)
+    }
+
     pub fn request_fields(&self) -> Vec<FieldDoc> {
         self.request.as_ref().map(fields).unwrap_or_default()
     }

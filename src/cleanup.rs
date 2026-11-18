@@ -7,6 +7,7 @@ use crate::auth::links::delete_stale_sign_ups;
 use crate::devices::known::forget_unseen_devices;
 use crate::devices::lifecycle::delete_stale_devices;
 use crate::env::App;
+use crate::feedback::delete_old_feedback;
 use crate::jobs::{Job, JobError, delete_old_failed_jobs};
 use crate::user::events::delete_old_events;
 
@@ -30,13 +31,14 @@ async fn run(app: &App) -> Result<(), JobError> {
     let jobs = delete_old_failed_jobs(app).await?;
     let devices = delete_stale_devices(app).await?;
     let known = forget_unseen_devices(app).await?;
+    let feedback = delete_old_feedback(app).await?;
     PostgresStore::new(app.db.clone())
         .delete_expired()
         .await
         .map_err(JobError::new)?;
 
     tracing::info!(
-        "cleanup removed {links} expired links, {sign_ups} abandoned sign-ups, {api_tokens} expired API tokens, {hits} rate-limit hits, {events} old account events, {jobs} failed jobs, {devices} signed-out devices and {known} long-unseen browsers"
+        "cleanup removed {links} expired links, {sign_ups} abandoned sign-ups, {api_tokens} expired API tokens, {hits} rate-limit hits, {events} old account events, {jobs} failed jobs, {devices} signed-out devices, {known} long-unseen browsers and {feedback} old API feedback messages"
     );
     Ok(())
 }

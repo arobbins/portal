@@ -12,6 +12,7 @@ pub enum AccountEventKind {
     AccountCreated,
     ApiTokenCreated,
     ApiTokenRevoked,
+    ApiFeedbackSent,
     DeviceSignedOut,
     EmailChangeRequested,
     EmailChanged,
@@ -41,10 +42,11 @@ pub enum AccountEventKind {
 }
 
 impl AccountEventKind {
-    pub const ALL: [Self; 29] = [
+    pub const ALL: [Self; 30] = [
         Self::AccountCreated,
         Self::ApiTokenCreated,
         Self::ApiTokenRevoked,
+        Self::ApiFeedbackSent,
         Self::DeviceSignedOut,
         Self::EmailChangeRequested,
         Self::EmailChanged,
@@ -78,6 +80,7 @@ impl AccountEventKind {
             Self::AccountCreated => "account_created",
             Self::ApiTokenCreated => "api_token_created",
             Self::ApiTokenRevoked => "api_token_revoked",
+            Self::ApiFeedbackSent => "api_feedback_sent",
             Self::DeviceSignedOut => "device_signed_out",
             Self::EmailChangeRequested => "email_change_requested",
             Self::EmailChanged => "email_changed",

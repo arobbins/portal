@@ -19,6 +19,7 @@ pub fn hash_secret(secret: &str) -> String {
 pub enum PublicIdKind {
     ApiToken,
     Device,
+    Feedback,
     Passkey,
     User,
 }
@@ -28,6 +29,7 @@ impl PublicIdKind {
         match self {
             Self::ApiToken => "tok_",
             Self::Device => "dev_",
+            Self::Feedback => "fbk_",
             Self::User => "usr_",
             Self::Passkey => "pk_",
         }

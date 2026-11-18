@@ -14,10 +14,18 @@ pub enum Permission {
     ManageApiTokens,
     DeleteAccount,
     AdministerUsers,
+    SendApiFeedback,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TokenAccess {
+    BrowserOnly,
+    Scope(ApiScope),
+    AnyToken,
 }
 
 impl Permission {
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::ViewProfile,
         Self::EditProfile,
         Self::ManagePassword,
@@ -30,12 +38,14 @@ impl Permission {
         Self::ManageApiTokens,
         Self::DeleteAccount,
         Self::AdministerUsers,
+        Self::SendApiFeedback,
     ];
 
-    pub fn api_scope(self) -> Option<ApiScope> {
+    pub fn token_access(self) -> TokenAccess {
         match self {
-            Self::ViewProfile => Some(ApiScope::ProfileRead),
-            Self::EditProfile => Some(ApiScope::ProfileWrite),
+            Self::ViewProfile => TokenAccess::Scope(ApiScope::ProfileRead),
+            Self::EditProfile => TokenAccess::Scope(ApiScope::ProfileWrite),
+            Self::SendApiFeedback => TokenAccess::AnyToken,
             Self::ManagePassword
             | Self::ManageEmail
             | Self::ConfirmIdentity
@@ -45,7 +55,7 @@ impl Permission {
             | Self::ViewActivity
             | Self::ManageApiTokens
             | Self::DeleteAccount
-            | Self::AdministerUsers => None,
+            | Self::AdministerUsers => TokenAccess::BrowserOnly,
         }
     }
 
@@ -72,7 +82,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn security_settings_never_have_an_api_scope() {
+    fn security_settings_are_browser_only() {
         for permission in [
             Permission::ManagePassword,
             Permission::ManageEmail,
@@ -85,8 +95,16 @@ mod tests {
             Permission::DeleteAccount,
             Permission::AdministerUsers,
         ] {
-            assert_eq!(permission.api_scope(), None);
+            assert_eq!(permission.token_access(), TokenAccess::BrowserOnly);
         }
+    }
+
+    #[test]
+    fn any_token_may_send_api_feedback() {
+        assert_eq!(
+            Permission::SendApiFeedback.token_access(),
+            TokenAccess::AnyToken
+        );
     }
 
     #[test]
@@ -95,7 +113,7 @@ mod tests {
             assert!(
                 Permission::ALL
                     .into_iter()
-                    .any(|permission| permission.api_scope() == Some(scope)),
+                    .any(|permission| permission.token_access() == TokenAccess::Scope(scope)),
                 "{}",
                 scope.as_str()
             );

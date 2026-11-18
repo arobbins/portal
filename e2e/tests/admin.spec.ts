@@ -15,22 +15,10 @@ import {
   withoutPasskeyAutofill,
 } from "../support/passkeys";
 import { adminUser } from "../support/users";
+import { openAdmin } from "../support/admin";
 import { expect, test } from "../support/test";
 
 test.use({ allowedConsoleErrors: [/status of 40[34]/] });
-
-async function openAdmin(page: Page) {
-  await logIn(page, adminUser.email, adminUser.password);
-  await expect(page).toHaveURL("/account");
-  await page
-    .getByRole("navigation", { name: "Account" })
-    .getByRole("link", { name: "Admin", exact: true })
-    .click();
-  await expect(page).toHaveURL("/admin/confirm");
-  await page.getByLabel("Current password").fill(adminUser.password);
-  await page.getByLabel("Current password").press("Enter");
-  await expect(page).toHaveURL("/admin/users");
-}
 
 async function openUser(page: Page, email: string) {
   await page.getByLabel("Search by email or name").fill(email);

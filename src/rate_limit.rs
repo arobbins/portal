@@ -13,6 +13,8 @@ const UNKNOWN_IP: IpAddr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
 const RELAXED_SCALE: u32 = 1000;
 const MAX_KEY_LENGTH: usize = 254;
 pub const API_CALLS_PER_MINUTE: u32 = 600;
+pub const FEEDBACK_PER_TOKEN_PER_HOUR: u32 = 20;
+pub const FEEDBACK_PER_ACCOUNT_PER_DAY: u32 = 100;
 pub const BAD_API_TOKENS_PER_WINDOW: u32 = 20;
 pub const BAD_API_TOKEN_WINDOW_MINUTES: u64 = 10;
 pub const KEEP_HITS_FOR: time::Duration = time::Duration::days(1);
@@ -34,6 +36,8 @@ enum Limit {
     FailedLoginsByAccount,
     FailedSecondFactorsByAccount,
     FailedApiAuthByIp,
+    FeedbackByToken,
+    FeedbackByAccount,
 }
 
 impl Limit {
@@ -48,6 +52,8 @@ impl Limit {
             Self::FailedLoginsByAccount => "failed_logins_by_account",
             Self::FailedSecondFactorsByAccount => "failed_second_factors_by_account",
             Self::FailedApiAuthByIp => "failed_api_auth_by_ip",
+            Self::FeedbackByToken => "feedback_by_token",
+            Self::FeedbackByAccount => "feedback_by_account",
         }
     }
 
@@ -59,7 +65,8 @@ impl Limit {
             Self::EmailRequestsByIp => 10,
             Self::FailedLoginsByAccountAndIp | Self::FailedSecondFactorsByAccount => 15,
             Self::FailedApiAuthByIp => BAD_API_TOKEN_WINDOW_MINUTES,
-            Self::EmailsToAddress | Self::FailedLoginsByAccount => 60,
+            Self::EmailsToAddress | Self::FailedLoginsByAccount | Self::FeedbackByToken => 60,
+            Self::FeedbackByAccount => 24 * 60,
         };
         (minutes * 60) as f64
     }
@@ -74,6 +81,8 @@ impl Limit {
             Self::FailedLoginsByAccountAndIp | Self::FailedSecondFactorsByAccount => 5,
             Self::FailedLoginsByAccount => 50,
             Self::FailedApiAuthByIp => BAD_API_TOKENS_PER_WINDOW,
+            Self::FeedbackByToken => FEEDBACK_PER_TOKEN_PER_HOUR,
+            Self::FeedbackByAccount => FEEDBACK_PER_ACCOUNT_PER_DAY,
         };
         let scales = !matches!(
             self,
@@ -158,6 +167,22 @@ impl RateLimits {
 
     pub async fn allow_api_call(&self, token_id: i32) -> Result<bool, sqlx::Error> {
         self.allow(Limit::ApiCallsByToken, &token_id.to_string())
+            .await
+    }
+
+    pub async fn allow_feedback(
+        &self,
+        token_id: Option<i32>,
+        user_id: i32,
+    ) -> Result<bool, sqlx::Error> {
+        if let Some(token_id) = token_id
+            && !self
+                .allow(Limit::FeedbackByToken, &token_id.to_string())
+                .await?
+        {
+            return Ok(false);
+        }
+        self.allow(Limit::FeedbackByAccount, &user_id.to_string())
             .await
     }
 

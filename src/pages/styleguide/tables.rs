@@ -15,7 +15,7 @@ use crate::listing::{SortDirection, TableSorting};
 
 const INVOICE_COLUMNS: [Column; 4] = [
     Column::new("Date").sortable("date").date(),
-    Column::new("Plan"),
+    Column::new("Plan").grow(),
     Column::new("Status").wide_only(),
     Column::new("Amount").sortable("amount").number(),
 ];

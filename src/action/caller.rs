@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::api::scope::{ApiScope, grants};
-use crate::permission::{Permission, WorkspaceRole};
+use crate::permission::{Permission, TokenAccess, WorkspaceRole};
 use crate::user::model::{Role, User};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -74,11 +74,17 @@ impl Caller {
         if permission.admins_only() && self.user.role != Role::Admin {
             return Err(Denied::NotPermitted(permission));
         }
-        match (&self.via, permission.api_scope()) {
-            (Channel::Browser, _) => Ok(()),
-            (Channel::ApiToken { .. }, None) => Err(Denied::BrowserOnly),
-            (Channel::ApiToken { scopes, .. }, Some(scope)) if grants(scopes, scope) => Ok(()),
-            (Channel::ApiToken { .. }, Some(scope)) => Err(Denied::MissingScope(scope)),
+        match (&self.via, permission.token_access()) {
+            (Channel::Browser, _) | (Channel::ApiToken { .. }, TokenAccess::AnyToken) => Ok(()),
+            (Channel::ApiToken { .. }, TokenAccess::BrowserOnly) => Err(Denied::BrowserOnly),
+            (Channel::ApiToken { scopes, .. }, TokenAccess::Scope(scope))
+                if grants(scopes, scope) =>
+            {
+                Ok(())
+            }
+            (Channel::ApiToken { .. }, TokenAccess::Scope(scope)) => {
+                Err(Denied::MissingScope(scope))
+            }
         }
     }
 
@@ -131,6 +137,20 @@ mod tests {
             Err(Denied::BrowserOnly)
         );
         assert_eq!(writer.api_token_id(), Some(8));
+    }
+
+    #[test]
+    fn a_token_without_scopes_can_still_send_api_feedback() {
+        let bare = caller(Channel::ApiToken {
+            id: 9,
+            scopes: Vec::new(),
+        });
+
+        assert_eq!(bare.require(Permission::SendApiFeedback), Ok(()));
+        assert_eq!(
+            bare.require(Permission::ViewProfile),
+            Err(Denied::MissingScope(ApiScope::ProfileRead))
+        );
     }
 
     #[test]

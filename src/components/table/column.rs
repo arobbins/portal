@@ -52,6 +52,7 @@ pub struct Column {
     pub format: ColumnFormat,
     pub priority: ColumnPriority,
     pub truncate: bool,
+    pub grow: bool,
 }
 
 impl Column {
@@ -62,6 +63,7 @@ impl Column {
             format: ColumnFormat::Text,
             priority: ColumnPriority::Always,
             truncate: false,
+            grow: false,
         }
     }
 
@@ -100,6 +102,10 @@ impl Column {
         }
     }
 
+    pub const fn grow(self) -> Self {
+        Self { grow: true, ..self }
+    }
+
     pub(super) fn classes(self, base: &str) -> String {
         let mut classes = vec![base.to_string()];
         match self.format {
@@ -112,6 +118,9 @@ impl Column {
         }
         if self.truncate {
             classes.push(format!("{base}--truncate"));
+        }
+        if self.grow {
+            classes.push(format!("{base}--grow"));
         }
         classes.join(" ")
     }
@@ -126,6 +135,7 @@ mod tests {
         let plain = Column::new("Plan");
         let joined = Column::new("Joined").date();
         let amount = Column::new("Amount").number().wide_only().truncated();
+        let note = Column::new("Note").grow();
 
         assert_eq!(plain.classes("a-table__cell"), "a-table__cell");
         assert_eq!(
@@ -135,6 +145,10 @@ mod tests {
         assert_eq!(
             amount.classes("a-table__cell"),
             "a-table__cell a-table__cell--number a-table__cell--wide a-table__cell--truncate"
+        );
+        assert_eq!(
+            note.classes("a-table__cell"),
+            "a-table__cell a-table__cell--grow"
         );
     }
 }

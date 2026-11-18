@@ -25,9 +25,10 @@ skipped by any path. New features follow the `new-action` skill.
   `authorize!(caller.require(Permission::X))` (`src/permission.rs`). A
   `Permission` is checked twice: the caller's workspace role must grant it
   (`WorkspaceRole::Owner` grants everything today), and a token caller also
-  needs the permission's `api_scope()` (with `implies`). Security-sensitive
-  permissions (password, email, passkeys, API tokens, account deletion,
-  administering users) have no API scope, so a token is always `Denied::BrowserOnly`. Add a permission
+  needs what the permission's `token_access()` says: `Scope(s)` (with
+  `implies`), `AnyToken` (sending API feedback) or `BrowserOnly`, which
+  every security-sensitive permission is (password, email, passkeys, API
+  tokens, account deletion, administering users). Add a permission
   for every new capability; never check scopes directly. Return problems
   with `return fail(Problem::X)`.
 - Owned rows are scoped by `caller.owner_id()` (teams later: `tenancy.md`).

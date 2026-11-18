@@ -17,6 +17,7 @@ struct NavPage {
 
 struct NavSection {
     label: &'static str,
+    icon: IconName,
     href: String,
     active: bool,
     current: bool,
@@ -24,12 +25,13 @@ struct NavSection {
 }
 
 impl NavSection {
-    fn of(label: &'static str, pages: Vec<NavPage>) -> Self {
+    fn of(label: &'static str, icon: IconName, pages: Vec<NavPage>) -> Self {
         let href = pages[0].href.clone();
         let active = pages.iter().any(|page| page.current);
         let single = pages.len() == 1;
         Self {
             label,
+            icon,
             href,
             active,
             current: single && active,
@@ -51,7 +53,7 @@ fn sections(cx: &Cx, active: AccountArea, is_admin: bool) -> Vec<NavSection> {
                     current: active == AccountArea::Page(*page),
                 })
                 .collect();
-            NavSection::of(tab.heading(), pages)
+            NavSection::of(tab.heading(), tab_icon(tab), pages)
         })
         .collect();
     if is_admin {
@@ -63,9 +65,19 @@ fn sections(cx: &Cx, active: AccountArea, is_admin: bool) -> Vec<NavSection> {
                 current: active == AccountArea::Admin(section),
             })
             .collect();
-        sections.push(NavSection::of("Admin", pages));
+        sections.push(NavSection::of("Admin", IconName::UserSquare, pages));
     }
     sections
+}
+
+fn tab_icon(tab: AccountTab) -> IconName {
+    match tab {
+        AccountTab::Profile => IconName::User,
+        AccountTab::Security => IconName::Passkey,
+        AccountTab::Billing => IconName::CreditCard,
+        AccountTab::Settings => IconName::Settings,
+        AccountTab::Developer => IconName::Monitor,
+    }
 }
 
 #[component]
@@ -85,6 +97,7 @@ pub async fn account_nav(cx: &Cx, active: AccountArea, is_admin: bool) -> Result
                         href: section.href.as_str(),
                         active: section.active,
                         current: section.current,
+                        leading_icon: Some(section.icon),
                         text: section.label
                     )
                     if !section.pages.is_empty() {
@@ -122,6 +135,7 @@ async fn nav_link(
     href: &str,
     active: bool,
     current: bool,
+    #[default] leading_icon: Option<IconName>,
     text: &str,
 ) -> Result<impl View> {
     let class = match (active, current) {
@@ -130,6 +144,11 @@ async fn nav_link(
     };
 
     Ok(view! {
-        <a href=(href) aria-current=(current.then_some("page")) class=(class)>(text)</a>
+        <a href=(href) aria-current=(current.then_some("page")) class=(class)>
+            if let Some(name) = leading_icon {
+                icon(name: name)
+            }
+            (text)
+        </a>
     })
 }

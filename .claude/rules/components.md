@@ -31,7 +31,7 @@ paths:
   `menu` (popover, opened by any button with `popovertarget`), `tabs` + `tab`
   (link tabs), `table` (columns are `Column` consts built with
   `.sortable(key)` / `.number()` / `.date()` / `.wide_only()` /
-  `.truncated()`; the component renders the header from them, rows use
+  `.truncated()` / `.grow()` (takes the spare width: long text); the component renders the header from them, rows use
   `table_row` + `table_row_heading` for the row's main cell (give it
   `href` to make the whole cell the row's one link; never make the whole
   row clickable, so other cells stay selectable) + `table_cell`,

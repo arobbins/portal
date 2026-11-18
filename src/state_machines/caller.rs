@@ -60,6 +60,7 @@ pub fn expect(from: CallerState, permission: Permission) -> Expect<CallerState> 
             S::NotPermitted
         }
         (S::SubscriberBrowser, _) => S::Allowed,
+        (S::ReadToken | S::WriteToken | S::AdminWriteToken, P::SendApiFeedback) => S::Allowed,
         (S::ReadToken | S::WriteToken | S::AdminWriteToken, P::ViewProfile) => S::Allowed,
         (S::ReadToken, P::EditProfile) => S::MissingScope,
         (S::WriteToken | S::AdminWriteToken, P::EditProfile) => S::Allowed,
@@ -113,6 +114,7 @@ impl Labeled for Permission {
             P::ManageApiTokens => "manage_api_tokens",
             P::DeleteAccount => "delete_account",
             P::AdministerUsers => "administer_users",
+            P::SendApiFeedback => "send_api_feedback",
         }
     }
 
@@ -130,6 +132,7 @@ impl Labeled for Permission {
             P::ManageApiTokens => "Manage API tokens",
             P::DeleteAccount => "Delete account",
             P::AdministerUsers => "Administer users",
+            P::SendApiFeedback => "Send API feedback",
         }
     }
 }

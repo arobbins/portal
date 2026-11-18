@@ -104,6 +104,12 @@
   white-space: nowrap;
 }
 
+.a-table__heading--grow,
+.a-table__cell--grow {
+  width: 100%;
+  min-width: 16rem;
+}
+
 .a-table__cell--empty {
   padding: 0;
 }
@@ -156,6 +162,10 @@
     white-space: nowrap;
   }
 
+  .a-table--stacked .a-table__caption {
+    display: block;
+  }
+
   .a-table--stacked .a-table__row--head {
     display: flex;
     flex-wrap: wrap;
@@ -183,6 +193,8 @@
     display: flex;
     justify-content: space-between;
     gap: var(--space-3);
+    width: auto;
+    min-width: 0;
     max-width: none;
     padding: var(--space-0-5) 0;
     border: none;

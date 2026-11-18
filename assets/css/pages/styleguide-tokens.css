@@ -298,6 +298,10 @@
   background-color: var(--color-code-method-get);
 }
 
+.p-styleguide__token--color-code-method-post {
+  background-color: var(--color-code-method-post);
+}
+
 .p-styleguide__token--color-code-method-patch {
   background-color: var(--color-code-method-patch);
 }

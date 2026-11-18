@@ -336,6 +336,7 @@
   --color-code-flag: var(--palette-lilac-400);
   --color-code-command: var(--palette-apricot-400);
   --color-code-method-get: var(--palette-mint-400);
+  --color-code-method-post: var(--palette-sky-400);
   --color-code-method-patch: var(--palette-mustard-400);
 
   --shadow-modal: 0 10px 30px

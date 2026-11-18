@@ -4,7 +4,9 @@
   margin: var(--space-1-5) 0 0;
   padding: 0;
   min-width: 200px;
+  min-width: max(200px, anchor-size(width));
   max-width: 260px;
+  max-width: max(260px, anchor-size(width));
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background-color: var(--color-surface-raised);

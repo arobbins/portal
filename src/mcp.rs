@@ -94,7 +94,7 @@ fn initialize(params: &Value) -> Value {
         "protocolVersion": version,
         "capabilities": { "tools": { "listChanged": false } },
         "serverInfo": { "name": SITE_NAME, "version": env!("CARGO_PKG_VERSION") },
-        "instructions": "Tools act on the account that owns the token, within the token's scopes. Errors come back as problem JSON with a stable `code` and a `detail` that says how to fix the call.",
+        "instructions": "Tools act on the account that owns the token, within the token's scopes. Errors come back as problem JSON with a stable `code` and a `detail` that says how to fix the call. If a tool, its schema or an error got in your way, call `send_feedback` to tell the people who run this API; they use it to fix the API and its docs.",
     })
 }
 
@@ -111,7 +111,7 @@ fn describe(tool: &Tool) -> Value {
     json!({
         "name": tool.name(),
         "title": endpoint.summary,
-        "description": format!("{} Needs the `{}` scope.", endpoint.description, endpoint.scope.as_str()),
+        "description": format!("{} {}", endpoint.description, endpoint.access_note()),
         "inputSchema": input,
         "outputSchema": without_meta(&endpoint.response),
     })
@@ -235,12 +235,15 @@ mod tests {
                 .collect::<Vec<_>>()
         };
 
-        assert_eq!(names(vec![ApiScope::ProfileRead]), vec!["get_profile"]);
+        assert_eq!(
+            names(vec![ApiScope::ProfileRead]),
+            vec!["get_profile", "send_feedback"]
+        );
         assert_eq!(
             names(vec![ApiScope::ProfileWrite]),
-            vec!["get_profile", "update_profile"]
+            vec!["get_profile", "update_profile", "send_feedback"]
         );
-        assert!(names(vec![]).is_empty());
+        assert_eq!(names(vec![]), vec!["send_feedback"]);
     }
 
     #[test]

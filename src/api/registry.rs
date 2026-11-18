@@ -16,7 +16,8 @@ use crate::api::catalog::{Endpoint, ErrorDoc, HttpMethod};
 use crate::api::handler::{api_call, api_call_with_body};
 use crate::api::problem::{ApiFailure, ApiResponse, action_failed, respond};
 use crate::env::Env;
-use crate::permission::Permission;
+use crate::feedback::api::SendFeedbackAction;
+use crate::permission::{Permission, TokenAccess};
 use crate::profile::api::{GetProfileAction, UpdateProfileAction};
 use crate::web::env;
 
@@ -49,7 +50,11 @@ pub trait ApiAction {
 }
 
 pub fn tools() -> Vec<Tool> {
-    vec![tool::<GetProfileAction>(), tool::<UpdateProfileAction>()]
+    vec![
+        tool::<GetProfileAction>(),
+        tool::<UpdateProfileAction>(),
+        tool::<SendFeedbackAction>(),
+    ]
 }
 
 pub fn endpoints() -> Vec<Endpoint> {
@@ -123,9 +128,11 @@ pub fn endpoint<A: ApiAction>() -> Endpoint {
         path: A::PATH,
         summary: A::SUMMARY,
         description: A::DESCRIPTION,
-        scope: A::PERMISSION
-            .api_scope()
-            .expect("an ApiAction's permission must have an API scope"),
+        scope: match A::PERMISSION.token_access() {
+            TokenAccess::Scope(scope) => Some(scope),
+            TokenAccess::AnyToken => None,
+            TokenAccess::BrowserOnly => panic!("an ApiAction's permission must allow tokens"),
+        },
         request: body.then(|| schema_for!(A::Input)),
         response: schema_for!(A::Output),
         example_request: body

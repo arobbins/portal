@@ -44,9 +44,13 @@ pub(super) async fn endpoint_section(
                 </p>
                 <p>(endpoint.description)</p>
                 <p class="p-api-docs__scope">
-                    "Requires the "
-                    <code>(endpoint.scope.as_str())</code>
-                    " scope."
+                    if let Some(scope) = endpoint.scope {
+                        "Requires the "
+                        <code>(scope.as_str())</code>
+                        " scope."
+                    } else {
+                        (endpoint.access_note())
+                    }
                 </p>
                 <h3 class="p-api-docs__subheading">"Request body"</h3>
                 if request_fields.is_empty() {
