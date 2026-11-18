@@ -18,7 +18,7 @@ test("a token with update access renames the user, and the app shows it", async 
   expect(response.status()).toBe(200);
   expect(await response.json()).toEqual({ name: "Renamed By Api", email });
   expect((await (await getMe(request, `Bearer ${token}`)).json()).name).toBe("Renamed By Api");
-  await page.goto("/account/profile");
+  await page.goto("/account");
   await expect(page.getByText("Name: Renamed By Api")).toBeVisible();
 });
 
@@ -40,7 +40,7 @@ test("a read-only token can't rename and is told which scope it needs", async ({
     status: 403,
     code: "insufficient_scope",
   });
-  await page.goto("/account/profile");
+  await page.goto("/account");
   await expect(page.getByText("Name: Api Reader")).toBeVisible();
 });
 

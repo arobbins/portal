@@ -15,10 +15,10 @@ gets its own port and `…_<worktree>_test` database
 (`support/environment.ts`), so parallel agents never collide; override with
 `E2E_PORT` / `TEST_DATABASE_URL`.
 
-**Always run Playwright through `rtk proxy`** (`rtk proxy npx playwright test
-… --reporter=line`): rtk's filter reports `PASS (0) FAIL (0)` when the test
-server fails to start, which looks like success. Use the `check` skill for the
-full suite and the `verify` skill for one spec.
+Run Playwright plainly (`npx playwright test … --reporter=line`): rtk is
+configured to leave it unfiltered, because its filter once reported
+`PASS (0) FAIL (0)` when the test server failed to start. Use the `check` skill
+for the full suite and the `verify` skill for one spec.
 
 - Import `test`/`expect` from `e2e/support/test.ts`: any console error or
   uncaught exception fails the test; allow expected ones with
@@ -49,7 +49,7 @@ full suite and the `verify` skill for one spec.
   a seeded one.
 - Popovers and menus must not move while opening (fade, don't slide): a
   moving target makes Playwright press outside it, which light-dismisses it.
-- To find a flake, stress the suite: `rtk proxy npx playwright test --repeat-each=2
+- To find a flake, stress the suite: `npx playwright test --repeat-each=2
   --workers=16`, then read the failing test's `trace.zip` network and action
   logs.
 - Find elements by role/label/text

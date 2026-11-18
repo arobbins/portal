@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at FROM users WHERE email = $1",
+  "query": "SELECT u.id, u.name, u.email, u.password, u.role AS \"role: Role\", u.verified_at, u.session_version, u.webauthn_id, u.public_id, u.disabled_at, u.admin_granted_at, u.time_zone, d.last_seen_at\n        FROM user_devices d JOIN users u ON u.id = d.user_id\n        WHERE d.public_id = $1 AND d.user_id = $2 AND d.session_version = u.session_version AND u.disabled_at IS NULL",
   "describe": {
     "columns": [
       {
@@ -57,11 +57,22 @@
         "ordinal": 10,
         "name": "admin_granted_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "time_zone",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "last_seen_at",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Text",
+        "Int4"
       ]
     },
     "nullable": [
@@ -75,8 +86,10 @@
       false,
       false,
       true,
-      true
+      true,
+      true,
+      false
     ]
   },
-  "hash": "7f6c47d087c753e50711f7fe1999dc8a90469f8190621e459788ffcd1c23cc0d"
+  "hash": "3def61d3f9f4804bc32f783125fc86a94d5fcaf7869d10741448cf923a0014d2"
 }

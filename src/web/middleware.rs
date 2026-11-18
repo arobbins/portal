@@ -4,7 +4,7 @@ use axum::{
     extract::{ConnectInfo, Request, State},
     http::{
         HeaderValue, Method, StatusCode,
-        header::{CACHE_CONTROL, HOST},
+        header::{CACHE_CONTROL, HOST, SET_COOKIE},
     },
     middleware::Next,
     response::{IntoResponse, Redirect, Response},
@@ -72,6 +72,18 @@ pub async fn attach_remote_addr(mut req: Request, next: Next) -> Response {
     next.run(req).await
 }
 
+fn append_cookies(response: &mut Response, cookies: &std::sync::Mutex<Vec<String>>) {
+    let cookies = cookies
+        .lock()
+        .map(|cookies| cookies.clone())
+        .unwrap_or_default();
+    for cookie in cookies {
+        if let Ok(value) = HeaderValue::from_str(&cookie) {
+            response.headers_mut().append(SET_COOKIE, value);
+        }
+    }
+}
+
 pub async fn inject_globals(
     State(app): State<App>,
     session: Session,
@@ -89,13 +101,16 @@ pub async fn inject_globals(
     let theme = Theme::from_headers(req.headers());
     let is_signed_in = current_user.is_some();
 
+    let response_cookies = std::sync::Arc::default();
     req.extensions_mut().insert(GlobalState {
         year: app.clock.now().year(),
         current_user,
         theme,
+        response_cookies: std::sync::Arc::clone(&response_cookies),
     });
 
     let mut response = next.run(req).await;
+    append_cookies(&mut response, &response_cookies);
     if is_signed_in {
         response
             .headers_mut()

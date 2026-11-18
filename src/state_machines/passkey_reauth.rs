@@ -53,6 +53,12 @@ pub const PASSKEY_REAUTH: Machine<ProofState, ProofEvent> = Machine {
         writer(DELETE, "return_passkey_proof", &[E::UseItAndFail]),
         writer(ADMIN, "take_passkey_proof", &[E::UseIt]),
         writer(ADMIN, "return_passkey_proof", &[E::UseItAndFail]),
+        writer(TWO_FACTOR_TAKE, "take_passkey_proof", &[E::UseIt]),
+        writer(
+            TWO_FACTOR_RETURN,
+            "return_passkey_proof",
+            &[E::UseItAndFail],
+        ),
         writer(REMOVE, "take_passkey_proof", &[E::RemoveAPasskey]),
         writer(REMOVE, "return_passkey_proof", &[E::UseItAndFail]),
         writer(REMOVE, "forget_passkey_proof", &[E::RemoveAPasskey]),
@@ -63,6 +69,8 @@ const EMAIL: &str = "src/profile/pages/email_routes.rs:change_email";
 const TOKEN: &str = "src/api_tokens/pages/token_routes.rs:create_token";
 const DELETE: &str = "src/profile/pages/delete_routes.rs:remove_account";
 const ADMIN: &str = "src/admin/pages/admin_confirm.rs:admin_confirm_submit";
+const TWO_FACTOR_TAKE: &str = "src/two_factor/pages/two_factor_routes.rs:proof";
+const TWO_FACTOR_RETURN: &str = "src/two_factor/pages/two_factor_routes.rs:failed";
 const REMOVE: &str = "src/passkeys/pages/passkey_routes.rs:remove_passkey_submit";
 
 pub const ONLY_FRESH_SKIPS_THE_PASSWORD: &str =

@@ -96,7 +96,7 @@ test("the admin area opens inside the account layout", async ({ page }) => {
   await tabs.getByRole("link", { name: "Users" }).click();
   await expect(page).toHaveURL("/admin/users");
   await nav.getByRole("link", { name: "Profile" }).click();
-  await expect(page).toHaveURL("/account/profile");
+  await expect(page).toHaveURL("/account");
 });
 
 test("an admin sorts the users table by a column and keeps the sort while searching", async ({

@@ -17,6 +17,13 @@ pub struct GlobalState {
     pub year: i32,
     pub current_user: Option<Arc<User>>,
     pub theme: Theme,
+    pub response_cookies: Arc<std::sync::Mutex<Vec<String>>>,
+}
+
+pub fn set_response_cookie(cx: &Cx, cookie: String) {
+    if let Ok(mut cookies) = globals(cx).response_cookies.lock() {
+        cookies.push(cookie);
+    }
 }
 
 pub fn globals(cx: &Cx) -> GlobalState {

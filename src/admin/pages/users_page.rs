@@ -53,7 +53,12 @@ pub async fn admin_users_page(cx: &Cx) -> Result<impl View> {
         Ok(page) => page,
         Err(error) => match error.for_browser()? {},
     };
-    let rows: Vec<UserRow> = page.users.iter().map(UserRow::of).collect();
+    let zone = caller.user.zone();
+    let rows: Vec<UserRow> = page
+        .users
+        .iter()
+        .map(|user| UserRow::of(user, &zone))
+        .collect();
     let base = href!(admin_users_page).resolve(cx);
     let previous = (page.page > 0).then(|| list.page_href(&base, page.page - 1));
     let next = page.has_next.then(|| list.page_href(&base, page.page + 1));

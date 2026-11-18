@@ -18,6 +18,7 @@ pub struct User {
     pub public_id: String,
     pub disabled_at: Option<time::OffsetDateTime>,
     pub admin_granted_at: Option<time::OffsetDateTime>,
+    pub time_zone: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,6 +29,10 @@ pub enum AccountStatus<'a> {
 }
 
 impl User {
+    pub fn zone(&self) -> crate::time_zone::Zone {
+        crate::time_zone::Zone::named(self.time_zone.as_deref())
+    }
+
     pub fn status(&self) -> AccountStatus<'_> {
         if self.disabled_at.is_some() {
             let password_hash = self
@@ -59,6 +64,7 @@ impl User {
             public_id: "usr_00000000000000000000".to_string(),
             disabled_at: None,
             admin_granted_at: None,
+            time_zone: None,
         }
     }
 }
@@ -81,6 +87,7 @@ mod tests {
             public_id: "usr_00000000000000000000".to_string(),
             disabled_at: None,
             admin_granted_at: None,
+            time_zone: None,
         }
     }
 

@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (SELECT count(*) FROM user_two_factor WHERE user_id = $1) + (SELECT count(*) FROM recovery_codes WHERE user_id = $1) AS \"count!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a2b1355378fc64ea5410b3ffc7bcea3969c714613dff7b9256e651474d68ec85"
+}

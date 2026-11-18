@@ -124,10 +124,10 @@ async fn nav_link(
     current: bool,
     text: &str,
 ) -> Result<impl View> {
-    let class = if active {
-        "l-nav__link l-nav__link--active"
-    } else {
-        "l-nav__link"
+    let class = match (active, current) {
+        (_, true) => "l-nav__link l-nav__link--active p-account__nav-link--current",
+        (true, false) => "l-nav__link l-nav__link--active",
+        (false, false) => "l-nav__link",
     };
 
     Ok(view! {

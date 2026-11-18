@@ -12,11 +12,13 @@ use topcoat::{
 use tower_sessions::Session;
 
 use crate::auth::pages::login::login_page;
+use crate::devices::known::{known_device_cookie, known_device_token, recognize_device};
 use crate::devices::lifecycle::{SignInMethod, end_device, keep_device, load_device, start_device};
 use crate::env::{App, Env};
 use crate::routes::ACCOUNT_PATH;
+use crate::two_factor::challenge::end_second_factor;
 use crate::user::model::User;
-use crate::web::{env, globals};
+use crate::web::{config, env, globals, set_response_cookie};
 
 const SESSION_AUTH: &str = "auth";
 pub const PASSKEY_PROMPT_GRANT: &str = "passkey_prompt_grant";
@@ -63,6 +65,10 @@ pub fn current_user(cx: &Cx) -> Option<Arc<User>> {
     globals(cx).current_user
 }
 
+pub fn viewer_zone(cx: &Cx) -> crate::time_zone::Zone {
+    current_user(cx).map_or_else(crate::time_zone::Zone::utc, |user| user.zone())
+}
+
 pub fn require_user(cx: &Cx) -> Result<Arc<User>> {
     current_user(cx).ok_or_else(|| see_other(href!(login_page).resolve(cx)).into())
 }
@@ -76,11 +82,17 @@ pub fn redirect_signed_in_users(cx: &Cx) -> Result<()> {
 }
 
 pub async fn sign_in(cx: &Cx, session: &Session, user: &User, method: SignInMethod) -> Result<()> {
-    let user_agent = request::headers(cx)
+    let headers = request::headers(cx);
+    let user_agent = headers
         .get(USER_AGENT)
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default();
-    start_session(&env(cx), session, user, user_agent, method).await
+    let env = env(cx);
+    start_session(&env, session, user, user_agent, method).await?;
+    let known = known_device_token(headers);
+    let token = recognize_device(&env, user, known.as_deref(), method, user_agent).await?;
+    set_response_cookie(cx, known_device_cookie(&token, config(cx).secure_cookies()));
+    Ok(())
 }
 
 async fn start_session(
@@ -97,6 +109,7 @@ async fn start_session(
     }
     session.cycle_id().await?;
     revoke_passkey_prompt(session).await?;
+    end_second_factor(session).await?;
     let device = start_device(env, user, user_agent, method).await?;
     remember(session, user, device).await
 }

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO user_two_factor (user_id, secret, last_used_step) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1f1bab350b99277d444ce5636ec80c3301dae49e41954d1678727737ef802631"
+}

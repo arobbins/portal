@@ -76,7 +76,7 @@ async fn account_card(cx: &Cx, overview: &UserOverview) -> Result<impl View> {
         "{} passkeys · {} signed-in devices · {} API tokens",
         counts.passkeys, counts.devices, counts.api_tokens
     );
-    let joined = crate::utils::format_date(counts.created_at);
+    let joined = crate::auth::session::viewer_zone(cx).date(counts.created_at);
 
     Ok(view! {
         card(

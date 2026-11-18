@@ -92,6 +92,44 @@ paths:
   records no event, because events cascade with the row; it's logged with
   `tracing`. The e2e seed includes `admin@example.test`; e2e tests make
   their own admin with `grantAdmin(email)` (`support/console.ts`).
+- **Time zones** (`src/time_zone.rs`): every date shown to a person goes
+  through a `Zone` (`zone.date(at)` / `zone.date_time(at)`, e.g. "Nov 17,
+  2026 at 14:03 CET"), taken from the viewer: `caller.user.zone()` or
+  `viewer_zone(cx)` (UTC when unset or signed out). Emails use the
+  recipient's zone. Users choose theirs on Settings (`preferences/`), with a
+  "Use this device's time zone" button; never format a date with `time`
+  directly.
+- **Notifications** (`preferences/notifications.rs`): security emails
+  (password changed or reset, email changed, passkey added, API token
+  created, two-factor on or off) are always sent. Optional emails have a
+  `NotificationTopic` (today only `SignInAlerts`), are on until the user
+  opts out (`notification_opt_outs`), check `wants(user_id, topic, db)`
+  before queueing, and end with a link to the Notifications card. **New
+  sign-in alerts**: `sign_in` sets an HttpOnly `known_device` cookie (only
+  its hash is stored, per user, in `known_devices`); a password or passkey
+  sign-in from a browser not known for that user queues "New sign-in to
+  your account" (subject to the per-address email limit). Sign-ins from an
+  emailed link (new account, password reset) mark the browser known
+  without an alert. Response cookies are set through
+  `web::set_response_cookie(cx, …)`, which `inject_globals` appends.
+- **Two-factor authentication** (`src/two_factor/`, `Permission::ManageTwoFactor`,
+  browser-only): TOTP (SHA-1, 6 digits, 30 s, one step of skew) from an
+  authenticator app, set up on Security → Authentication by scanning a QR code
+  (the secret is generated per page view and only stored once a code and
+  the password or a passkey confirm it) plus 10 single-use recovery codes
+  (hashed; shown once; regenerating replaces them). A correct password, or
+  a password-reset link, for a user with two-factor stores
+  `PendingSecondFactor` in the session and goes to `/login/two-factor`
+  instead of signing in (it keeps the `SignInMethod`, so a reset still
+  ends as a reset); wrong codes have their own limit, 5 per 15 minutes per
+  account (`FailedSecondFactorsByAccount`), which a correct password does
+  not clear. Each app code's time step is accepted once (`last_used_step`).
+  The TOTP secret is stored as is (the server needs it to check codes; the
+  SQL console hides it); encrypting it at rest is a later option. Turning
+  two-factor on or off doesn't bump `session_version`. Passkey sign-in
+  skips the second step (a passkey already proves the device). There is no
+  admin reset: a locked-out user uses a recovery code. Turning it on or
+  off is always emailed.
 - **Cleanup** (`src/cleanup.rs`, run hourly as one `cleanup` job, so once
   per cluster): deletes expired `user_tokens`, expired sessions, sign-ups
   that never set a password after 7 days and have no live link, API tokens
@@ -164,7 +202,7 @@ paths:
   both). Pages are `<feature>/pages/<name>_tab.rs` / `account/pages/<name>_page.rs`
   components (`profile_tab`, `sign_in_page`, `devices_page`, `developer_tab`)
   with no heading of their own. Each setting is a card with an action button on the
-  right of its header that opens a `modal` with the form.
+  right of its header that opens a `modal` with the form. **Exception, inline settings**: a single independent choice that takes effect immediately, is as easy to undo as to make, can't fail on a field and needs no password (notification switches) is changed in place with `setting_toggle`, no modal. Typed input, validation that can fail, re-authentication, destructive changes or several fields saved together always use a modal.
   Inside the modal, submit through a `#[procedure]` (errors render in the
   dialog, success closes it and shows a toast) and keep a plain POST route
   as the no-JS fallback (errors come back as an error toast). Procedures

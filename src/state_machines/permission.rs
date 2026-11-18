@@ -22,6 +22,7 @@ pub const PERMISSION: Machine<PermissionState, CallerState> = Machine {
         Asked(P::ManageEmail),
         Asked(P::ConfirmIdentity),
         Asked(P::ManagePasskeys),
+        Asked(P::ManageTwoFactor),
         Asked(P::ManageDevices),
         Asked(P::ViewActivity),
         Asked(P::ManageApiTokens),
@@ -54,11 +55,12 @@ pub const PERMISSION: Machine<PermissionState, CallerState> = Machine {
     writers: &[],
 };
 
-pub const SENSITIVE: [Permission; 9] = [
+pub const SENSITIVE: [Permission; 10] = [
     P::ManagePassword,
     P::ManageEmail,
     P::ConfirmIdentity,
     P::ManagePasskeys,
+    P::ManageTwoFactor,
     P::ManageDevices,
     P::ViewActivity,
     P::ManageApiTokens,
@@ -66,7 +68,7 @@ pub const SENSITIVE: [Permission; 9] = [
     P::AdministerUsers,
 ];
 
-pub const SENSITIVE_ARE_BROWSER_ONLY: &str = "Exactly the security-sensitive permissions (password, email, identity, passkeys, devices, activity, tokens, deleting the account, administering users) have no API scope.";
+pub const SENSITIVE_ARE_BROWSER_ONLY: &str = "Exactly the security-sensitive permissions (password, email, identity, passkeys, two-factor, devices, activity, tokens, deleting the account, administering users) have no API scope.";
 pub const ONLY_ADMINISTERING_IS_ADMIN_ONLY: &str =
     "Administering users is the only permission limited to admins.";
 pub const TOKEN_PERMISSIONS_HAVE_ENDPOINTS: &str =

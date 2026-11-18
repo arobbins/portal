@@ -31,7 +31,7 @@ test("an AI assistant can use the account's tools over MCP", async ({ page, requ
   expect(result.isError).toBe(false);
   expect(result.structuredContent).toEqual({ name: "Renamed By Claude", email });
 
-  await page.goto("/account/profile");
+  await page.goto("/account");
   await expect(page.getByText("Renamed By Claude").first()).toBeVisible();
   await page.goto("/account/developer");
   await expect(page.locator("#api-tokens").getByText("MCP", { exact: true })).toBeVisible();

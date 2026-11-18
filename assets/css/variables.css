@@ -23,6 +23,7 @@
   --palette-ink-700: #2a2a24;
   --palette-ink-600: #48453f;
   --palette-white: #ffffff;
+  --palette-graphite-850: #1a1a1a;
   --palette-cream: #f5ede0;
   --palette-rust-500: #ac501e;
   --palette-rust-600: #934419;
@@ -86,6 +87,9 @@
 
   --color-avatar-bg: light-dark(var(--palette-sand-300), #3b3630);
 
+  --color-qr-code-bg: var(--palette-white);
+  --color-card-header-bg: var(--color-surface-hover);
+  --color-card-body-bg: light-dark(var(--palette-white), var(--palette-graphite-850));
   --color-button-primary-bg: var(--color-accent);
   --color-button-primary-hover: light-dark(var(--palette-rust-600), var(--palette-rust-400));
   --color-button-primary-text: light-dark(var(--palette-white), var(--palette-cream));

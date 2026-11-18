@@ -8,6 +8,7 @@ pub enum Permission {
     ManageEmail,
     ConfirmIdentity,
     ManagePasskeys,
+    ManageTwoFactor,
     ManageDevices,
     ViewActivity,
     ManageApiTokens,
@@ -16,13 +17,14 @@ pub enum Permission {
 }
 
 impl Permission {
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 12] = [
         Self::ViewProfile,
         Self::EditProfile,
         Self::ManagePassword,
         Self::ManageEmail,
         Self::ConfirmIdentity,
         Self::ManagePasskeys,
+        Self::ManageTwoFactor,
         Self::ManageDevices,
         Self::ViewActivity,
         Self::ManageApiTokens,
@@ -38,6 +40,7 @@ impl Permission {
             | Self::ManageEmail
             | Self::ConfirmIdentity
             | Self::ManagePasskeys
+            | Self::ManageTwoFactor
             | Self::ManageDevices
             | Self::ViewActivity
             | Self::ManageApiTokens
@@ -75,6 +78,7 @@ mod tests {
             Permission::ManageEmail,
             Permission::ConfirmIdentity,
             Permission::ManagePasskeys,
+            Permission::ManageTwoFactor,
             Permission::ManageDevices,
             Permission::ViewActivity,
             Permission::ManageApiTokens,

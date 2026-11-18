@@ -48,6 +48,11 @@ pub const RATE_LIMIT: Machine<LockState, LockEvent> = Machine {
             "query_delete_rate_limit_hits",
             &[E::RightPassword],
         ),
+        writer(
+            "src/rate_limit.rs:clear_failed_second_factors",
+            "query_delete_rate_limit_hits",
+            &[],
+        ),
         writer("src/rate_limit.rs:allow", "query_take_rate_limit_slot", &[]),
         writer(
             "src/rate_limit.rs:forget_old_hits",

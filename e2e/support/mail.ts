@@ -69,3 +69,19 @@ export function confirmEmailLink(email: Email): string {
   if (!match) throw new Error(`No confirm-email link in email: ${email.text}`);
   return match[0];
 }
+
+export async function emailsAbout(address: string, subject: string): Promise<Email[]> {
+  return (await readEmails()).filter(
+    (email) => email.to.toLowerCase() === address.toLowerCase() && email.subject === subject,
+  );
+}
+
+export async function waitForEmailAbout(address: string, subject: string): Promise<Email> {
+  await expect
+    .poll(async () => (await emailsAbout(address, subject)).length, {
+      message: `waiting for "${subject}" to ${address}`,
+      timeout: 10_000,
+    })
+    .toBeGreaterThan(0);
+  return (await emailsAbout(address, subject))[0];
+}

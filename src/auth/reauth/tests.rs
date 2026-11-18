@@ -32,6 +32,7 @@ async fn a_passkey_proof_lasts_five_minutes_for_one_user_and_sign_in(db: PgPool)
         public_id: user.public_id.clone(),
         disabled_at: user.disabled_at,
         admin_granted_at: user.admin_granted_at,
+        time_zone: user.time_zone.clone(),
     });
     let cases = [
         (&user, 300, true),

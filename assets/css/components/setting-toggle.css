@@ -1,0 +1,3 @@
+.a-setting-toggle[aria-busy="true"] {
+  cursor: progress;
+}

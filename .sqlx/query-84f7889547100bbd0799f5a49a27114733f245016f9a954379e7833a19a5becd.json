@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE user_two_factor SET last_used_step = $2 WHERE user_id = $1 AND last_used_step < $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "84f7889547100bbd0799f5a49a27114733f245016f9a954379e7833a19a5becd"
+}

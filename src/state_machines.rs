@@ -18,15 +18,18 @@ pub mod flash;
 pub mod form_failure;
 
 pub mod job;
+pub mod known_device;
 pub mod passkey_prompt;
 pub mod passkey_prompt_grant;
 pub mod passkey_reauth;
 pub mod permission;
 pub mod rate_limit;
 pub mod role;
+pub mod second_factor;
 
 pub mod signed_in;
 pub mod testing;
+pub mod two_factor;
 
 pub trait Labeled: Copy + Eq + Debug + 'static {
     fn id(self) -> &'static str;

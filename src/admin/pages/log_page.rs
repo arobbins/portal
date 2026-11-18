@@ -12,10 +12,10 @@ use super::user_page::{admin_user_page, id};
 use crate::admin::actions::{LOG_ENTRIES_SHOWN, list_admin_log};
 use crate::admin::queries::LogEntry;
 use crate::app::page_title;
+use crate::auth::session::viewer_zone;
 use crate::components::table::{
     Column, TableLayout, table, table_cell, table_row, table_row_heading,
 };
-use crate::utils::format_date_time;
 use crate::web::env;
 
 const SERVER_CONSOLE: &str = "Server console";
@@ -47,6 +47,7 @@ const COLUMNS: [Column; 4] = [
 
 #[component]
 async fn log_table(cx: &Cx, entries: &[LogEntry], caption: &str) -> Result<impl View> {
+    let zone = viewer_zone(cx);
     let [action, when, admin, user] = COLUMNS;
     let empty = entries.is_empty().then_some("No admin actions yet.");
 
@@ -59,7 +60,7 @@ async fn log_table(cx: &Cx, entries: &[LogEntry], caption: &str) -> Result<impl 
             for entry in entries {
                 table_row(
                     table_row_heading(column: action, (entry.action.label()))
-                    table_cell(column: when, (format_date_time(entry.created_at)))
+                    table_cell(column: when, (zone.date_time(entry.created_at)))
                     table_cell(
                         column: admin,
                         title: Some(admin_of(entry)),

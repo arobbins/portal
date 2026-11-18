@@ -49,7 +49,7 @@ pub async fn query_get_signed_in_device(
     db: impl PgExecutor<'_>,
 ) -> Result<Option<SignedInDevice>, sqlx::Error> {
     let row = sqlx::query!(
-        r#"SELECT u.id, u.name, u.email, u.password, u.role AS "role: Role", u.verified_at, u.session_version, u.webauthn_id, u.public_id, u.disabled_at, u.admin_granted_at, d.last_seen_at
+        r#"SELECT u.id, u.name, u.email, u.password, u.role AS "role: Role", u.verified_at, u.session_version, u.webauthn_id, u.public_id, u.disabled_at, u.admin_granted_at, u.time_zone, d.last_seen_at
         FROM user_devices d JOIN users u ON u.id = d.user_id
         WHERE d.public_id = $1 AND d.user_id = $2 AND d.session_version = u.session_version AND u.disabled_at IS NULL"#,
         public_id,
@@ -71,6 +71,7 @@ pub async fn query_get_signed_in_device(
             public_id: row.public_id,
             disabled_at: row.disabled_at,
             admin_granted_at: row.admin_granted_at,
+            time_zone: row.time_zone,
         },
         last_seen_at: row.last_seen_at,
     }))
@@ -175,4 +176,49 @@ pub async fn query_delete_user_devices(
         .await?;
 
     Ok(result.rows_affected())
+}
+
+pub async fn query_touch_known_device(
+    user_id: i32,
+    token_hash: &str,
+    now: OffsetDateTime,
+    db: impl PgExecutor<'_>,
+) -> Result<bool, sqlx::Error> {
+    let touched = sqlx::query!(
+        "UPDATE known_devices SET last_seen_at = $3 WHERE user_id = $1 AND token_hash = $2",
+        user_id,
+        token_hash,
+        now,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(touched.rows_affected() > 0)
+}
+
+pub async fn query_insert_known_device(
+    user_id: i32,
+    token_hash: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "INSERT INTO known_devices (user_id, token_hash) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+        user_id,
+        token_hash,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn query_delete_stale_known_devices(
+    before: OffsetDateTime,
+    db: impl PgExecutor<'_>,
+) -> Result<u64, sqlx::Error> {
+    let deleted = sqlx::query!("DELETE FROM known_devices WHERE last_seen_at < $1", before)
+        .execute(db)
+        .await?;
+
+    Ok(deleted.rows_affected())
 }

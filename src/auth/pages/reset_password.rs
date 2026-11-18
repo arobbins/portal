@@ -32,6 +32,9 @@ use crate::components::form::{
 use crate::devices::lifecycle::SignInMethod;
 use crate::flash::{Flash, flash_toast, flash_toasts, set_flash, take_flash};
 use crate::layout::page_heading::page_heading;
+use crate::two_factor::actions::needs_second_factor;
+use crate::two_factor::challenge::begin_second_factor;
+use crate::two_factor::pages::challenge_page::two_factor_page;
 use crate::web::{env, redisplay, session};
 
 pub const RETRY_AFTER_SECS: u64 = 10;
@@ -168,6 +171,12 @@ pub async fn choose_password_submit(cx: &Cx, Form(input): Form<NewPassword>) -> 
     match set_password_from_link(&env(cx), PURPOSE, token(cx), &input).await? {
         Ok(user) => {
             let session = session(cx)?;
+            let env = env(cx);
+            if needs_second_factor(&env, &user).await? {
+                begin_second_factor(&session, &user, SignInMethod::PasswordReset, env.now())
+                    .await?;
+                return Ok(see_other(href!(two_factor_page).resolve(cx)));
+            }
             sign_in(cx, &session, &user, SignInMethod::PasswordReset).await?;
             set_flash(&session, Flash::PasswordReset).await?;
             Ok(see_other(ACCOUNT_PATH))

@@ -35,6 +35,9 @@ pub enum Flash {
     UserSignedOut,
     VerificationResent,
     UserDeleted,
+    TimeZoneSaved,
+    NotificationsSaved,
+    TwoFactorDisabled,
 }
 
 impl Flash {
@@ -60,6 +63,9 @@ impl Flash {
             Self::UserSignedOut => "user-signed-out",
             Self::VerificationResent => "verification-resent",
             Self::UserDeleted => "user-deleted",
+            Self::TimeZoneSaved => "time-zone-saved",
+            Self::NotificationsSaved => "notifications-saved",
+            Self::TwoFactorDisabled => "two-factor-disabled",
         }
     }
 
@@ -93,6 +99,9 @@ impl Flash {
             Self::UserSignedOut => "They've been signed out of every device.",
             Self::VerificationResent => "A new confirmation email is on its way.",
             Self::UserDeleted => "The account has been deleted.",
+            Self::TimeZoneSaved => "Time zone saved.",
+            Self::NotificationsSaved => "Notification settings saved.",
+            Self::TwoFactorDisabled => "Two-factor authentication is off.",
         }
     }
 }

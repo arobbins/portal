@@ -25,12 +25,6 @@ test("unfinished pages say so instead of showing the profile", async ({
       page: "Invoices",
       cards: ["invoices"],
     },
-    {
-      path: "/account/settings",
-      heading: "Settings",
-      page: "Settings",
-      cards: ["notifications"],
-    },
   ];
   for (const expected of pages) {
     await page.goto(expected.path);
@@ -66,18 +60,23 @@ test("a section with several pages opens its first page and shows them as tabs",
 });
 
 test("a single-page section has no tabs", async ({ page }) => {
-  await page.goto("/account/settings");
+  await page.goto("/account/developer");
 
   await expect(
-    page.getByRole("heading", { name: "Settings", level: 1 }),
+    page.getByRole("heading", { name: "Developer", level: 1 }),
   ).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Settings" })).toHaveCount(
+  await expect(page.getByRole("navigation", { name: "Developer" })).toHaveCount(
     0,
   );
 });
 
-test("the profile tab shows the profile", async ({ page }) => {
+test("the profile has one address", async ({ page }) => {
   await page.goto("/account/profile");
+
+  await expect(page).toHaveURL("/account");
+  await expect(
+    page.getByRole("navigation", { name: "Account" }).getByRole("link", { name: "Profile" }),
+  ).toHaveAttribute("aria-current", "page");
 
   await expect(page.getByText(`Name: ${verifiedUser.name}`)).toBeVisible();
 });
@@ -91,5 +90,5 @@ test("an unknown account section is a 404", async ({ page }) => {
     const response = await page.goto(path);
     expect(response?.status(), path).toBe(404);
   }
-  await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
 });

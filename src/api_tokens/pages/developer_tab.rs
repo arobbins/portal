@@ -48,8 +48,9 @@ async fn token_rows(cx: &Cx) -> Result<Vec<TokenRow>> {
         Ok(tokens) => tokens,
         Err(error) => match error.for_browser()? {},
     };
+    let zone = caller.user.zone();
     Ok(tokens
         .iter()
-        .map(|token| TokenRow::new(token, env.now()))
+        .map(|token| TokenRow::new(token, env.now(), &zone))
         .collect())
 }

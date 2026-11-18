@@ -79,6 +79,20 @@ pub fn email_changed_email(recipient: &str, new_email: &str) -> Email {
         .to(recipient)
 }
 
+pub fn password_changed_email(recipient: &str, reset_url: &str) -> Email {
+    EmailTemplate::new("Your password was changed")
+        .text("The password for your account was just changed, and your other devices were signed out.")
+        .paragraph(vec![
+            Part::Text("If you didn't do this, "),
+            Part::Link {
+                text: "reset your password",
+                url: reset_url,
+            },
+            Part::Text(" right away and contact support."),
+        ])
+        .to(recipient)
+}
+
 pub fn account_removed_email(recipient: &str) -> Email {
     EmailTemplate::new("Your account was deleted")
         .text("Our team has deleted your account and everything in it, and you've been signed out everywhere.")

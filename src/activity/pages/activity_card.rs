@@ -7,10 +7,11 @@ use topcoat::{
 use crate::account::tabs::AccountSection;
 use crate::action::require_browser_caller;
 use crate::activity::actions::{ActivityView, list_recent_activity};
+use crate::auth::session::viewer_zone;
 use crate::components::card::{card, card_body, card_header};
 use crate::components::property_list::{PropertyTag, property, property_list};
 use crate::components::tone::Tone;
-use crate::utils::format_date_time;
+use crate::time_zone::Zone;
 use crate::web::env;
 
 struct ActivityRow {
@@ -21,8 +22,8 @@ struct ActivityRow {
 }
 
 impl ActivityRow {
-    fn of(index: usize, item: &ActivityView) -> Self {
-        let mut parts = vec![format_date_time(item.at)];
+    fn of(index: usize, item: &ActivityView, zone: &Zone) -> Self {
+        let mut parts = vec![zone.date_time(item.at)];
         parts.extend(item.device.clone());
         parts.extend(item.ip.clone());
         let tags = item
@@ -52,9 +53,7 @@ pub async fn activity_card(cx: &Cx) -> Result<impl View> {
             id: Some(AccountSection::Activity.anchor()),
             card_header(title: "Recent activity")
             card_body(
-                <p>
-                    "Sign-ins and changes to your account, newest first. Times are in UTC."
-                </p>
+                <p>"Sign-ins and changes to your account, newest first."</p>
                 activity_list(activity: &activity)
             )
         )
@@ -63,10 +62,11 @@ pub async fn activity_card(cx: &Cx) -> Result<impl View> {
 
 #[component]
 pub async fn activity_list(cx: &Cx, activity: &[ActivityView]) -> Result<impl View> {
+    let zone = viewer_zone(cx);
     let rows: Vec<ActivityRow> = activity
         .iter()
         .enumerate()
-        .map(|(index, item)| ActivityRow::of(index, item))
+        .map(|(index, item)| ActivityRow::of(index, item, &zone))
         .collect();
 
     Ok(view! {

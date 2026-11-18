@@ -27,6 +27,9 @@ use crate::devices::lifecycle::SignInMethod;
 use crate::flash::{Flash, flash_toast, flash_toasts, take_flash};
 use crate::layout::page_heading::page_heading;
 use crate::passkeys::pages::passkey_setup::after_password_sign_in;
+use crate::two_factor::actions::needs_second_factor;
+use crate::two_factor::challenge::{begin_second_factor, end_second_factor};
+use crate::two_factor::pages::challenge_page::two_factor_page;
 use crate::web::{env, redisplay, session};
 
 const PASSKEY_ERROR_ID: &str = "passkey-error";
@@ -40,6 +43,7 @@ struct LoginFailed {
 #[page("/login", with(Metadata::new().title(page_title("Sign in"))))]
 pub async fn login_page(cx: &Cx) -> Result<impl View> {
     redirect_signed_in_users(cx)?;
+    end_second_factor(&session(cx)?).await?;
 
     let flash = take_flash(cx, FLASHES).await?;
     let toast = flash_toast(cx, flash);
@@ -118,6 +122,11 @@ pub async fn login_submit(cx: &Cx, Form(input): Form<SignIn>) -> Result<SeeOther
     match sign_in_with_password(&env(cx), &input).await? {
         Ok(user) => {
             let session = session(cx)?;
+            let env = env(cx);
+            if needs_second_factor(&env, &user).await? {
+                begin_second_factor(&session, &user, SignInMethod::Password, env.now()).await?;
+                return Ok(see_other(href!(two_factor_page).resolve(cx)));
+            }
             sign_in(cx, &session, &user, SignInMethod::Password).await?;
             Ok(see_other(
                 after_password_sign_in(cx, &session, &user).await?,

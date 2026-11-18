@@ -1,7 +1,7 @@
 use crate::admin::queries::{ListedStatus, UserListing};
 use crate::components::tone::Tone;
+use crate::time_zone::Zone;
 use crate::user::model::{AccountStatus, Role, User};
-use crate::utils::format_date;
 
 pub(super) fn status_label(status: ListedStatus) -> (&'static str, Tone) {
     match status {
@@ -37,17 +37,17 @@ pub(super) struct UserRow {
 }
 
 impl UserRow {
-    pub fn of(user: &UserListing) -> Self {
+    pub fn of(user: &UserListing, zone: &Zone) -> Self {
         Self {
             id: user.public_id.clone(),
             name: user.name.clone(),
             email: user.email.clone(),
             status: status_label(user.status),
             role: role_label(user.role),
-            joined: format_date(user.created_at),
+            joined: zone.date(user.created_at),
             last_active: user
                 .last_active_at
-                .map_or_else(|| "Not signed in".to_string(), format_date),
+                .map_or_else(|| "Not signed in".to_string(), |at| zone.date(at)),
         }
     }
 }

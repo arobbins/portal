@@ -14,7 +14,7 @@ Find the spec for the feature (`ls e2e/tests`; one spec per feature, e.g. profil
 `profile.spec.ts`, theme → `theme.spec.ts`, layout → `mobile.spec.ts`). Then:
 
 ```sh
-cd e2e && rtk proxy npx playwright test <spec-name> --project=chromium --reporter=line
+cd e2e && npx playwright test <spec-name> --project=chromium --reporter=line
 ```
 
 - Add `-g "<test title>"` to run one test.
@@ -33,7 +33,7 @@ tool; it runs against the e2e server (current code, fresh database), so it needs
 or browser extension and can sign in:
 
 ```sh
-cd e2e && SHOT_PATHS=/login,/register SHOT_OUT=<scratchpad>/shots rtk proxy npm run screenshot
+cd e2e && SHOT_PATHS=/login,/register SHOT_OUT=<scratchpad>/shots npm run screenshot
 ```
 
 Settings (environment variables):

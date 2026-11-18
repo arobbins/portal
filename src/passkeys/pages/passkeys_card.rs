@@ -38,7 +38,11 @@ pub async fn passkeys_card(cx: &Cx) -> Result<impl View> {
         Ok(passkeys) => passkeys,
         Err(error) => match error.for_browser()? {},
     };
-    let rows: Vec<PasskeyRow> = passkeys.iter().map(PasskeyRow::from_passkey).collect();
+    let zone = caller.user.zone();
+    let rows: Vec<PasskeyRow> = passkeys
+        .iter()
+        .map(|passkey| PasskeyRow::from_passkey(passkey, &zone))
+        .collect();
     let only_one = passkeys.len() == 1;
     let needs_backup = only_one && !passkeys[0].backup_eligible;
 

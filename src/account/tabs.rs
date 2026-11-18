@@ -58,7 +58,7 @@ impl AccountTab {
             Self::Profile => &[AccountPage::Profile],
             Self::Security => &[AccountPage::SignIn, AccountPage::Devices],
             Self::Billing => &[AccountPage::Plan, AccountPage::Invoices],
-            Self::Settings => &[AccountPage::Settings],
+            Self::Settings => &[AccountPage::Notifications, AccountPage::TimeZone],
             Self::Developer => &[AccountPage::Developer],
         }
     }
@@ -71,18 +71,20 @@ pub enum AccountPage {
     Devices,
     Plan,
     Invoices,
-    Settings,
+    Notifications,
+    TimeZone,
     Developer,
 }
 
 impl AccountPage {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Profile,
         Self::SignIn,
         Self::Devices,
         Self::Plan,
         Self::Invoices,
-        Self::Settings,
+        Self::Notifications,
+        Self::TimeZone,
         Self::Developer,
     ];
 
@@ -95,11 +97,13 @@ impl AccountPage {
 
     pub fn slug(self) -> Option<&'static str> {
         match self {
-            Self::Profile | Self::Settings | Self::Developer => None,
-            Self::SignIn => Some("sign-in"),
+            Self::Profile | Self::Developer => None,
+            Self::SignIn => Some("authentication"),
             Self::Devices => Some("devices"),
             Self::Plan => Some("plan"),
             Self::Invoices => Some("invoices"),
+            Self::Notifications => Some("notifications"),
+            Self::TimeZone => Some("time-zone"),
         }
     }
 
@@ -114,19 +118,21 @@ impl AccountPage {
     pub fn heading(self) -> &'static str {
         match self {
             Self::Profile => "Profile",
-            Self::SignIn => "Sign-in",
+            Self::SignIn => "Authentication",
             Self::Devices => "Devices and activity",
             Self::Plan => "Plan and payment",
             Self::Invoices => "Invoices",
-            Self::Settings => "Settings",
+            Self::Notifications => "Notifications",
+            Self::TimeZone => "Time zone",
             Self::Developer => "Developer",
         }
     }
 
     pub fn path(self) -> String {
-        match self.slug() {
-            Some(slug) => format!("{ACCOUNT_PATH}/{}/{slug}", self.tab().slug()),
-            None => format!("{ACCOUNT_PATH}/{}", self.tab().slug()),
+        match (self, self.slug()) {
+            (Self::Profile, _) => ACCOUNT_PATH.to_string(),
+            (_, Some(slug)) => format!("{ACCOUNT_PATH}/{}/{slug}", self.tab().slug()),
+            (_, None) => format!("{ACCOUNT_PATH}/{}", self.tab().slug()),
         }
     }
 
@@ -145,7 +151,8 @@ impl AccountPage {
                 AccountSection::PaymentMethods,
             ],
             Self::Invoices => &[AccountSection::Invoices],
-            Self::Settings => &[AccountSection::Notifications],
+            Self::Notifications => &[AccountSection::Notifications],
+            Self::TimeZone => &[AccountSection::TimeZone],
             Self::Developer => &[AccountSection::ApiTokens],
         }
     }
@@ -163,13 +170,14 @@ pub enum AccountSection {
     Invoices,
     PaymentMethods,
     Notifications,
+    TimeZone,
     ApiTokens,
     DeleteAccount,
 }
 
 impl AccountSection {
     #[cfg(test)]
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::Password,
         Self::Passkeys,
         Self::TwoFactor,
@@ -180,6 +188,7 @@ impl AccountSection {
         Self::Invoices,
         Self::PaymentMethods,
         Self::Notifications,
+        Self::TimeZone,
         Self::ApiTokens,
         Self::DeleteAccount,
     ];
@@ -203,6 +212,7 @@ impl AccountSection {
             Self::Invoices => "invoices",
             Self::PaymentMethods => "payment-methods",
             Self::Notifications => "notifications",
+            Self::TimeZone => "time-zone",
             Self::ApiTokens => "api-tokens",
             Self::DeleteAccount => "delete-account",
         }
@@ -220,6 +230,7 @@ impl AccountSection {
             Self::Invoices => "Invoices",
             Self::PaymentMethods => "Payment methods",
             Self::Notifications => "Notifications",
+            Self::TimeZone => "Time zone",
             Self::ApiTokens => "API tokens",
             Self::DeleteAccount => "Delete account",
         }
@@ -262,9 +273,12 @@ mod tests {
 
     #[test]
     fn a_page_has_its_own_path_only_when_its_tab_has_several() {
-        assert_eq!(AccountPage::Profile.path(), "/account/profile");
+        assert_eq!(AccountPage::Profile.path(), "/account");
         assert_eq!(AccountPage::Devices.path(), "/account/security/devices");
-        assert_eq!(AccountTab::Security.path(), "/account/security/sign-in");
+        assert_eq!(
+            AccountTab::Security.path(),
+            "/account/security/authentication"
+        );
         assert_eq!(
             AccountSection::Activity.path(),
             "/account/security/devices#activity"

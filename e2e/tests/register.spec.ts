@@ -1,5 +1,5 @@
 import { register, uniqueEmail } from "../support/flows";
-import { expectNoEmails, waitForEmails } from "../support/mail";
+import { expectNoEmails, waitForEmailAbout, waitForEmails } from "../support/mail";
 import { expect, test } from "../support/test";
 import { verifiedUser } from "../support/users";
 
@@ -26,8 +26,7 @@ test("registering an email that already has an account looks the same, but email
 
   await expect(page).toHaveURL("/register");
   await expect(page.getByText(CHECK_EMAIL)).toHaveCSS("opacity", "1");
-  const emails = await waitForEmails(verifiedUser.email);
-  expect(emails.some((email) => email.subject === "You already have an account")).toBe(true);
+  await waitForEmailAbout(verifiedUser.email, "You already have an account");
 });
 
 test("a bot that fills the hidden field gets the same response, but nothing happens", async ({

@@ -39,7 +39,7 @@ paths:
   `?q&sort&dir&page` with `listing::ListQuery<K>` (`K: SortKey`), which
   builds the sort links, page links and the `FindX` action input, so never
   parse those params by hand), `pager` (Previous / Next links),
-  `empty_state`, `toggle` (a `role="switch"` checkbox), `copy_field`,
+  `empty_state`, `toggle` (a `role="switch"` checkbox), `setting_toggle` (a `toggle` that saves itself through a `#[procedure]` taking one `bool` as soon as it's switched: disabled while saving, `success_toast` on success, flips back with an error toast on failure; put it in a plain POST form with a `<noscript>` Save button for the no-JS path), `copy_field`,
   `property_list` + `property` (name, badge tags, description, detail and
   actions: lists of fields, passkeys, tokens), `code_panel` + `code_block`
   (dark code with a copy button; `language: CodeLanguage::Json | Shell`

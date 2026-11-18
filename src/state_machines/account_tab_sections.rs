@@ -31,6 +31,7 @@ pub const ACCOUNT_TAB_SECTIONS: Machine<SectionState, SectionEvent> = Machine {
         Section(A::Invoices),
         Section(A::PaymentMethods),
         Section(A::Notifications),
+        Section(A::TimeZone),
         Section(A::ApiTokens),
         Section(A::DeleteAccount),
         OnPage(P::Profile),
@@ -38,7 +39,8 @@ pub const ACCOUNT_TAB_SECTIONS: Machine<SectionState, SectionEvent> = Machine {
         OnPage(P::Devices),
         OnPage(P::Plan),
         OnPage(P::Invoices),
-        OnPage(P::Settings),
+        OnPage(P::Notifications),
+        OnPage(P::TimeZone),
         OnPage(P::Developer),
     ],
     terminal: &[
@@ -47,7 +49,8 @@ pub const ACCOUNT_TAB_SECTIONS: Machine<SectionState, SectionEvent> = Machine {
         OnPage(P::Devices),
         OnPage(P::Plan),
         OnPage(P::Invoices),
-        OnPage(P::Settings),
+        OnPage(P::Notifications),
+        OnPage(P::TimeZone),
         OnPage(P::Developer),
     ],
     events: &[E::OpenItsPath],
@@ -68,7 +71,8 @@ pub fn home_of(section: AccountSection) -> AccountPage {
         A::Devices | A::Activity => P::Devices,
         A::Subscriptions | A::PaymentMethods => P::Plan,
         A::Invoices => P::Invoices,
-        A::Notifications => P::Settings,
+        A::Notifications => P::Notifications,
+        A::TimeZone => P::TimeZone,
         A::ApiTokens => P::Developer,
         A::DeleteAccount => P::Profile,
     }
@@ -88,7 +92,8 @@ pub fn page_id(page: AccountPage) -> &'static str {
         P::Devices => "devices",
         P::Plan => "plan",
         P::Invoices => "invoices",
-        P::Settings => "settings",
+        P::Notifications => "notifications",
+        P::TimeZone => "time_zone",
         P::Developer => "developer",
     }
 }

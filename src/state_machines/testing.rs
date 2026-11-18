@@ -20,6 +20,7 @@ pub struct Browser {
     assets: AssetBundle,
     store: MemoryStore,
     pub cookie: Option<String>,
+    others: Vec<String>,
     ip: [u8; 4],
     start: OffsetDateTime,
     pub minutes: i64,
@@ -32,10 +33,24 @@ impl Browser {
             assets: assets.clone(),
             store: MemoryStore::default(),
             cookie: None,
+            others: Vec::new(),
             ip,
             start: OffsetDateTime::now_utc(),
             minutes: 0,
         }
+    }
+
+    pub fn cookie_value(&self, name: &str) -> Option<String> {
+        self.others
+            .iter()
+            .filter_map(|pair| pair.split_once('='))
+            .find(|(key, _)| *key == name)
+            .map(|(_, value)| value.to_string())
+    }
+
+    pub fn forget_cookie(&mut self, name: &str) {
+        self.others
+            .retain(|pair| pair.split('=').next() != Some(name));
     }
 
     pub fn now(&self) -> OffsetDateTime {
@@ -126,10 +141,16 @@ impl Browser {
             .extension(axum::extract::ConnectInfo(SocketAddr::from((
                 self.ip, 50_000,
             ))));
-        match &self.cookie {
-            Some(cookie) => builder.header(header::COOKIE, cookie),
-            None => builder,
+        let cookies: Vec<&str> = self
+            .cookie
+            .iter()
+            .chain(&self.others)
+            .map(String::as_str)
+            .collect();
+        if cookies.is_empty() {
+            return builder;
         }
+        builder.header(header::COOKIE, cookies.join("; "))
     }
 
     async fn send(&mut self, request: Request<Body>) -> Response<Body> {
@@ -140,9 +161,18 @@ impl Browser {
         let service = router(app, self.assets.clone())
             .layer(SessionManagerLayer::new(self.store.clone()).with_secure(false));
         let response = service.oneshot(request).await.unwrap();
-        if let Some(cookie) = response.headers().get(header::SET_COOKIE) {
-            let cookie = cookie.to_str().unwrap();
-            self.cookie = cookie.split(';').next().map(str::to_string);
+        for cookie in response.headers().get_all(header::SET_COOKIE) {
+            let Some(pair) = cookie.to_str().unwrap().split(';').next() else {
+                continue;
+            };
+            if pair.starts_with("id=") {
+                self.cookie = Some(pair.to_string());
+                continue;
+            }
+            let name = pair.split('=').next().unwrap_or_default();
+            self.others
+                .retain(|other| other.split('=').next() != Some(name));
+            self.others.push(pair.to_string());
         }
         response
     }
@@ -173,6 +203,34 @@ pub async fn admin_caller(email: &str, db: &sqlx::PgPool) -> crate::action::Call
         .unwrap()
         .unwrap();
     crate::action::Caller::browser(std::sync::Arc::new(user))
+}
+
+pub async fn reset_link(app: &App, email: &str) -> Option<String> {
+    use crate::auth::actions::{PasswordResetJob, RequestPasswordReset, request_password_reset};
+    use crate::auth::links::TokenPurpose;
+    use crate::jobs::{Handler, Worker};
+
+    let input = RequestPasswordReset {
+        email: email.to_string(),
+    };
+    request_password_reset(&app.env(None), &input)
+        .await
+        .unwrap()
+        .ok()?;
+    let worker = Worker::new(app.clone(), vec![Handler::of::<PasswordResetJob>()]);
+    while worker.run_next().await.unwrap() {}
+    let raw = latest_link(TokenPurpose::PasswordReset, email, &app.db).await?;
+    Some(TokenPurpose::PasswordReset.path(&raw))
+}
+
+pub async fn subjects_to(email: &str, db: &sqlx::PgPool) -> Vec<String> {
+    sqlx::query_scalar!(
+        r#"SELECT payload->>'subject' AS "subject!" FROM jobs WHERE kind = 'send_email' AND payload->>'to' = $1 ORDER BY id"#,
+        email
+    )
+    .fetch_all(db)
+    .await
+    .unwrap()
 }
 
 pub async fn latest_link(

@@ -16,7 +16,7 @@ use crate::user::model::User;
 pub const DEVICE_IDLE_LIMIT: Duration = Duration::days(1);
 const LAST_SEEN_PRECISION: Duration = Duration::minutes(5);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum SignInMethod {
     Password,
     Passkey,

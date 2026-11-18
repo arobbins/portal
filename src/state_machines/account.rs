@@ -70,7 +70,7 @@ pub const ACCOUNT: Machine<AccountState, AccountEvent> = Machine {
             "query_set_password_and_verify_user",
             &[E::ConfirmEmail],
         ),
-        writer(LINK, "query_update_password", &[E::ResetPassword]),
+        writer(RESET, "query_update_password", &[E::ResetPassword]),
         writer(CHANGE, "query_update_password", &[E::ChangePassword]),
         writer(ADMIN_DISABLE, "query_disable_user", &[E::Disable]),
         writer(ADMIN_ENABLE, "query_enable_user", &[E::Enable]),
@@ -84,6 +84,7 @@ pub const ACCOUNT: Machine<AccountState, AccountEvent> = Machine {
 
 const REGISTER: &str = "src/auth/actions/register.rs:start_new_account";
 const LINK: &str = "src/auth/actions/link_password.rs:apply_password";
+const RESET: &str = "src/auth/actions/link_password.rs:reset_password";
 const CHANGE: &str = "src/auth/actions/change_password.rs:change_password";
 const ADMIN_DISABLE: &str = "src/admin/actions/manage.rs:disable_user";
 const ADMIN_ENABLE: &str = "src/admin/actions/manage.rs:enable_user";

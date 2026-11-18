@@ -136,3 +136,13 @@ test("a row heading with a link opens it from anywhere in the cell", async ({ pa
 
   await expect(page).toHaveURL(/#invoice-2026-11-01$/);
 });
+
+test("a setting toggle saves as soon as it's switched", async ({ page }) => {
+  const setting = page.getByRole("switch", { name: "Weekly summary" });
+
+  await setting.click();
+
+  await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
+  await expect(setting).toBeChecked();
+  await expect(setting).toBeEnabled();
+});

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at FROM users WHERE public_id = $1",
+  "query": "UPDATE users SET password = $1, verified_at = now(), session_version = session_version + 1, updated_at = now() WHERE id = $2 RETURNING id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at, time_zone",
   "describe": {
     "columns": [
       {
@@ -57,11 +57,17 @@
         "ordinal": 10,
         "name": "admin_granted_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "time_zone",
+        "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Text",
+        "Int4"
       ]
     },
     "nullable": [
@@ -75,8 +81,9 @@
       false,
       false,
       true,
+      true,
       true
     ]
   },
-  "hash": "64526667f70a4c647dd6d66169684cbf6d7d1d4420e7a37e568b58630bfab4af"
+  "hash": "36d4fca10db6a7e3ae3a8c3741077c8fba65fb8f60045ea35cd0273e20d8f8cd"
 }

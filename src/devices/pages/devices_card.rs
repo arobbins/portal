@@ -16,7 +16,7 @@ use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::property_list::{PropertyTag, property, property_list};
 use crate::components::tone::Tone;
 use crate::devices::actions::{DeviceView, list_devices};
-use crate::utils::format_date;
+use crate::time_zone::Zone;
 use crate::web::{app, env, session};
 
 const OTHERS_MODAL: &str = "sign-out-other-devices";
@@ -32,14 +32,14 @@ struct DeviceRow {
 }
 
 impl DeviceRow {
-    fn of(device: &DeviceView, now: OffsetDateTime) -> Self {
+    fn of(device: &DeviceView, now: OffsetDateTime, zone: &Zone) -> Self {
         let active = if device.current || now - device.last_active_at < ACTIVE_NOW {
             "Active now".to_string()
         } else {
-            format!("Last active {}", format_date(device.last_active_at))
+            format!("Last active {}", zone.date(device.last_active_at))
         };
         let mut parts = vec![
-            format!("Signed in {}", format_date(device.signed_in_at)),
+            format!("Signed in {}", zone.date(device.signed_in_at)),
             active,
         ];
         parts.extend(device.ip.clone());
@@ -63,9 +63,10 @@ pub async fn devices_card(cx: &Cx) -> Result<impl View> {
         Err(error) => match error.for_browser()? {},
     };
     let now = app(cx).clock.now();
+    let zone = caller.user.zone();
     let rows: Vec<DeviceRow> = devices
         .iter()
-        .map(|device| DeviceRow::of(device, now))
+        .map(|device| DeviceRow::of(device, now, &zone))
         .collect();
     let has_others = rows.iter().any(|row| !row.current);
     let sign_out_action = href!(sign_out_device_submit).resolve(cx);

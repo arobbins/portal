@@ -3,6 +3,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::action::{ActionProblem, ActionResult, Caller, ProblemSpec, authorize, fail};
+use crate::auth::emails::password_changed_email;
 use crate::auth::links::TokenPurpose;
 use crate::auth::password::{
     CurrentPasswordProblem, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, PasswordProblem,
@@ -10,7 +11,10 @@ use crate::auth::password::{
 };
 use crate::auth::queries::query_delete_user_tokens;
 use crate::env::Env;
+use crate::jobs::enqueue;
+use crate::mail::SendEmail;
 use crate::permission::Permission;
+use crate::routes::RESET_PASSWORD_PATH;
 use crate::user::events::{AccountEventKind, EventSource, record_event};
 use crate::user::model::User;
 use crate::user::queries::query_update_password;
@@ -74,9 +78,23 @@ pub async fn change_password(
         &mut *tx,
     )
     .await?;
+    announce_password_change(env, &updated.email, &mut tx).await?;
     tx.commit().await?;
 
     Ok(Ok(updated))
+}
+
+pub(super) async fn announce_password_change(
+    env: &Env<'_>,
+    recipient: &str,
+    tx: &mut sqlx::PgConnection,
+) -> Result<(), sqlx::Error> {
+    let reset_url = env.app.url(RESET_PASSWORD_PATH);
+    enqueue(
+        &SendEmail(password_changed_email(recipient, &reset_url)),
+        tx,
+    )
+    .await
 }
 
 #[cfg(test)]
@@ -110,6 +128,30 @@ mod tests {
             outcome.unwrap_err(),
             ActionError::Denied(Denied::BrowserOnly)
         );
+    }
+
+    #[sqlx::test]
+    async fn a_changed_password_is_emailed_to_the_owner(db: PgPool) {
+        let app = App::for_tests(db.clone());
+        let user = crate::user::testing::active_user("changed@example.test", &db).await;
+        let input = ChangePassword {
+            current_password: crate::user::testing::TEST_PASSWORD.to_string(),
+            password: "a-brand-new-password".to_string(),
+            confirm_password: "a-brand-new-password".to_string(),
+        };
+
+        change_password(&app.env(None), &Caller::browser(user), &input)
+            .await
+            .unwrap()
+            .unwrap();
+
+        let subjects = sqlx::query_scalar!(
+            r#"SELECT payload->>'subject' AS "subject!" FROM jobs WHERE kind = 'send_email' AND payload->>'to' = 'changed@example.test'"#
+        )
+        .fetch_all(&db)
+        .await
+        .unwrap();
+        assert_eq!(subjects, ["Your password was changed"]);
     }
 
     #[test]

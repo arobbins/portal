@@ -56,8 +56,8 @@ components (`components.md`) before new markup.
 ## Commands
 
 - Run: `topcoat dev` (:3000). E2E: `cd e2e && npm test` (:3100, own DB).
-- Playwright through rtk: `rtk proxy npx playwright …` (the filter can
-  swallow the result line; `cargo test` is excluded from rtk already).
+- rtk leaves `cargo test`, Playwright and `git diff` unfiltered (its
+  `exclude_commands`), so run them plainly; never add `rtk proxy`.
 - Dev database (read-only, secret columns hidden): `scripts/sql.sh "SELECT …"`.
   Writes go through the app or a migration, never this.
 - Checks: `scripts/check-summary.sh --changed` (Chromium, only the specs for

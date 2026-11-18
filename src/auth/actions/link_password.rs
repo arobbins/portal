@@ -4,6 +4,7 @@ use serde_json::json;
 use sqlx::PgConnection;
 use topcoat::router::StatusCode;
 
+use super::change_password::announce_password_change;
 use crate::action::{ActionProblem, Outcome, ProblemSpec, TooManyAttempts, fail};
 use crate::api_tokens::lifecycle::revoke_all_for_user;
 use crate::auth::links::TokenPurpose;
@@ -125,24 +126,33 @@ async fn apply_password(
             .await?;
             Ok(Some(user))
         }
-        TokenPurpose::PasswordReset => {
-            let Some(user) = query_update_password(user_id, password_hash, &mut *tx).await? else {
-                return Ok(None);
-            };
-            let revoked = revoke_access(user_id, &mut *tx).await?;
-            let detail = json!({ "api_tokens_revoked": revoked });
-            record_event(
-                env,
-                &source,
-                AccountEventKind::PasswordReset,
-                detail,
-                &mut *tx,
-            )
-            .await?;
-            Ok(Some(user))
-        }
+        TokenPurpose::PasswordReset => reset_password(env, user_id, password_hash, tx).await,
         TokenPurpose::EmailChange => Ok(None),
     }
+}
+
+async fn reset_password(
+    env: &Env<'_>,
+    user_id: i32,
+    password_hash: &str,
+    tx: &mut PgConnection,
+) -> topcoat::Result<Option<User>> {
+    let Some(user) = query_update_password(user_id, password_hash, &mut *tx).await? else {
+        return Ok(None);
+    };
+    let revoked = revoke_access(user_id, &mut *tx).await?;
+    let detail = json!({ "api_tokens_revoked": revoked });
+    let source = EventSource::browser(user_id);
+    record_event(
+        env,
+        &source,
+        AccountEventKind::PasswordReset,
+        detail,
+        &mut *tx,
+    )
+    .await?;
+    announce_password_change(env, &user.email, &mut *tx).await?;
+    Ok(Some(user))
 }
 
 async fn revoke_access(user_id: i32, tx: &mut PgConnection) -> Result<u64, sqlx::Error> {

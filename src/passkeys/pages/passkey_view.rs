@@ -1,5 +1,5 @@
 use crate::passkeys::queries::Passkey;
-use crate::utils::format_date;
+use crate::time_zone::Zone;
 
 pub(super) struct PasskeyRow {
     pub id: String,
@@ -9,17 +9,17 @@ pub(super) struct PasskeyRow {
 }
 
 impl PasskeyRow {
-    pub fn from_passkey(passkey: &Passkey) -> Self {
+    pub fn from_passkey(passkey: &Passkey, zone: &Zone) -> Self {
         let last_used = passkey.last_used_at.map_or_else(
             || "never used".to_string(),
-            |at| format!("last used {}", format_date(at)),
+            |at| format!("last used {}", zone.date(at)),
         );
 
         Self {
             id: passkey.public_id.clone(),
             name: passkey.name.clone(),
             synced: passkey.backed_up,
-            summary: format!("Added {} · {last_used}", format_date(passkey.created_at)),
+            summary: format!("Added {} · {last_used}", zone.date(passkey.created_at)),
         }
     }
 }

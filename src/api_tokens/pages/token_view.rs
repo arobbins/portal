@@ -5,7 +5,7 @@ use crate::api_tokens::queries::ApiToken;
 use crate::api_tokens::token::display_hint;
 use crate::components::property_list::PropertyTag;
 use crate::components::tone::Tone;
-use crate::utils::format_date;
+use crate::time_zone::Zone;
 
 pub(super) struct TokenRow {
     pub id: String,
@@ -15,13 +15,13 @@ pub(super) struct TokenRow {
 }
 
 impl TokenRow {
-    pub fn new(token: &ApiToken, now: OffsetDateTime) -> Self {
+    pub fn new(token: &ApiToken, now: OffsetDateTime, zone: &Zone) -> Self {
         let expired = token.expires_at <= now;
         Self {
             id: token.public_id.clone(),
             name: token.name.clone(),
             tags: tags(token, expired),
-            detail: detail(token, expired),
+            detail: detail(token, expired, zone),
         }
     }
 }
@@ -37,17 +37,17 @@ fn tags(token: &ApiToken, expired: bool) -> Vec<PropertyTag> {
     scopes.chain(mcp).chain(expiry).collect()
 }
 
-fn detail(token: &ApiToken, expired: bool) -> String {
+fn detail(token: &ApiToken, expired: bool, zone: &Zone) -> String {
     let verb = if expired { "expired" } else { "expires" };
     let last_used = token.last_used_at.map_or_else(
         || "never used".to_string(),
-        |at| format!("last used {}", format_date(at)),
+        |at| format!("last used {}", zone.date(at)),
     );
     format!(
         "{} · Created {} · {verb} {} · {last_used}",
         display_hint(&token.last_four),
-        format_date(token.created_at),
-        format_date(token.expires_at),
+        zone.date(token.created_at),
+        zone.date(token.expires_at),
     )
 }
 
@@ -73,7 +73,11 @@ mod tests {
     #[test]
     fn a_row_tags_scopes_audience_and_expiry() {
         let token = token(time::Duration::days(1));
-        let row = TokenRow::new(&token, token.expires_at + time::Duration::seconds(1));
+        let row = TokenRow::new(
+            &token,
+            token.expires_at + time::Duration::seconds(1),
+            &Zone::utc(),
+        );
         let labels: Vec<&str> = row.tags.iter().map(|tag| tag.label.as_str()).collect();
 
         assert_eq!(labels, vec!["profile:read", "MCP", "Expired"]);

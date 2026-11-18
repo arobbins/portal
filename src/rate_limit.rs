@@ -32,6 +32,7 @@ enum Limit {
     ApiCallsByToken,
     FailedLoginsByAccountAndIp,
     FailedLoginsByAccount,
+    FailedSecondFactorsByAccount,
     FailedApiAuthByIp,
 }
 
@@ -45,6 +46,7 @@ impl Limit {
             Self::ApiCallsByToken => "api_calls_by_token",
             Self::FailedLoginsByAccountAndIp => "failed_logins_by_account_and_ip",
             Self::FailedLoginsByAccount => "failed_logins_by_account",
+            Self::FailedSecondFactorsByAccount => "failed_second_factors_by_account",
             Self::FailedApiAuthByIp => "failed_api_auth_by_ip",
         }
     }
@@ -55,7 +57,7 @@ impl Limit {
                 1
             }
             Self::EmailRequestsByIp => 10,
-            Self::FailedLoginsByAccountAndIp => 15,
+            Self::FailedLoginsByAccountAndIp | Self::FailedSecondFactorsByAccount => 15,
             Self::FailedApiAuthByIp => BAD_API_TOKEN_WINDOW_MINUTES,
             Self::EmailsToAddress | Self::FailedLoginsByAccount => 60,
         };
@@ -69,13 +71,15 @@ impl Limit {
             Self::PasskeyChallengesByIp => 30,
             Self::EmailsToAddress => 3,
             Self::ApiCallsByToken => API_CALLS_PER_MINUTE,
-            Self::FailedLoginsByAccountAndIp => 5,
+            Self::FailedLoginsByAccountAndIp | Self::FailedSecondFactorsByAccount => 5,
             Self::FailedLoginsByAccount => 50,
             Self::FailedApiAuthByIp => BAD_API_TOKENS_PER_WINDOW,
         };
         let scales = !matches!(
             self,
-            Self::FailedLoginsByAccountAndIp | Self::FailedLoginsByAccount
+            Self::FailedLoginsByAccountAndIp
+                | Self::FailedLoginsByAccount
+                | Self::FailedSecondFactorsByAccount
         );
         let scale = match mode {
             RateLimitMode::Relaxed if scales => RELAXED_SCALE,
@@ -195,6 +199,21 @@ impl RateLimits {
         let key = failed_login_key(email, ip);
         query_delete_rate_limit_hits(Limit::FailedLoginsByAccountAndIp.bucket(), &key, &self.db)
             .await
+    }
+
+    pub async fn second_factor_blocked(&self, email: &str) -> Result<bool, sqlx::Error> {
+        self.blocked(Limit::FailedSecondFactorsByAccount, &account_key(email))
+            .await
+    }
+
+    pub async fn record_failed_second_factor(&self, email: &str) -> Result<(), sqlx::Error> {
+        self.record(Limit::FailedSecondFactorsByAccount, &account_key(email))
+            .await
+    }
+
+    pub async fn clear_failed_second_factors(&self, email: &str) -> Result<(), sqlx::Error> {
+        let bucket = Limit::FailedSecondFactorsByAccount.bucket();
+        query_delete_rate_limit_hits(bucket, &account_key(email), &self.db).await
     }
 
     pub async fn api_auth_blocked(&self, ip: Option<IpAddr>) -> Result<bool, sqlx::Error> {

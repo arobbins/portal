@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
       "Bash(cargo check*)",
@@ -33,11 +34,7 @@
       "Bash(python3 scripts/check_conventions.py*)",
       "Bash(scripts/check-summary.sh*)",
       "Bash(npm run screenshot*)",
-      "Bash(rtk proxy npx playwright test*)",
-      "Bash(rtk proxy npm run screenshot*)",
-      "Bash(rtk proxy npm test*)",
       "Bash(scripts/sql.sh*)",
-      "Bash(rtk proxy cargo test*)",
       "Bash(scripts/check-summary.sh --changed*)"
     ],
     "deny": [
@@ -75,7 +72,8 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-files.sh",
-            "timeout": 10
+            "timeout": 10,
+            "onFailure": "block"
           }
         ]
       }
@@ -105,5 +103,8 @@
         ]
       }
     ]
+  },
+  "env": {
+    "BASH_DEFAULT_TIMEOUT_MS": "600000"
   }
 }

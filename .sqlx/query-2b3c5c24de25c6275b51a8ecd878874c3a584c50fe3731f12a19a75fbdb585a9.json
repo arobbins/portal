@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE known_devices SET last_seen_at = $3 WHERE user_id = $1 AND token_hash = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2b3c5c24de25c6275b51a8ecd878874c3a584c50fe3731f12a19a75fbdb585a9"
+}

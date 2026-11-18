@@ -12,7 +12,7 @@ function dialog(page: Page) {
 }
 
 async function requestChange(page: Page, newEmail: string, password = ACCOUNT_PASSWORD) {
-  await page.goto("/account/profile");
+  await page.goto("/account");
   await page.getByRole("button", { name: "Change email" }).click();
   await expect(dialog(page)).toBeVisible();
   await dialog(page).getByLabel("New email").fill(newEmail);
@@ -30,7 +30,7 @@ test("a user changes their email after confirming the new address", async ({
   const oldEmail = await createAccount(page, testInfo, "Mover");
   const newEmail = newAddress(testInfo);
 
-  await page.goto("/account/profile");
+  await page.goto("/account");
   await page.getByRole("button", { name: "Change email" }).click();
   await expect(dialog(page).getByLabel("Current email")).toHaveAttribute("readonly", "");
   await expect(dialog(page).getByLabel("Current email")).not.toBeEditable();
@@ -51,7 +51,7 @@ test("a user changes their email after confirming the new address", async ({
   await expect(page.getByText(newEmail)).toBeVisible();
   await page.getByRole("button", { name: "Confirm email" }).press("Enter");
 
-  await expect(page).toHaveURL("/account/profile");
+  await expect(page).toHaveURL("/account");
   await expect(page.getByText(CHANGED)).toHaveCSS("opacity", "1");
   await expect(page.locator("#email")).toContainText(newEmail);
   const notices = await waitForEmails(oldEmail, 2);
@@ -120,9 +120,9 @@ test("confirming a new email signs out every other device", async ({ browser, pa
   await page.goto(confirmEmailLink((await waitForEmails(newEmail))[0]));
   await page.getByRole("button", { name: "Confirm email" }).press("Enter");
 
-  await expect(page).toHaveURL("/account/profile");
+  await expect(page).toHaveURL("/account");
   await expect(page.locator("#email")).toContainText(newEmail);
-  await other.goto("/account/profile");
+  await other.goto("/account");
   await expect(other).toHaveURL("/login");
   await other.close();
 });
@@ -131,14 +131,14 @@ test("without a passkey, the password is asked for and adding one is suggested",
   page,
 }, testInfo) => {
   await createAccount(page, testInfo, "No Passkey");
-  await page.goto("/account/profile");
+  await page.goto("/account");
   await page.getByRole("button", { name: "Change email" }).click();
 
   await expect(dialog(page).getByLabel("Current password")).toBeVisible();
   await expect(dialog(page).getByRole("button", { name: "Use a passkey instead" })).toHaveCount(0);
   await expect(
     dialog(page).getByRole("link", { name: "Add a passkey for faster authentication" }),
-  ).toHaveAttribute("href", "/account/security/sign-in#passkeys");
+  ).toHaveAttribute("href", "/account/security/authentication#passkeys");
 });
 
 test.describe("with a passkey", () => {
@@ -155,7 +155,7 @@ test.describe("with a passkey", () => {
     await addPasskeyToAccount(page);
     const newEmail = newAddress(testInfo);
 
-    await page.goto("/account/profile");
+    await page.goto("/account");
     await page.getByRole("button", { name: "Change email" }).click();
     await expect(dialog(page).getByLabel("Current password")).toBeHidden();
     await dialog(page).getByLabel("New email").fill(newEmail);
@@ -172,7 +172,7 @@ test.describe("with a passkey", () => {
     await addPasskeyToAccount(page);
     const newEmail = newAddress(testInfo);
 
-    await page.goto("/account/profile");
+    await page.goto("/account");
     await page.getByRole("button", { name: "Change email" }).click();
     await dialog(page).getByRole("button", { name: "Use your password instead" }).click();
     await dialog(page).getByLabel("New email").fill(newEmail);

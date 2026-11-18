@@ -15,7 +15,7 @@ description: Add a database change or query to this app — a sqlx migration in 
 - Users table invariants that must survive: `CHECK ((password IS NULL) = (verified_at IS NULL))`.
 - Migrations that rewrite existing rows: drop or relax a constraint *before* the `UPDATE`
   that would violate it, then add the new one.
-- **Try it on the e2e test database first**: `cd e2e && rtk proxy npx playwright test
+- **Try it on the e2e test database first**: `cd e2e && npx playwright test
   tests/home.spec.ts --project=chromium --reporter=line` (its server runs `sqlx migrate run` against the
   `_test` database, which keeps older rows than dev). If it fails, fix the file freely: it
   isn't applied anywhere that matters yet.

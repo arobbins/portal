@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE users SET password = $1, session_version = session_version + 1, updated_at = now() WHERE id = $2 AND verified_at IS NOT NULL RETURNING id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at",
+  "query": "UPDATE users SET email = $1, session_version = session_version + 1, updated_at = now() WHERE id = $2 AND verified_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users WHERE email = $1) RETURNING id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at, time_zone",
   "describe": {
     "columns": [
       {
@@ -57,6 +57,11 @@
         "ordinal": 10,
         "name": "admin_granted_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "time_zone",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -76,8 +81,9 @@
       false,
       false,
       true,
+      true,
       true
     ]
   },
-  "hash": "c3f38a488c55a206e30449293b45bbdf1b58ab47b9dabb76488c76458b090fa5"
+  "hash": "c0b2400df06451860ee39ccc641c10e7b902f3c3a495a2dbd8ac701fe55a4be2"
 }

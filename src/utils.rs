@@ -1,5 +1,24 @@
 const MAX_EMAIL_LENGTH: usize = 254;
 
+pub fn checkbox<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(serde::Deserialize)]
+    #[serde(untagged)]
+    enum Checked {
+        Flag(bool),
+        Text(String),
+    }
+
+    Ok(
+        match <Checked as serde::Deserialize>::deserialize(deserializer)? {
+            Checked::Flag(flag) => flag,
+            Checked::Text(text) => matches!(text.as_str(), "on" | "true"),
+        },
+    )
+}
+
 pub fn parse_email(input: &str) -> Option<String> {
     let email = input.trim();
     let is_plausible = email.len() <= MAX_EMAIL_LENGTH
@@ -25,21 +44,6 @@ pub fn escape_html(text: &str) -> String {
     escaped
 }
 
-pub fn format_date(date: time::OffsetDateTime) -> String {
-    let month = date.month().to_string();
-    format!("{} {}, {}", &month[..3], date.day(), date.year())
-}
-
-pub fn format_date_time(date: time::OffsetDateTime) -> String {
-    let utc = date.to_offset(time::UtcOffset::UTC);
-    format!(
-        "{} at {:02}:{:02} UTC",
-        format_date(utc),
-        utc.hour(),
-        utc.minute()
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -62,14 +66,6 @@ mod tests {
             parse_email(&format!("{}@example.test", "a".repeat(250))),
             None
         );
-    }
-
-    #[test]
-    fn dates_are_short_and_readable() {
-        let date = time::OffsetDateTime::from_unix_timestamp(1_793_700_000).unwrap();
-
-        assert_eq!(format_date(date), "Nov 3, 2026");
-        assert_eq!(format_date_time(date), "Nov 3, 2026 at 10:00 UTC");
     }
 
     #[test]

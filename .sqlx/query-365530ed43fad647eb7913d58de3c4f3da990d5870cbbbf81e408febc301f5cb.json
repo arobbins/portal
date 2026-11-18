@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT u.id, u.name, u.email, u.password, u.role AS \"role: Role\", u.verified_at, u.session_version, u.webauthn_id, u.public_id, u.disabled_at, u.admin_granted_at, d.last_seen_at\n        FROM user_devices d JOIN users u ON u.id = d.user_id\n        WHERE d.public_id = $1 AND d.user_id = $2 AND d.session_version = u.session_version AND u.disabled_at IS NULL",
+  "query": "UPDATE users SET session_version = session_version + 1, updated_at = now() WHERE id = $1 RETURNING id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at, time_zone",
   "describe": {
     "columns": [
       {
@@ -60,13 +60,12 @@
       },
       {
         "ordinal": 11,
-        "name": "last_seen_at",
-        "type_info": "Timestamptz"
+        "name": "time_zone",
+        "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
-        "Text",
         "Int4"
       ]
     },
@@ -82,8 +81,8 @@
       false,
       true,
       true,
-      false
+      true
     ]
   },
-  "hash": "763a6cadd09b11386c78b25666478b7b88f262dc34a413374d892da772728cbd"
+  "hash": "365530ed43fad647eb7913d58de3c4f3da990d5870cbbbf81e408febc301f5cb"
 }

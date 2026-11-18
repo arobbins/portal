@@ -10,7 +10,7 @@ function dialog(page: Page) {
 }
 
 async function openDialog(page: Page) {
-  await page.goto("/account/security/sign-in");
+  await page.goto("/account/security/authentication");
   await page.getByRole("button", { name: "Change password" }).click();
   await expect(dialog(page)).toBeVisible();
 }
@@ -27,10 +27,10 @@ test("the security page lists password, two-factor and single sign-on", async ({
   page,
 }, testInfo) => {
   await createAccount(page, testInfo, "Sections");
-  await page.goto("/account/security/sign-in");
+  await page.goto("/account/security/authentication");
 
   await expect(page.getByRole("button", { name: "Change password" })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Set up" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Set up" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Connect" })).toBeDisabled();
   await expect(dialog(page)).toBeHidden();
 });
@@ -42,7 +42,7 @@ test("a signed-in user can change their password in a dialog", async ({ page }, 
 
   await expect(page.getByText(CHANGED)).toHaveCSS("opacity", "1");
   await expect(dialog(page)).toBeHidden();
-  await expect(page).toHaveURL("/account/security/sign-in");
+  await expect(page).toHaveURL("/account/security/authentication");
 
   await logOut(page, "Changer");
   await logIn(page, email, ACCOUNT_PASSWORD);
@@ -128,8 +128,8 @@ test("without JavaScript the form still works", async ({ page }, testInfo) => {
 
   const accepted = await post(ACCOUNT_PASSWORD);
   expect(accepted.status()).toBe(303);
-  expect(accepted.headers().location).toBe("/account/security/sign-in");
-  await page.goto("/account/security/sign-in");
+  expect(accepted.headers().location).toBe("/account/security/authentication");
+  await page.goto("/account/security/authentication");
   await expect(page.getByText(CHANGED)).toHaveCSS("opacity", "1");
 
   await logOut(page, "No Script");
@@ -142,10 +142,10 @@ test("the account sidebar links to the page with the password", async ({ page },
 
   await page
     .getByRole("navigation", { name: "Account" })
-    .getByRole("link", { name: "Sign-in", exact: true })
+    .getByRole("link", { name: "Authentication", exact: true })
     .click();
 
-  await expect(page).toHaveURL("/account/security/sign-in");
+  await expect(page).toHaveURL("/account/security/authentication");
   await expect(page.getByRole("button", { name: "Change password" })).toBeVisible();
 });
 

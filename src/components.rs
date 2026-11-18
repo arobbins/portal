@@ -14,6 +14,7 @@ pub mod modal;
 pub mod notice;
 pub mod pager;
 pub mod property_list;
+pub mod setting_toggle;
 pub mod table;
 pub mod tabs;
 pub mod theme_switcher;

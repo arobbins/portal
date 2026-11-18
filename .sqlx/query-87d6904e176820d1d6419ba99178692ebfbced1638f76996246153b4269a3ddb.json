@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT payload->>'subject' AS \"subject!\" FROM jobs WHERE kind = 'send_email' AND payload->>'to' = $1 ORDER BY id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "subject!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "87d6904e176820d1d6419ba99178692ebfbced1638f76996246153b4269a3ddb"
+}

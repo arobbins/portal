@@ -59,5 +59,5 @@ Conventions are in `.claude/rules/e2e.md`; reference spec: `e2e/tests/profile.sp
 
 ## 5. Run it
 
-Use the `verify` skill: `cd e2e && rtk proxy npx playwright test <feature> --project=chromium --reporter=line`, then all
+Use the `verify` skill: `cd e2e && npx playwright test <feature> --project=chromium --reporter=line`, then all
 three browsers via `./check.sh` at the end.

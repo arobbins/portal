@@ -2,6 +2,8 @@
 name: convention-reviewer
 description: Read-only reviewer that checks a finished change in this repo against the project's own rules in CLAUDE.md (security invariants, state, Topcoat, CSS, forms, tests). Use after a non-trivial change and before reporting it done; pass it what changed and why.
 model: sonnet
+effort: medium
+maxTurns: 40
 tools: Read, Grep, Glob, Bash
 ---
 

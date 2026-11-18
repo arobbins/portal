@@ -19,6 +19,8 @@ use crate::account::tabs::{AccountArea, AccountPage, AccountTab};
 use crate::api_tokens::pages::developer_tab::developer_tab;
 use crate::app::page_title;
 use crate::auth::session::require_user;
+use crate::preferences::pages::notifications_page::notifications_page;
+use crate::preferences::pages::time_zone_page::time_zone_page;
 use crate::profile::pages::profile_tab::profile_tab;
 use crate::user::model::User;
 
@@ -49,7 +51,8 @@ pub async fn account_tab_page(cx: &Cx) -> Result<impl View> {
     let Some(section) = AccountTab::from_slug(tab(cx)) else {
         return Err(not_found().into());
     };
-    let Some(page) = AccountPage::from_slugs(tab(cx), None) else {
+    let page = AccountPage::from_slugs(tab(cx), None);
+    let Some(page) = page.filter(|page| page.path().ends_with(tab(cx))) else {
         return Err(see_other(section.path()).into());
     };
 
@@ -105,9 +108,11 @@ async fn account_layout(cx: &Cx, user: &User, page: AccountPage) -> Result<impl 
                 AccountPage::SignIn => sign_in_page(),
                 AccountPage::Devices => devices_page(),
                 AccountPage::Developer => developer_tab(),
-                AccountPage::Plan | AccountPage::Invoices | AccountPage::Settings => {
-                    placeholder_page(page: page)
-                }
+                AccountPage::Notifications => notifications_page(),
+                AccountPage::TimeZone => time_zone_page(user: user),
+                AccountPage::Plan | AccountPage::Invoices => placeholder_page(
+                    page: page
+                ),
             }
         )
     })

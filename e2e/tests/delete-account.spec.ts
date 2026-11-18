@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { ACCOUNT_PASSWORD, createAccount, logIn } from "../support/flows";
-import { waitForEmails } from "../support/mail";
+import { waitForEmailAbout } from "../support/mail";
 import {
   addPasskeyToAccount,
   addVirtualAuthenticator,
@@ -15,7 +15,7 @@ function dialog(page: Page) {
 }
 
 async function openDialog(page: Page) {
-  await page.goto("/account/profile");
+  await page.goto("/account");
   await page.getByRole("button", { name: "Delete account" }).click();
   await expect(dialog(page)).toBeVisible();
 }
@@ -36,10 +36,9 @@ test("a user deletes their account and is signed out everywhere", async ({
 
   await expect(page).toHaveURL("/login");
   await expect(page.getByText(DELETED)).toHaveCSS("opacity", "1");
-  const emails = await waitForEmails(email, 2);
-  expect(emails.map((sent) => sent.subject)).toContain("Your account was deleted");
+  await waitForEmailAbout(email, "Your account was deleted");
 
-  await other.goto("/account/profile");
+  await other.goto("/account");
   await expect(other).toHaveURL("/login");
   await other.close();
   await logIn(page, email, ACCOUNT_PASSWORD);
@@ -61,7 +60,7 @@ test("the confirmation word has to be typed exactly", async ({ page }, testInfo)
     "aria-invalid",
     "true",
   );
-  await page.goto("/account/profile");
+  await page.goto("/account");
   await expect(page.locator("#email")).toContainText(email);
 });
 
@@ -75,7 +74,7 @@ test("a wrong password keeps the account", async ({ page }, testInfo) => {
 
   await expect(dialog(page).getByRole("alert")).toHaveText("Your current password is incorrect.");
   await expect(dialog(page).getByLabel("Current password")).toHaveAttribute("aria-invalid", "true");
-  await page.goto("/account/profile");
+  await page.goto("/account");
   await expect(page.locator("#email")).toContainText(email);
 });
 
@@ -96,7 +95,7 @@ test.describe("without JavaScript", () => {
     page,
   }, testInfo) => {
     await createAccount(page, testInfo, "No Script");
-    await page.goto("/account/profile");
+    await page.goto("/account");
 
     await submitDeletion(page, "delete");
     await expect(page.locator(".a-toaster--is-open")).toHaveText(

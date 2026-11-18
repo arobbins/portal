@@ -22,6 +22,8 @@ use crate::components::icon::{IconName, icon};
 use crate::flash::{Flash, flash_toasts, take_flash};
 use crate::passkeys::pages::passkey_routes::{remove_problem, rename_problem};
 use crate::passkeys::pages::passkeys_card::passkeys_card;
+use crate::two_factor::pages::two_factor_card::two_factor_card;
+use crate::two_factor::pages::two_factor_routes::two_factor_failure;
 
 const MODAL_ID: &str = "change-password";
 const UNREACHABLE: &str = "We couldn't change your password. Please try again.";
@@ -30,6 +32,7 @@ const FLASHES: &[Flash] = &[
     Flash::PasskeyAdded,
     Flash::PasskeyRenamed,
     Flash::PasskeyRemoved,
+    Flash::TwoFactorDisabled,
 ];
 
 struct PasswordDrafts {
@@ -57,7 +60,8 @@ pub async fn sign_in_page(cx: &Cx) -> Result<impl View> {
         try_context::<ChangePasswordFailed>(cx).map(|failed| failed.problem.spec());
     let failure = password_failure
         .or_else(|| rename_problem(cx).map(ActionProblem::spec))
-        .or_else(|| remove_problem(cx).map(ActionProblem::spec));
+        .or_else(|| remove_problem(cx).map(ActionProblem::spec))
+        .or_else(|| two_factor_failure(cx).map(|failed| failed.problem.spec()));
     let form = DialogForm::new(cx, password_failure);
     let toast = page_toast(cx, failure.is_some(), flash);
     let drafts = PasswordDrafts::new(cx);
@@ -66,11 +70,7 @@ pub async fn sign_in_page(cx: &Cx) -> Result<impl View> {
         <div class="p-account__sub-page-content">
             password_card(form: &form, drafts: &drafts)
             passkeys_card()
-            coming_soon_card(
-                section: AccountSection::TwoFactor,
-                action: "Set up",
-                text: "Confirm it's you with an authenticator app when you sign in. Coming soon."
-            )
+            two_factor_card()
             coming_soon_card(
                 section: AccountSection::SingleSignOn,
                 action: "Connect",

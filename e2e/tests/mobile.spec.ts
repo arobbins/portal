@@ -42,7 +42,7 @@ test("account pages fit a phone screen", async ({ page }, testInfo) => {
     await expectNoSidewaysScroll(page);
   }
   await page.getByRole("link", { name: "Security", exact: true }).click();
-  await expect(page).toHaveURL("/account/security/sign-in");
+  await expect(page).toHaveURL("/account/security/authentication");
   await page
     .getByRole("navigation", { name: "Security" })
     .getByRole("link", { name: "Devices and activity" })

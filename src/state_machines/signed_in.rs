@@ -76,7 +76,7 @@ pub const SIGNED_IN: Machine<SignedInState, SignedInEvent> = Machine {
             "query_delete_other_devices",
             &[E::OtherSignsOutOthers],
         ),
-        writer(LINK, "query_update_password", &[E::PasswordReset]),
+        writer(RESET, "query_update_password", &[E::PasswordReset]),
         writer(LINK, "query_set_password_and_verify_user", &[]),
         writer(EMAIL, "query_update_user_email", &[E::EmailChangeConfirmed]),
         writer(
@@ -105,6 +105,7 @@ const DEVICE_OUT: &str = "src/devices/actions.rs:sign_out_device";
 const OTHERS_OUT: &str = "src/devices/actions.rs:sign_out_other_devices";
 const CHANGE: &str = "src/auth/actions/change_password.rs:change_password";
 const LINK: &str = "src/auth/actions/link_password.rs:apply_password";
+const RESET: &str = "src/auth/actions/link_password.rs:reset_password";
 const EMAIL: &str = "src/auth/actions/confirm_email.rs:switch_email";
 const ADMIN_SIGN_OUT: &str = "src/admin/actions/manage.rs:sign_out_user";
 const ADMIN_DISABLE: &str = "src/admin/actions/manage.rs:disable_user";
