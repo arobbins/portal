@@ -13,8 +13,9 @@ paths:
   goal, numbered rules (R1…), placement, security and abuse, what's left
   out, open questions with defaults, and scenarios (S1…) naming the rules
   they cover. It's written with the `new-spec` skill and starts as
-  `status: draft`; it becomes `status: approved` only when the user says
-  so in chat (then the main session commits just the spec and scenarios). Spec first,
+  `status: draft`; it becomes `status: approved` once the user has answered
+  the interview and the skill's final question about what the main session
+  filled in itself (then it commits just the spec and scenarios and builds). Spec first,
   always: any behaviour change, including a bug fix (it adds the scenario
   that would have caught it), starts as a spec edit the user approves.
 - **Scenarios** (`e2e/scenarios/<capability>.spec.ts`, same name as the

@@ -11,7 +11,8 @@ it lives, never *how* it's built (the rule files and skills cover that). The sce
 are the independent judge of the build, so they're written here, before any feature
 code, and the builder never edits them.
 
-Set `status: approved` only when the user says, in chat, that the spec is approved.
+The user approves by answering: the interview plus one final question about what you
+filled in yourself (step 6). Set `status: approved` only after that answer.
 
 **When a spec is worth it**: a capability with rules, states, limits, failure paths or
 security impact. Not for visual tweaks, copy changes or refactors that keep behaviour;
@@ -118,29 +119,35 @@ new spec). A hook stops it from reading `src/`, so it works from the spec, `e2e/
 and the existing pages only. It writes `e2e/scenarios/<capability>.spec.ts` and confirms
 each new scenario fails for the right reason.
 
-Check its report against the spec. If it found a gap (a label, wording or behaviour the
-spec doesn't fix), fix the spec (still a draft) and have it update the scenario; never
-edit the scenarios yourself. Rules a browser can't check are named in the spec as
+Check its report against the spec. If it found a gap, fix the spec (still a draft) and
+have it update the scenario; never edit the scenarios yourself. Fill wording-level gaps
+yourself (labels, messages, field names, paths) and add them to the "filled in" list for
+step 6. A gap that changes behaviour (a rule, a limit, who can do what) is the user's
+decision: ask it as an interview question. Rules a browser can't check are named in the spec as
 server-tested; the builder writes those tests and the reviewer checks them.
 
-## 6. Hand over and wait
+## 6. Final question = approval
 
-Show the spec path and a short summary: the rules, the defaults they're accepting, and
-what's out of scope. End with exactly one line, `Waiting for your review: specs/<name>.md`,
-and stop. Do nothing else until the user answers.
+Ask one last `AskUserQuestion`: "Here's what I filled in myself; build with these?",
+listing only what the user didn't decide in the interview: defaults, fixed wording and
+labels, field names and paths, and any gaps filled after the scenario writer's report.
+Options: build with them (recommended), or change some (the user says which).
 
-- **"Approved"** (or plainly equivalent): set `status: approved`, add a Changes line, and
-  commit only the spec and its scenario file (`Approve <capability> spec`). The user
-  authorised this one commit as part of the workflow; nothing else gets committed. Then
+- **Build**: their interview answers plus this answer are the approval. Set
+  `status: approved`, add a Changes line, commit only the spec and its scenario file
+  (`Approve <capability> spec`; a standing authorisation for that one commit), and
   continue with "After approval" in the same turn.
-- **Changes or questions**: revise the draft (still `status: draft`), have the
-  `scenario-writer` update affected scenarios, hand over again and wait.
+- **Change some**: revise the draft, have the `scenario-writer` update affected
+  scenarios, and ask the final question again.
 
 ## After approval
 
 All in this window; give the user a one-line milestone as each step finishes.
 
-1. Spawn the `spec-builder` agent with `isolation: "worktree"` and the spec path. It works
+1. Worktrees start from `origin/main`, not the local branch. If `origin/main` doesn't
+   contain the approval commit, fast-forward `main` to it and ask the user before
+   pushing (`git push origin main`). Then spawn the `spec-builder` agent with
+   `isolation: "worktree"` and the spec path; it first checks the approval commit is there. It works
    in its own git worktree (own e2e port and test database), can't read or edit the
    scenarios or edit specs (hooks), and commits once on its worktree branch.
 2. If it reports a conflict (a rule that can't be met as written), draft the spec
