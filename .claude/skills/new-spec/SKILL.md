@@ -11,7 +11,7 @@ it lives, never *how* it's built (the rule files and skills cover that). The sce
 are the independent judge of the build, so they're written here, before any feature
 code, and the builder never edits them.
 
-Never set `status: approved`. Only the user does.
+Set `status: approved` only when the user says, in chat, that the spec is approved.
 
 **When a spec is worth it**: a capability with rules, states, limits, failure paths or
 security impact. Not for visual tweaks, copy changes or refactors that keep behaviour;
@@ -110,36 +110,46 @@ S1, S2, ...: Given / When / Then, each naming the rules it covers (covers R1, R3
 
 Every rule is covered by at least one scenario.
 
-## 5. Write the scenarios (in a separate agent)
+## 5. Write the scenarios (the `scenario-writer` agent)
 
-The scenarios are the independent judge, so whoever writes them must not share the
-builder's plans. Spawn a fresh `general-purpose` agent (not a fork) and give it only:
-the spec path, `e2e/support/`, the `new-e2e-test` skill and `.claude/rules/e2e.md`, and
-the existing pages the capability extends. Tell it not to read or plan the feature's
-implementation, and not to rely on anything from this conversation. It writes
-`e2e/scenarios/<capability>.spec.ts`: one Playwright test per scenario, titled
-`S1 <scenario name>`, testing what a user sees and does (labels the spec fixes, never
-markup details), and adds any shared helper to `e2e/support/`. It runs them and confirms
-each fails for the right reason (the feature is missing), not from a broken test.
+The scenarios are the independent judge, so you don't write them. Spawn the
+`scenario-writer` agent with the spec path and which scenarios are new (all of them for a
+new spec). A hook stops it from reading `src/`, so it works from the spec, `e2e/support/`
+and the existing pages only. It writes `e2e/scenarios/<capability>.spec.ts` and confirms
+each new scenario fails for the right reason.
 
-Review what it wrote against the spec; if a scenario needs a label or behaviour the spec
-doesn't fix, fix the spec (still a draft), not the test. Rules a browser can't check are
-named in the spec as server-tested; the reviewer checks those tests against the spec
-after the build, since the builder writes them.
+Check its report against the spec. If it found a gap (a label, wording or behaviour the
+spec doesn't fix), fix the spec (still a draft) and have it update the scenario; never
+edit the scenarios yourself. Rules a browser can't check are named in the spec as
+server-tested; the builder writes those tests and the reviewer checks them.
 
-## 6. Hand over
+## 6. Hand over and wait
 
-Show the user the spec path and a short summary: the rules, the defaults they're
-accepting, and what's out of scope. They edit and approve it themselves. Don't start
-building in the same turn.
+Show the spec path and a short summary: the rules, the defaults they're accepting, and
+what's out of scope. End with exactly one line, `Waiting for your review: specs/<name>.md`,
+and stop. Do nothing else until the user answers.
 
-## After approval (for the builder)
+- **"Approved"** (or plainly equivalent): set `status: approved`, add a Changes line, and
+  commit only the spec and its scenario file (`Approve <capability> spec`). The user
+  authorised this one commit as part of the workflow; nothing else gets committed. Then
+  continue with "After approval" in the same turn.
+- **Changes or questions**: revise the draft (still `status: draft`), have the
+  `scenario-writer` update affected scenarios, hand over again and wait.
 
-- Build from approved specs only, through the usual skills; make the scenarios pass
-  without editing them (`check_conventions.py` fails a change that edits a feature's
-  code and its scenarios unless its spec changed too).
-- If a scenario can't pass as written (it conflicts with an invariant, or the spec
-  missed something), stop that part, write a draft amendment explaining the
-  conflict, keep building what isn't affected, and tell the user.
-- Done = scenarios and `check` pass, a fresh `convention-reviewer` confirms the build
-  matches the spec, and the user has seen screenshots of the result.
+## After approval
+
+All in this window; give the user a one-line milestone as each step finishes.
+
+1. Spawn the `spec-builder` agent with `isolation: "worktree"` and the spec path. It works
+   in its own git worktree (own e2e port and test database), can't read or edit the
+   scenarios or edit specs (hooks), and commits once on its worktree branch.
+2. If it reports a conflict (a rule that can't be met as written), draft the spec
+   amendment (back to `status: draft`, a Changes line), hand over and wait again.
+3. Spawn a fresh `convention-reviewer` to check the branch (`git diff <base>...<branch>`)
+   against the spec rule by rule, including the builder's server tests. Send must-fix
+   findings back to the builder (`SendMessage`) and review again.
+4. Take screenshots from the builder's worktree (`cd <worktree>/e2e && npm run
+   screenshot`) and show them.
+5. Done = scenarios and `check` pass, the review has no must-fix, and the user has seen
+   the screenshots. Report and stop at `Waiting for you to judge and merge <branch>`; the
+   user judges the result, not the diff, and merges.

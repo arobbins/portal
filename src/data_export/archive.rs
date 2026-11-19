@@ -47,14 +47,33 @@ fn csv(dataset: &Dataset) -> topcoat::Result<Vec<u8>> {
     let mut writer = csv::Writer::from_writer(Vec::new());
     writer.write_record(dataset.columns).map_err(failed)?;
     for row in &dataset.rows {
-        writer.write_record(row).map_err(failed)?;
+        let safe = row.iter().map(|cell| spreadsheet_safe(cell));
+        writer.write_record(safe).map_err(failed)?;
     }
     writer.into_inner().map_err(failed)
 }
 
+const FORMULA_STARTS: [char; 6] = ['=', '+', '-', '@', '\t', '\r'];
+
+fn spreadsheet_safe(cell: &str) -> String {
+    let risky = cell.starts_with(FORMULA_STARTS) && !is_plain_number(cell);
+    if risky {
+        format!("'{cell}")
+    } else {
+        cell.to_string()
+    }
+}
+
+fn is_plain_number(cell: &str) -> bool {
+    let digits = cell.strip_prefix(['-', '+']).unwrap_or(cell);
+    let (whole, fraction) = digits.split_once('.').unwrap_or((digits, "0"));
+    let all_digits = |part: &str| !part.is_empty() && part.chars().all(|c| c.is_ascii_digit());
+    all_digits(whole) && all_digits(fraction)
+}
+
 fn readme(datasets: &[Dataset]) -> String {
     let mut text = format!(
-        "Your {SITE_NAME} data\n\nEach .csv file below opens in any spreadsheet app. They are UTF-8 with a header row, and every date and time is in UTC (ISO 8601, e.g. 2026-11-18T14:03:00Z).\n"
+        "Your {SITE_NAME} data\n\nEach .csv file below opens in any spreadsheet app. They are UTF-8 with a header row, and every date and time is in UTC (ISO 8601, e.g. 2026-11-18T14:03:00Z). A value that starts with =, +, -, @, a tab or a carriage return has an apostrophe (') in front, so spreadsheets show it as text instead of running it as a formula; remove that apostrophe to get the original value.\n"
     );
     for dataset in datasets {
         text.push_str(&format!(
@@ -75,3 +94,6 @@ fn readme(datasets: &[Dataset]) -> String {
 fn failed(error: impl std::fmt::Display) -> topcoat::Error {
     topcoat::Error::msg(format!("building the data export failed: {error}"))
 }
+
+#[cfg(test)]
+mod tests;

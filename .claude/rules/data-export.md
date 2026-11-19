@@ -22,7 +22,9 @@ paths:
   `data_export/datasets.rs::collect`. Secrets never go in a dataset. A
   table that holds only secrets goes in `LEFT_OUT` with a reason the README
   shows. `datasets/tests.rs` fails when a table with a `user_id` column is
-  in neither.
+  in neither. Every cell goes through `spreadsheet_safe` (R13): a value
+  starting with `= + - @`, tab or CR gets a leading `'` unless it's a plain
+  number; the README explains it.
 - Page: the "Export data" card and dialog sit above Delete account on
   Profile; the JS path gets the file from `export_data_js` (base64) and
   starts the download in the browser; the no-JS path posts to

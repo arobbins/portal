@@ -13,16 +13,24 @@ paths:
   goal, numbered rules (R1…), placement, security and abuse, what's left
   out, open questions with defaults, and scenarios (S1…) naming the rules
   they cover. It's written with the `new-spec` skill and starts as
-  `status: draft`; only the user sets `status: approved`. Spec first,
+  `status: draft`; it becomes `status: approved` only when the user says
+  so in chat (then the main session commits just the spec and scenarios). Spec first,
   always: any behaviour change, including a bug fix (it adds the scenario
   that would have caught it), starts as a spec edit the user approves.
 - **Scenarios** (`e2e/scenarios/<capability>.spec.ts`, same name as the
   spec, tests titled `S1 …`) are written with the spec, before any feature
-  code, by a fresh agent that sees only the spec and the e2e support (never
-  the builder's plans), and are the independent judge of the build. The main Playwright
+  code, by the `scenario-writer` agent (a hook blocks it from `src/`), and
+  are the independent judge of the build. The main Playwright
   config, `check` and `check-summary.sh --changed` run only scenarios whose
   spec is approved (`support/specs.ts`, `changed_specs.py`); run drafts
   with `npx playwright test -c scenarios.config.ts`.
+- **Roles**: the main session interviews, drafts specs and amendments, and
+  orchestrates, all in one window; `scenario-writer` writes scenarios;
+  `spec-builder` builds an approved spec as a subagent in its own git
+  worktree and can't read or edit scenarios or edit specs
+  (`.claude/hooks/agent-boundary.sh`); `convention-reviewer` checks its
+  branch against the spec. The main session doesn't build specs; the user
+  merges the branch.
 - **The builder never edits scenarios.** `check_conventions.py` fails when
   a scenario changes alongside `src/`, `assets/` or `migrations/` while its
   spec didn't. Commit an approved spec and its scenarios before building,
