@@ -5,6 +5,12 @@
   color: var(--color-text-muted);
 }
 
+.p-auth__newsletters {
+  margin: 0 0 var(--space-3);
+  font-size: 0.875em;
+  color: var(--color-text-muted);
+}
+
 .p-auth__passkey {
   display: flex;
   flex-direction: column;

@@ -7,7 +7,7 @@ extend one of these or add a row here.
 A row is state whose **order matters**: some changes are only allowed from
 certain states, or a change has side effects (an email, an event, signing
 devices out), or it expires. Values a user can set to anything at any time
-(name, time zone, notification choices) and config read once at startup
+(name, time zone, notification and newsletter choices) and config read once at startup
 aren't state machines and don't get a row; their rules live in the area's
 `.claude/rules/` file.
 

@@ -13,6 +13,7 @@ use crate::activity::actions::{ActivityView, activity_of};
 use crate::env::Env;
 use crate::listing::{ListQuery, SortDirection, SortKey};
 use crate::permission::Permission;
+use crate::preferences::newsletters::{Newsletter, newsletters_of};
 use crate::secret::PublicIdKind;
 use crate::user::model::{Role, User};
 use crate::user::queries::{query_get_user_by_public_id, query_lock_user_by_public_id};
@@ -78,6 +79,7 @@ pub struct UserOverview {
     pub user: User,
     pub counts: UserCounts,
     pub activity: Vec<ActivityView>,
+    pub newsletters: Vec<(Newsletter, bool)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -156,11 +158,13 @@ pub async fn get_user(
     };
     let counts = query_count_user_things(user.id, env.db()).await?;
     let activity = activity_of(env, user.id).await?;
+    let newsletters = newsletters_of(user.id, env.db()).await?;
 
     Ok(Ok(UserOverview {
         user,
         counts,
         activity,
+        newsletters,
     }))
 }
 

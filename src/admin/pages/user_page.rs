@@ -56,6 +56,7 @@ pub async fn admin_user_page(cx: &Cx) -> Result<impl View> {
                 notice(tone: Tone::Error, (problem.message()))
             }
             account_card(overview: &overview)
+            newsletters_card(overview: &overview)
             user_actions_card(user: &overview.user, is_self: is_self)
             card(
                 card_header(title: "Recent activity")
@@ -92,6 +93,28 @@ async fn account_card(cx: &Cx, overview: &UserOverview) -> Result<impl View> {
                         name: "User id",
                         description: Some(user.public_id.as_str())
                     )
+                )
+            )
+        )
+    })
+}
+
+#[component]
+async fn newsletters_card(cx: &Cx, overview: &UserOverview) -> Result<impl View> {
+    Ok(view! {
+        card(
+            card_header(title: "Newsletters")
+            card_body(
+                property_list(
+                    #[key(newsletter.as_str())]
+                    for (newsletter, on) in overview.newsletters.iter().copied() {
+                        property(
+                            name: newsletter.label(),
+                            description: Some(
+                                if on { "Subscribed" } else { "Not subscribed" },
+                            )
+                        )
+                    }
                 )
             )
         )

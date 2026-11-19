@@ -6,6 +6,7 @@ use lightningcss::targets::{Browsers, Targets};
 
 fn main() {
     println!("cargo:rerun-if-changed=assets/css");
+    println!("cargo:rerun-if-changed=migrations");
 
     let targets = Targets::from(Browsers {
         chrome: Some(123 << 16),

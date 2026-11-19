@@ -151,7 +151,7 @@ impl AccountPage {
                 AccountSection::PaymentMethods,
             ],
             Self::Invoices => &[AccountSection::Invoices],
-            Self::Notifications => &[AccountSection::Notifications],
+            Self::Notifications => &[AccountSection::Notifications, AccountSection::Newsletters],
             Self::TimeZone => &[AccountSection::TimeZone],
             Self::Developer => &[AccountSection::ApiTokens],
         }
@@ -170,6 +170,7 @@ pub enum AccountSection {
     Invoices,
     PaymentMethods,
     Notifications,
+    Newsletters,
     TimeZone,
     ApiTokens,
     ExportData,
@@ -178,7 +179,7 @@ pub enum AccountSection {
 
 impl AccountSection {
     #[cfg(test)]
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 15] = [
         Self::Password,
         Self::Passkeys,
         Self::TwoFactor,
@@ -189,6 +190,7 @@ impl AccountSection {
         Self::Invoices,
         Self::PaymentMethods,
         Self::Notifications,
+        Self::Newsletters,
         Self::TimeZone,
         Self::ApiTokens,
         Self::ExportData,
@@ -214,6 +216,7 @@ impl AccountSection {
             Self::Invoices => "invoices",
             Self::PaymentMethods => "payment-methods",
             Self::Notifications => "notifications",
+            Self::Newsletters => "newsletters",
             Self::TimeZone => "time-zone",
             Self::ApiTokens => "api-tokens",
             Self::ExportData => "export-data",
@@ -233,6 +236,7 @@ impl AccountSection {
             Self::Invoices => "Invoices",
             Self::PaymentMethods => "Payment methods",
             Self::Notifications => "Notifications",
+            Self::Newsletters => "Newsletters",
             Self::TimeZone => "Time zone",
             Self::ApiTokens => "API tokens",
             Self::ExportData => "Export data",

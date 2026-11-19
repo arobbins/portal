@@ -23,3 +23,11 @@ paths:
   emailed link (new account, password reset) mark the browser known
   without an alert. Response cookies are set through
   `web::set_response_cookie(cx, …)`, which `inject_globals` appends.
+- **Newsletters** (`preferences/newsletters.rs`, spec `specs/newsletters.md`):
+  `Newsletter` (General newsletter, Product updates) is on until the user
+  opts out (`newsletter_opt_outs`); the migration that added it opted out
+  every account that already existed. `update_newsletters` takes either
+  choice (`Option<bool>`, API and MCP `update_newsletters`) and records
+  `newsletter_subscribed` / `newsletter_unsubscribed` only when a row
+  really changed. The no-JS Save posts `NewslettersForm` (an unticked box
+  is off), which sets both. Read with `newsletters_of` (admin, export).

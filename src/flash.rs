@@ -37,6 +37,7 @@ pub enum Flash {
     UserDeleted,
     TimeZoneSaved,
     NotificationsSaved,
+    NewslettersSaved,
     TwoFactorDisabled,
 }
 
@@ -65,6 +66,7 @@ impl Flash {
             Self::UserDeleted => "user-deleted",
             Self::TimeZoneSaved => "time-zone-saved",
             Self::NotificationsSaved => "notifications-saved",
+            Self::NewslettersSaved => "newsletters-saved",
             Self::TwoFactorDisabled => "two-factor-disabled",
         }
     }
@@ -101,6 +103,7 @@ impl Flash {
             Self::UserDeleted => "The account has been deleted.",
             Self::TimeZoneSaved => "Time zone saved.",
             Self::NotificationsSaved => "Notification settings saved.",
+            Self::NewslettersSaved => "Newsletter preferences saved.",
             Self::TwoFactorDisabled => "Two-factor authentication is off.",
         }
     }

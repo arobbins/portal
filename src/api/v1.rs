@@ -5,6 +5,7 @@ use crate::api::problem::{ApiFailure, ApiProblem, ApiResponse};
 
 pub mod docs;
 pub mod feedback;
+pub mod newsletters;
 pub mod profile;
 
 #[route(* "/api/{*rest}")]

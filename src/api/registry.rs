@@ -18,6 +18,7 @@ use crate::api::problem::{ApiFailure, ApiResponse, action_failed, respond};
 use crate::env::Env;
 use crate::feedback::api::SendFeedbackAction;
 use crate::permission::{Permission, TokenAccess};
+use crate::preferences::api::{GetNewslettersAction, UpdateNewslettersAction};
 use crate::profile::api::{GetProfileAction, UpdateProfileAction};
 use crate::web::env;
 
@@ -53,6 +54,8 @@ pub fn tools() -> Vec<Tool> {
     vec![
         tool::<GetProfileAction>(),
         tool::<UpdateProfileAction>(),
+        tool::<GetNewslettersAction>(),
+        tool::<UpdateNewslettersAction>(),
         tool::<SendFeedbackAction>(),
     ]
 }
