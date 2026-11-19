@@ -13,6 +13,10 @@ code, and the builder never edits them.
 
 Never set `status: approved`. Only the user does.
 
+**When a spec is worth it**: a capability with rules, states, limits, failure paths or
+security impact. Not for visual tweaks, copy changes or refactors that keep behaviour;
+those go straight to the usual skills.
+
 ## Modes
 
 - **New**: a capability that doesn't exist yet.
@@ -52,6 +56,15 @@ a decision or an explicit default. Ask about:
 - **Security and abuse**: who could misuse it, rate limits, what must never be shown,
   emailed, logged or exported, re-authentication, what the account event records.
 - **Edges**: disabled or unverified accounts, admin view, phone, no JS, deletion.
+- **Standard risks** (ask about each that applies, even if it seems obvious): user text
+  that ends up in files or other apps (CSV/formula injection, HTML, file names);
+  caching of personal data (`Cache-Control`); dates and time zones (whose zone, which
+  day near midnight); large inputs or outputs (memory, timeouts, size limits);
+  replays and double submits; what an admin or support person can see.
+
+**Rubber-stamp check**: after each round, if every answer was your recommendation, say
+so and re-ask the riskiest one as an open question ("What would make this the wrong
+choice?"). Recommendations must not quietly become the decisions.
 
 If an answer contradicts a security invariant or a rule file, say so plainly, and
 don't record it until the user resolves it.
@@ -97,13 +110,22 @@ S1, S2, ...: Given / When / Then, each naming the rules it covers (covers R1, R3
 
 Every rule is covered by at least one scenario.
 
-## 5. Write the scenarios
+## 5. Write the scenarios (in a separate agent)
 
-`e2e/scenarios/<capability>.spec.ts`, one Playwright test per scenario, titled
-`S1 <scenario name>`, using `e2e/support/` helpers (the `new-e2e-test` skill's
-conventions). Test what a user sees and does, not markup details. Run them and
-confirm each fails for the right reason (the feature is missing), not from a
-broken test.
+The scenarios are the independent judge, so whoever writes them must not share the
+builder's plans. Spawn a fresh `general-purpose` agent (not a fork) and give it only:
+the spec path, `e2e/support/`, the `new-e2e-test` skill and `.claude/rules/e2e.md`, and
+the existing pages the capability extends. Tell it not to read or plan the feature's
+implementation, and not to rely on anything from this conversation. It writes
+`e2e/scenarios/<capability>.spec.ts`: one Playwright test per scenario, titled
+`S1 <scenario name>`, testing what a user sees and does (labels the spec fixes, never
+markup details), and adds any shared helper to `e2e/support/`. It runs them and confirms
+each fails for the right reason (the feature is missing), not from a broken test.
+
+Review what it wrote against the spec; if a scenario needs a label or behaviour the spec
+doesn't fix, fix the spec (still a draft), not the test. Rules a browser can't check are
+named in the spec as server-tested; the reviewer checks those tests against the spec
+after the build, since the builder writes them.
 
 ## 6. Hand over
 

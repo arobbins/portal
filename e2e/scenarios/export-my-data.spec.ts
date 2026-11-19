@@ -158,3 +158,19 @@ test("S7 exporting works without JavaScript", async ({ browser }, testInfo) => {
   expect([...files.keys()].sort()).toEqual([...EXPORT_FILES].sort());
   await page.context().close();
 });
+
+test("S8 no exported cell runs as a spreadsheet formula", async ({ page }, testInfo) => {
+  await createAccount(page, testInfo, "Formula Keeper");
+  await page.getByRole("button", { name: "Edit profile" }).click();
+  await page.getByLabel("Name").fill("=1+1");
+  await page.getByLabel("Name").press("Enter");
+  await expect(page.getByText("Profile saved.")).toHaveCSS("opacity", "1");
+  await createToken(page, "@SUM(1,2)");
+
+  await openExport(page);
+  const files = await filesIn(await exportWithPassword(page));
+
+  expect.soft(files.get("profile.csv")).toContain("'=1+1");
+  expect.soft(files.get("api_tokens.csv")).toContain("'@SUM(1,2)");
+  expect.soft(files.get("README.txt")).toMatch(/apostrophe/i);
+});

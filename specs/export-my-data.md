@@ -49,6 +49,12 @@ before they delete their account, so nobody deletes without the chance to keep a
 - R11. The Delete account dialog starts with "Want a copy first?" and an "Export your
   data" link that closes it and opens the Export data dialog.
 - R12. Exporting works without JavaScript (a plain form post that returns the file).
+- R13. No cell is run as a formula when a CSV is opened in a spreadsheet. Any value
+  that starts with `=`, `+`, `-`, `@`, a tab or a carriage return gets an apostrophe
+  (`'`) in front, in every cell of every file, so spreadsheets show it as text. A value
+  that is entirely a plain number (`-5`, `+3.2`) is left as it is. The README says
+  that a leading apostrophe was added and can be removed to get the original value.
+  (Plain numbers are verified by a server test; the starter has no numeric columns.)
 
 ## Placement
 
@@ -67,6 +73,8 @@ before they delete their account, so nobody deletes without the chance to keep a
 - Wrong passwords count toward the same lockout as every other password check.
 - Rate limit: 5 per hour per account (R10).
 - No secrets, ever (R6). The file itself is never stored on the server or logged.
+- Text the user, an API token or a browser's user-agent header controls can reach
+  the file, so no cell may run as a formula in a spreadsheet (R13).
 - The admin log is not exported: it is the operator's record and names admins. That
   an admin acted on the account already appears in the user's own activity.
 - Disabled accounts can't sign in, so they can't export.
@@ -78,6 +86,9 @@ before they delete their account, so nobody deletes without the chance to keep a
 - Admins exporting a user's data, and exports for disabled accounts.
 - JSON or other formats besides CSV.
 - Scheduled or repeated exports.
+- Rejecting names that start with `=`, `+`, `-` or `@` when they're saved. The
+  export protects itself (R13); stricter input would be a change to those features'
+  own specs.
 
 ## Open questions
 
@@ -105,8 +116,15 @@ before they delete their account, so nobody deletes without the chance to keep a
   (covers R11)
 - S7. Given JavaScript is off, when the user exports with their password, then the
   ZIP downloads. (covers R12)
-- R7 and R10 are covered by server tests, not browser scenarios.
+- S8. Given a user whose name is `=1+1` and who has an API token named `@SUM(1,2)`,
+  when they export, then `profile.csv` holds `'=1+1`, `api_tokens.csv` holds
+  `'@SUM(1,2)`, and `README.txt` explains the leading apostrophe. (covers R13)
+- R7, R10 and the plain-number part of R13 are covered by server tests, not browser
+  scenarios.
 
 ## Changes
 
 - 2026-11-18: drafted.
+- 2026-11-18: approved and built.
+- 2026-11-18: R13 added: CSV cells never run as spreadsheet formulas (found by
+  the post-build review).

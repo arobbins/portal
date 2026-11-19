@@ -18,7 +18,8 @@ paths:
   that would have caught it), starts as a spec edit the user approves.
 - **Scenarios** (`e2e/scenarios/<capability>.spec.ts`, same name as the
   spec, tests titled `S1 …`) are written with the spec, before any feature
-  code, and are the independent judge of the build. The main Playwright
+  code, by a fresh agent that sees only the spec and the e2e support (never
+  the builder's plans), and are the independent judge of the build. The main Playwright
   config, `check` and `check-summary.sh --changed` run only scenarios whose
   spec is approved (`support/specs.ts`, `changed_specs.py`); run drafts
   with `npx playwright test -c scenarios.config.ts`.
@@ -33,7 +34,10 @@ paths:
   affected, and tell the user.
 - **Rules a browser can't check** (rate limits, which the e2e server
   relaxes; build-time completeness) are covered by server tests the spec
-  names; everything else needs a scenario.
+  names; everything else needs a scenario. The builder writes those tests,
+  so the reviewer checks them against the spec rule by rule.
+- Specs are for capabilities with rules, states, limits or security impact,
+  not visual tweaks, copy changes or behaviour-preserving refactors.
 - **Done** = scenarios and `check` pass, a fresh `convention-reviewer`
   confirms the build matches the spec rule by rule, and the user has seen
   screenshots of the result. The user judges the result, not the diff.
