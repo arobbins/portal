@@ -113,6 +113,7 @@ impl Labeled for Permission {
             P::ViewActivity => "view_activity",
             P::ManageApiTokens => "manage_api_tokens",
             P::DeleteAccount => "delete_account",
+            P::ExportData => "export_data",
             P::AdministerUsers => "administer_users",
             P::SendApiFeedback => "send_api_feedback",
         }
@@ -131,6 +132,7 @@ impl Labeled for Permission {
             P::ViewActivity => "View activity",
             P::ManageApiTokens => "Manage API tokens",
             P::DeleteAccount => "Delete account",
+            P::ExportData => "Export data",
             P::AdministerUsers => "Administer users",
             P::SendApiFeedback => "Send API feedback",
         }

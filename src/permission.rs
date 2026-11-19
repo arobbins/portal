@@ -13,6 +13,7 @@ pub enum Permission {
     ViewActivity,
     ManageApiTokens,
     DeleteAccount,
+    ExportData,
     AdministerUsers,
     SendApiFeedback,
 }
@@ -25,7 +26,7 @@ pub enum TokenAccess {
 }
 
 impl Permission {
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::ViewProfile,
         Self::EditProfile,
         Self::ManagePassword,
@@ -37,6 +38,7 @@ impl Permission {
         Self::ViewActivity,
         Self::ManageApiTokens,
         Self::DeleteAccount,
+        Self::ExportData,
         Self::AdministerUsers,
         Self::SendApiFeedback,
     ];
@@ -55,6 +57,7 @@ impl Permission {
             | Self::ViewActivity
             | Self::ManageApiTokens
             | Self::DeleteAccount
+            | Self::ExportData
             | Self::AdministerUsers => TokenAccess::BrowserOnly,
         }
     }
@@ -93,6 +96,7 @@ mod tests {
             Permission::ViewActivity,
             Permission::ManageApiTokens,
             Permission::DeleteAccount,
+            Permission::ExportData,
             Permission::AdministerUsers,
         ] {
             assert_eq!(permission.token_access(), TokenAccess::BrowserOnly);

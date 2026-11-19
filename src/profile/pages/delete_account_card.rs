@@ -19,6 +19,7 @@ use crate::components::form::{
 };
 use crate::components::notice::notice;
 use crate::components::tone::Tone;
+use crate::data_export::pages::export_card::export_first_prompt;
 use crate::flash::Flash;
 
 const MODAL_ID: &str = "delete-account-dialog";
@@ -120,6 +121,7 @@ pub async fn delete_account_dialog(
             args: $((confirmation.get(), password.get())),
             variant: ButtonVariant::Danger,
             navigate_to: Some(&login),
+            export_first_prompt(from_modal: MODAL_ID)
             form_group(
                 notice(
                     tone: Tone::Warning,

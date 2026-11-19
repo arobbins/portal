@@ -9,6 +9,7 @@ mod auth;
 mod cleanup;
 mod components;
 mod config;
+mod data_export;
 mod devices;
 mod env;
 mod feedback;

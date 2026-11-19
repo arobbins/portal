@@ -33,6 +33,7 @@ pub const ACCOUNT_TAB_SECTIONS: Machine<SectionState, SectionEvent> = Machine {
         Section(A::Notifications),
         Section(A::TimeZone),
         Section(A::ApiTokens),
+        Section(A::ExportData),
         Section(A::DeleteAccount),
         OnPage(P::Profile),
         OnPage(P::SignIn),
@@ -74,7 +75,7 @@ pub fn home_of(section: AccountSection) -> AccountPage {
         A::Notifications => P::Notifications,
         A::TimeZone => P::TimeZone,
         A::ApiTokens => P::Developer,
-        A::DeleteAccount => P::Profile,
+        A::ExportData | A::DeleteAccount => P::Profile,
     }
 }
 

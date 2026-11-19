@@ -16,5 +16,5 @@ paths:
   `take_passkey_proof` (single use) and `return_passkey_proof` when the
   action fails; removing a passkey `forget_passkey_proof`s. Dialogs that
   need re-auth render `reauth_field` (passkey first when the user has one)
-  and actions call `check_reauth`. Used by Change email, Delete account,
+  and actions call `check_reauth`. Used by Change email, Delete account, Export data,
   Create API token, Remove passkey and the admin area; Change password and Add passkey keep the password.

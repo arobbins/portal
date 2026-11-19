@@ -27,4 +27,5 @@ paths:
   `TRUSTED_PROXY_HOPS`** to the number of proxies, or every visitor shares
   the proxy's IP.
 - API feedback: 20 per hour per token and 100 per day per account
-  (`allow_feedback`; see `api-feedback.md`).
+  (`allow_feedback`; see `api-feedback.md`). Data exports: 5 per hour per
+  account, counted after re-authentication (`allow_export`; `data-export.md`).

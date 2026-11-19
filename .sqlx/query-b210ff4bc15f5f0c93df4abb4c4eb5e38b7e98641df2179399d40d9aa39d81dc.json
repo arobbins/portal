@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT table_name AS \"table_name!\" FROM information_schema.columns\n           WHERE table_schema = 'public' AND column_name = 'user_id'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "table_name!",
+        "type_info": "Name"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "b210ff4bc15f5f0c93df4abb4c4eb5e38b7e98641df2179399d40d9aa39d81dc"
+}

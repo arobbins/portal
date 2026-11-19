@@ -80,11 +80,13 @@ After adding or changing any query, regenerate the committed `.sqlx/` metadata s
 builds without a database (CI, worktrees, cloud sessions):
 
 ```sh
-cargo sqlx prepare -- --all-targets
+scripts/sqlx-prepare.sh
 ```
 
-The stop hook runs this automatically after clippy passes, and `./check.sh` fails if `.sqlx/`
-is stale. Include the changed `.sqlx/*.json` files in the commit.
+It touches `src/main.rs` first: a plain `cargo sqlx prepare` after `topcoat fmt` can reuse
+cached macro output and write stale metadata.
+
+The stop hook runs it after clippy passes, and `./check.sh` regenerates `.sqlx/` itself. Include the changed `.sqlx/*.json` files in the commit.
 
 ## 5. Finish
 

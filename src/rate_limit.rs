@@ -15,6 +15,7 @@ const MAX_KEY_LENGTH: usize = 254;
 pub const API_CALLS_PER_MINUTE: u32 = 600;
 pub const FEEDBACK_PER_TOKEN_PER_HOUR: u32 = 20;
 pub const FEEDBACK_PER_ACCOUNT_PER_DAY: u32 = 100;
+pub const EXPORTS_PER_ACCOUNT_PER_HOUR: u32 = 5;
 pub const BAD_API_TOKENS_PER_WINDOW: u32 = 20;
 pub const BAD_API_TOKEN_WINDOW_MINUTES: u64 = 10;
 pub const KEEP_HITS_FOR: time::Duration = time::Duration::days(1);
@@ -38,6 +39,7 @@ enum Limit {
     FailedApiAuthByIp,
     FeedbackByToken,
     FeedbackByAccount,
+    ExportsByAccount,
 }
 
 impl Limit {
@@ -54,6 +56,7 @@ impl Limit {
             Self::FailedApiAuthByIp => "failed_api_auth_by_ip",
             Self::FeedbackByToken => "feedback_by_token",
             Self::FeedbackByAccount => "feedback_by_account",
+            Self::ExportsByAccount => "exports_by_account",
         }
     }
 
@@ -65,7 +68,10 @@ impl Limit {
             Self::EmailRequestsByIp => 10,
             Self::FailedLoginsByAccountAndIp | Self::FailedSecondFactorsByAccount => 15,
             Self::FailedApiAuthByIp => BAD_API_TOKEN_WINDOW_MINUTES,
-            Self::EmailsToAddress | Self::FailedLoginsByAccount | Self::FeedbackByToken => 60,
+            Self::EmailsToAddress
+            | Self::FailedLoginsByAccount
+            | Self::FeedbackByToken
+            | Self::ExportsByAccount => 60,
             Self::FeedbackByAccount => 24 * 60,
         };
         (minutes * 60) as f64
@@ -83,6 +89,7 @@ impl Limit {
             Self::FailedApiAuthByIp => BAD_API_TOKENS_PER_WINDOW,
             Self::FeedbackByToken => FEEDBACK_PER_TOKEN_PER_HOUR,
             Self::FeedbackByAccount => FEEDBACK_PER_ACCOUNT_PER_DAY,
+            Self::ExportsByAccount => EXPORTS_PER_ACCOUNT_PER_HOUR,
         };
         let scales = !matches!(
             self,
@@ -183,6 +190,11 @@ impl RateLimits {
             return Ok(false);
         }
         self.allow(Limit::FeedbackByAccount, &user_id.to_string())
+            .await
+    }
+
+    pub async fn allow_export(&self, user_id: i32) -> Result<bool, sqlx::Error> {
+        self.allow(Limit::ExportsByAccount, &user_id.to_string())
             .await
     }
 

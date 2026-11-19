@@ -33,6 +33,15 @@ pub async fn query_get_user_by_id(
     .await
 }
 
+pub async fn query_get_user_created_at(
+    user_id: i32,
+    db: impl PgExecutor<'_>,
+) -> Result<time::OffsetDateTime, sqlx::Error> {
+    sqlx::query_scalar!("SELECT created_at FROM users WHERE id = $1", user_id)
+        .fetch_one(db)
+        .await
+}
+
 pub async fn query_get_user_by_email(
     email: &str,
     db: impl PgExecutor<'_>,

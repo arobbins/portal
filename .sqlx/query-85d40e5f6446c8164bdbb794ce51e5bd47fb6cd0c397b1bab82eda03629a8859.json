@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT count(*) AS \"count!\" FROM jobs WHERE kind = 'send_email' AND payload->>'subject' = 'Your account data was downloaded'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "85d40e5f6446c8164bdbb794ce51e5bd47fb6cd0c397b1bab82eda03629a8859"
+}

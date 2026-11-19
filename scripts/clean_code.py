@@ -11,7 +11,7 @@ MAX_VIEW_LINES = 75
 MAX_FILE_LINES = 275
 
 VIEW_ATTRIBUTES = ("#[component", "#[page", "#[layout")
-FEATURES = ("auth", "passkeys", "profile", "api_tokens", "account", "devices", "activity", "admin")
+FEATURES = ("auth", "passkeys", "profile", "api_tokens", "account", "devices", "activity", "admin", "data_export")
 INFRASTRUCTURE = ("action", "env", "jobs", "mail", "rate_limit", "web", "secret", "flash", "permission")
 FN = re.compile(r"^\s*(?:pub(?:\([\w:]+\))? )?(?:async )?fn (\w+)")
 COMPOSITION = {"src/web/middleware.rs"}

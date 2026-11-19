@@ -20,6 +20,7 @@ AREAS = {
     "src/api/": ["api-docs", "api-mcp", "api-profile", "api-tokens", "api-feedback"],
     "src/mcp": ["api-mcp", "api-feedback"],
     "src/feedback": ["api-feedback"],
+    "src/data_export": ["profile", "delete-account"],
     "src/account/": ["account-tabs", "security", "change-password", "mobile", "settings"],
     "src/user/": ["profile", "change-email", "delete-account", "register"],
     "src/pages/": ["home", "styleguide", "components", "not-found", "webtransport"],

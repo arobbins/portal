@@ -19,6 +19,8 @@ use crate::components::form::{
     DialogForm, ModalSubmit, dialog_error_toast, dialog_input, modal_form, page_toast,
 };
 use crate::components::icon::{IconName, icon};
+use crate::data_export::pages::export_card::{ExportDrafts, export_card, export_dialog};
+use crate::data_export::pages::export_routes::export_problem;
 use crate::flash::{Flash, flash_toasts, take_flash};
 use crate::user::model::User;
 use crate::user::name::NAME_FIELD;
@@ -46,10 +48,16 @@ pub async fn profile_tab(cx: &Cx, user: &User, display_name: &Signal<String>) ->
     let name_failure = failed.map(|failed| failed.problem.spec());
     let email_failure = email_change_problem(cx).map(ActionProblem::spec);
     let delete_failure = delete_account_problem(cx).map(ActionProblem::spec);
-    let failure = name_failure.or(email_failure).or(delete_failure);
+    let export_failure = export_problem(cx).map(ActionProblem::spec);
+    let failure = name_failure
+        .or(email_failure)
+        .or(export_failure)
+        .or(delete_failure);
     let form = DialogForm::new(cx, name_failure);
     let email_form = DialogForm::new(cx, email_failure);
     let delete_form = DialogForm::new(cx, delete_failure);
+    let export_form = DialogForm::new(cx, export_failure);
+    let export_drafts = ExportDrafts::new(cx);
     let toast = page_toast(cx, failure.is_some(), flash);
     let email_drafts = EmailDrafts::new(cx);
     let delete_drafts = DeleteDrafts::new(cx);
@@ -62,6 +70,7 @@ pub async fn profile_tab(cx: &Cx, user: &User, display_name: &Signal<String>) ->
         <div class="p-account__sub-page-content">
             profile_card(display_name: display_name, form: &form, drafts: &drafts)
             email_card(email: &user.email, form: &email_form, drafts: &email_drafts)
+            export_card(form: &export_form, drafts: &export_drafts)
             delete_account_card(form: &delete_form, drafts: &delete_drafts)
             edit_profile_dialog(
                 form: &form,
@@ -80,6 +89,7 @@ pub async fn profile_tab(cx: &Cx, user: &User, display_name: &Signal<String>) ->
                 drafts: &delete_drafts,
                 toast: &toast
             )
+            export_dialog(form: &export_form, drafts: &export_drafts, toast: &toast)
             flash_toasts(toast: &toast, flashes: FLASHES)
             dialog_error_toast(failure: failure, toast: &toast)
         </div>

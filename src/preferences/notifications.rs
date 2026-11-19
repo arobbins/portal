@@ -6,6 +6,16 @@ pub enum NotificationTopic {
     SignInAlerts,
 }
 
+impl NotificationTopic {
+    pub const ALL: [Self; 1] = [Self::SignInAlerts];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::SignInAlerts => "New sign-in alerts",
+        }
+    }
+}
+
 pub async fn wants(
     user_id: i32,
     topic: NotificationTopic,

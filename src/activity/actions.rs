@@ -35,6 +35,15 @@ pub async fn activity_of(env: &Env<'_>, user_id: i32) -> Result<Vec<ActivityView
     Ok(events.into_iter().map(ActivityView::of).collect())
 }
 
+pub async fn activity_history(
+    env: &Env<'_>,
+    user_id: i32,
+) -> Result<Vec<ActivityView>, sqlx::Error> {
+    let events = query_list_recent_account_events(user_id, i64::MAX, env.db()).await?;
+
+    Ok(events.into_iter().map(ActivityView::of).collect())
+}
+
 impl ActivityView {
     fn of(event: PastEvent) -> Self {
         let device = match event.kind {
@@ -90,6 +99,7 @@ fn fixed_summary(kind: AccountEventKind) -> &'static str {
         AccountEventKind::PasswordReset => "Password reset",
         AccountEventKind::ProfileUpdated => "Profile updated",
         AccountEventKind::ApiFeedbackSent => "API feedback sent",
+        AccountEventKind::DataExported => "Account data exported",
         AccountEventKind::RecoveryCodeUsed => "Signed in with a recovery code",
         AccountEventKind::RecoveryCodesRegenerated => "New recovery codes created",
         AccountEventKind::TwoFactorDisabled => "Two-factor authentication turned off",

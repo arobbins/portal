@@ -29,8 +29,8 @@ python3 scripts/check_conventions.py
 step "Clippy (warnings are errors)"
 cargo clippy --all-targets -- -D warnings
 
-step "sqlx offline query data is up to date"
-cargo sqlx prepare --check -- --all-targets
+step "sqlx offline query data (regenerated)"
+scripts/sqlx-prepare.sh
 
 step "Rust tests (building the e2e server alongside)"
 CARGO_TARGET_DIR=target/e2e topcoat asset bundle >target/e2e-build.log 2>&1 &

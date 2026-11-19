@@ -66,6 +66,23 @@ pub async fn query_list_recent_api_feedback(
     .await
 }
 
+pub async fn query_list_user_api_feedback(
+    user_id: i32,
+    db: impl PgExecutor<'_>,
+) -> Result<Vec<FeedbackRow>, sqlx::Error> {
+    sqlx::query_as!(
+        FeedbackRow,
+        r#"SELECT f.public_id, u.email, f.token_public_id, f.category AS "category: FeedbackCategory",
+                  f.endpoint, f.problem_code, f.request_id, f.message, f.created_at
+           FROM api_feedback f JOIN users u ON u.id = f.user_id
+           WHERE f.user_id = $1
+           ORDER BY f.created_at DESC, f.id DESC"#,
+        user_id,
+    )
+    .fetch_all(db)
+    .await
+}
+
 pub async fn query_delete_old_api_feedback(
     cutoff: OffsetDateTime,
     db: impl PgExecutor<'_>,

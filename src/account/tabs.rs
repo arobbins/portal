@@ -138,7 +138,7 @@ impl AccountPage {
 
     pub fn sections(self) -> &'static [AccountSection] {
         match self {
-            Self::Profile => &[AccountSection::DeleteAccount],
+            Self::Profile => &[AccountSection::ExportData, AccountSection::DeleteAccount],
             Self::SignIn => &[
                 AccountSection::Password,
                 AccountSection::Passkeys,
@@ -172,12 +172,13 @@ pub enum AccountSection {
     Notifications,
     TimeZone,
     ApiTokens,
+    ExportData,
     DeleteAccount,
 }
 
 impl AccountSection {
     #[cfg(test)]
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::Password,
         Self::Passkeys,
         Self::TwoFactor,
@@ -190,6 +191,7 @@ impl AccountSection {
         Self::Notifications,
         Self::TimeZone,
         Self::ApiTokens,
+        Self::ExportData,
         Self::DeleteAccount,
     ];
 
@@ -214,6 +216,7 @@ impl AccountSection {
             Self::Notifications => "notifications",
             Self::TimeZone => "time-zone",
             Self::ApiTokens => "api-tokens",
+            Self::ExportData => "export-data",
             Self::DeleteAccount => "delete-account",
         }
     }
@@ -232,6 +235,7 @@ impl AccountSection {
             Self::Notifications => "Notifications",
             Self::TimeZone => "Time zone",
             Self::ApiTokens => "API tokens",
+            Self::ExportData => "Export data",
             Self::DeleteAccount => "Delete account",
         }
     }
