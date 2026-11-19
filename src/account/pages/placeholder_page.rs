@@ -57,9 +57,6 @@ fn upcoming(section: AccountSection) -> (&'static str, &'static str) {
             "Add",
             "Keep a card on file for your subscription. Coming soon.",
         ),
-        AccountSection::Notifications => {
-            ("Choose", "Pick which emails you get from us. Coming soon.")
-        }
         _ => ("Set up", "Coming soon."),
     }
 }

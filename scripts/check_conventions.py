@@ -126,8 +126,23 @@ problems.extend(clean_code.problems())
 for spec in changed_specs.unmapped_specs():
     problems.append(f"e2e/tests/{spec}: add it to an area in scripts/changed_specs.py, or `check-summary.sh --changed` never runs it")
 
+for path in sorted((ROOT / "specs").glob("*.md")):
+    status = changed_specs.spec_status(path.name.removesuffix(".md"))
+    if status not in ("draft", "approved"):
+        problems.append(f"specs/{path.name}: frontmatter needs `status: draft` or `status: approved`")
+for path in sorted((ROOT / "e2e/scenarios").glob("*.spec.ts")):
+    name = path.name.removesuffix(".spec.ts")
+    if not (ROOT / "specs" / f"{name}.md").exists():
+        problems.append(f"e2e/scenarios/{path.name}: no specs/{name}.md; scenarios come from a spec (new-spec skill)")
+changed = changed_specs.changed_files()
+builds_feature = any(path.startswith(("src/", "assets/", "migrations/")) for path in changed)
+for path in changed:
+    name = changed_specs.scenario_for(path)
+    if builds_feature and path.startswith("e2e/scenarios/") and f"specs/{name}.md" not in changed:
+        problems.append(f"{path}: changed alongside feature code while specs/{name}.md didn't; the builder never edits scenarios (change the spec first with the new-spec skill, or revert)")
+
 if problems:
     print("Convention check failed:")
     print("\n".join(f"  {problem}" for problem in problems))
     sys.exit(1)
-print("Conventions OK (paths, limits, components, event kinds, job kinds, API registry, clean code, spec areas, rule files)")
+print("Conventions OK (paths, limits, components, event kinds, job kinds, API registry, clean code, spec areas, feature specs, rule files)")

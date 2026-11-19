@@ -1,12 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 import { e2ePort, testDatabaseUrl } from "./support/environment";
 import { MAIL_DIR } from "./support/mail";
+import { approvedScenarios } from "./support/specs";
 
 const port = e2ePort();
 const baseURL = `http://localhost:${port}`;
 
 export default defineConfig({
-  testDir: "./tests",
+  testDir: ".",
+  testMatch: ["tests/**/*.spec.ts", ...approvedScenarios()],
   fullyParallel: true,
   workers: process.env.CI ? undefined : "75%",
   forbidOnly: !!process.env.CI,

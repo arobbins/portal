@@ -1,9 +1,12 @@
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SPECS = ROOT / "e2e" / "tests"
+SCENARIOS = ROOT / "e2e" / "scenarios"
+FEATURE_SPECS = ROOT / "specs"
 
 AREAS = {
     "src/auth/": ["auth", "register", "verify-email", "reset-password", "change-password",
@@ -42,6 +45,28 @@ def unmapped_specs():
                   if path.name.removesuffix(".spec.ts") not in mapped)
 
 
+def spec_status(name):
+    path = FEATURE_SPECS / f"{name}.md"
+    if not path.exists():
+        return None
+    front = re.match(r"---\n(.*?)\n---\n", path.read_text(), re.S)
+    status = re.search(r"^status:\s*(\w+)\s*$", front.group(1), re.M) if front else None
+    return status.group(1) if status else None
+
+
+def approved_scenarios():
+    return sorted(path.name.removesuffix(".spec.ts") for path in SCENARIOS.glob("*.spec.ts")
+                  if spec_status(path.name.removesuffix(".spec.ts")) == "approved")
+
+
+def scenario_for(path):
+    if path.startswith("specs/") and path.endswith(".md"):
+        return Path(path).name.removesuffix(".md")
+    if path.startswith("e2e/scenarios/") and path.endswith(".spec.ts"):
+        return Path(path).name.removesuffix(".spec.ts")
+    return None
+
+
 def changed_files():
     tracked = subprocess.run(["git", "diff", "--name-only", "HEAD"], cwd=ROOT,
                              capture_output=True, text=True, check=True).stdout.split()
@@ -51,6 +76,8 @@ def changed_files():
 
 
 def specs_for(path):
+    if scenario_for(path):
+        return set()
     if path.startswith("e2e/tests/") and path.endswith(".spec.ts"):
         return {Path(path).name.removesuffix(".spec.ts")}
     if path.startswith(IGNORED) or path.endswith(".rs") and "/tests" in path or path.endswith(("tests.rs", "testing.rs")):
@@ -65,14 +92,18 @@ def specs_for(path):
 
 def main():
     wanted = set()
+    scenarios = set()
     for path in changed_files():
+        scenarios.add(scenario_for(path))
         specs = specs_for(path)
         if specs is None:
             print("ALL")
             return
         wanted |= specs
     existing = sorted(spec for spec in wanted if (SPECS / f"{spec}.spec.ts").exists())
-    print(" ".join(f"tests/{spec}.spec.ts" for spec in existing))
+    approved = sorted(scenarios & set(approved_scenarios()))
+    print(" ".join([f"tests/{spec}.spec.ts" for spec in existing]
+                   + [f"scenarios/{name}.spec.ts" for name in approved]))
 
 
 if __name__ == "__main__":

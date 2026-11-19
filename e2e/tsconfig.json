@@ -10,6 +10,8 @@
   "include": [
     "playwright.config.ts",
     "screenshot.config.ts",
+    "scenarios.config.ts",
+    "scenarios/**/*.ts",
     "tests/**/*.ts",
     "screenshots/**/*.ts",
     "support/**/*.ts"

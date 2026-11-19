@@ -4,6 +4,7 @@ import base from "./playwright.config";
 export default defineConfig({
   ...base,
   testDir: "./screenshots",
+  testMatch: "**/*.spec.ts",
   fullyParallel: false,
   retries: 0,
   reporter: [["list"]],
