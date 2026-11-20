@@ -27,11 +27,13 @@ you start with none of the conversation that produced them: the spec is your who
 - Work the project's way: test first for server rules (including the rules the spec says
   are server-tested), the matching skills (`new-action`, `new-form-flow`, `new-query`,
   `new-component`, `new-flash`), `verify` per unit, `scripts/sqlx-prepare.sh` after query
-  changes, and finally the `check` skill, which must pass.
+  changes, and finally `scripts/check-summary.sh --changed` (Chromium, the specs for the
+  areas you changed) plus your spec's scenarios, which must pass. Don't run the full
+  three-browser `check`: the main session runs it once before merging.
 - If a rule can't be met as written (it conflicts with a security invariant or a rule
   file, or the spec is ambiguous or missed something), don't decide it yourself: build
   everything else and report the conflict precisely, with what you'd propose.
-- You run in your own git worktree. When `check` passes, commit everything in one commit
+- You run in your own git worktree. When those pass, commit everything in one commit
   on your worktree's branch (`Build <capability> spec`), and report the branch name. Never
   commit anywhere else, and never merge.
 

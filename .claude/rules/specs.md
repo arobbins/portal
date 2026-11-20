@@ -30,8 +30,9 @@ paths:
   `spec-builder` builds an approved spec as a subagent in its own git
   worktree and can't read or edit scenarios or edit specs
   (`.claude/hooks/agent-boundary.sh`); `convention-reviewer` checks its
-  branch against the spec. The main session doesn't build specs; the user
-  merges the branch.
+  branch against the spec. The main session doesn't build specs. When the
+  scenarios, the full `check` and the review are green, it merges the branch
+  locally with `--no-ff` (revert with `git revert -m 1`), never pushes.
 - **The builder never edits scenarios.** `check_conventions.py` fails when
   a scenario changes alongside `src/`, `assets/` or `migrations/` while its
   spec didn't. Commit an approved spec and its scenarios before building,
@@ -47,7 +48,7 @@ paths:
   so the reviewer checks them against the spec rule by rule.
 - Specs are for capabilities with rules, states, limits or security impact,
   not visual tweaks, copy changes or behaviour-preserving refactors.
-- **Done** = scenarios and `check` pass, a fresh `convention-reviewer`
-  confirms the build matches the spec rule by rule, and the user has seen
-  screenshots of the result. The user judges the result, not the diff.
+- **Done** = scenarios and the full `check` pass, a fresh `convention-reviewer`
+  finds no must-fix, the branch is merged, and the user has seen screenshots
+  and the live result. The user judges the result, not the diff.
 - `e2e/support/zip.ts` (`readZip`) reads a downloaded ZIP's files as text.

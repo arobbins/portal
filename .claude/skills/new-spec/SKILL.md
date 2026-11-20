@@ -109,7 +109,9 @@ S1, S2, ...: Given / When / Then, each naming the rules it covers (covers R1, R3
 - 2026-11-18: drafted.
 ```
 
-Every rule is covered by at least one scenario.
+Every rule is covered by at least one scenario. Before the scenarios are written, fix
+every label, message, button name, path and field name a scenario will need to find or
+assert, so the scenario writer doesn't have to report them as gaps.
 
 ## 5. Write the scenarios (the `scenario-writer` agent)
 
@@ -153,10 +155,15 @@ All in this window; give the user a one-line milestone as each step finishes.
 2. If it reports a conflict (a rule that can't be met as written), draft the spec
    amendment (back to `status: draft`, a Changes line), hand over and wait again.
 3. Spawn a fresh `convention-reviewer` to check the branch (`git diff <base>...<branch>`)
-   against the spec rule by rule, including the builder's server tests. Send must-fix
-   findings back to the builder (`SendMessage`) and review again.
-4. Take screenshots from the builder's worktree (`cd <worktree>/e2e && npm run
-   screenshot`) and show them.
-5. Done = scenarios and `check` pass, the review has no must-fix, and the user has seen
-   the screenshots. Report and stop at `Waiting for you to judge and merge <branch>`; the
-   user judges the result, not the diff, and merges.
+   against the spec rule by rule, including the builder's server tests. Meanwhile, run
+   the full `check` (all browsers) in the builder's worktree. Must-fix findings or a red
+   check go back to the builder (`SendMessage`); then review and check again.
+4. Merge when everything is green: scenarios and full `check` pass and the review has no
+   must-fix. The user authorised this. Merge locally into their current branch with
+   `git merge --no-ff <branch>` (one merge commit, so `git revert -m 1 <sha>` backs it
+   out), then remove the worktree and branch. If the branch isn't based on the current
+   HEAD, rerun `check` on the merged result and revert if it's red. Never push.
+   Should-fix findings become a follow-up the user decides on; they don't block.
+5. Take screenshots from the main checkout (`cd e2e && npm run screenshot`) and report:
+   the merge commit, how to revert it, the screenshots, should-fix follow-ups, and any
+   wording you filled in. The user judges the live result on the dev server.
