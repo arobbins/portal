@@ -21,7 +21,13 @@ test("an AI assistant can use the account's tools over MCP", async ({ page, requ
 
   const list = await callMcp(request, token, "tools/list");
   const names = (await list.json()).result.tools.map((tool: { name: string }) => tool.name);
-  expect(names).toEqual(["get_profile", "update_profile", "send_feedback"]);
+  expect(names).toEqual([
+    "get_profile",
+    "update_profile",
+    "get_newsletters",
+    "update_newsletters",
+    "send_feedback",
+  ]);
 
   const rename = await callMcp(request, token, "tools/call", {
     name: "update_profile",

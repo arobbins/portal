@@ -240,11 +240,17 @@ mod tests {
 
         assert_eq!(
             names(vec![ApiScope::ProfileRead]),
-            vec!["get_profile", "send_feedback"]
+            vec!["get_profile", "get_newsletters", "send_feedback"]
         );
         assert_eq!(
             names(vec![ApiScope::ProfileWrite]),
-            vec!["get_profile", "update_profile", "send_feedback"]
+            vec![
+                "get_profile",
+                "update_profile",
+                "get_newsletters",
+                "update_newsletters",
+                "send_feedback"
+            ]
         );
         assert_eq!(names(vec![]), vec!["send_feedback"]);
     }

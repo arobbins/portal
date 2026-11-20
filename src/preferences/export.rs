@@ -1,3 +1,4 @@
+use super::newsletters::newsletters_of;
 use super::notifications::{NotificationTopic, wants};
 use crate::data_export::{Dataset, yes_no};
 use crate::env::Env;
@@ -9,10 +10,13 @@ pub async fn notifications_export(env: &Env<'_>, user: &User) -> Result<Dataset,
         let on = wants(user.id, topic, env.db()).await?;
         rows.push(vec![topic.label().to_string(), yes_no(on)]);
     }
+    for (newsletter, on) in newsletters_of(user.id, env.db()).await? {
+        rows.push(vec![newsletter.label().to_string(), yes_no(on)]);
+    }
     Ok(Dataset {
         file: "notifications.csv",
-        about: "Optional emails and whether you get them. Security emails are always sent.",
-        tables: &["notification_opt_outs"],
+        about: "Optional emails and newsletters, and whether you get them. Security emails are always sent.",
+        tables: &["notification_opt_outs", "newsletter_opt_outs"],
         columns: &["email", "on"],
         rows,
     })

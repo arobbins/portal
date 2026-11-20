@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT kind, detail, channel, api_token_id FROM account_events WHERE user_id = $1 AND kind LIKE 'newsletter_%' ORDER BY id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "detail",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 2,
+        "name": "channel",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "api_token_id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "a2c597a630e7f192696d8845e79bd712b5ac3f2f4de3b1bbf18d9745510e80a3"
+}

@@ -18,6 +18,8 @@ pub enum AccountEventKind {
     EmailChangeRequested,
     EmailChanged,
     EmailVerified,
+    NewsletterSubscribed,
+    NewsletterUnsubscribed,
     NotificationsUpdated,
     OtherDevicesSignedOut,
     PasskeyAdded,
@@ -43,7 +45,7 @@ pub enum AccountEventKind {
 }
 
 impl AccountEventKind {
-    pub const ALL: [Self; 31] = [
+    pub const ALL: [Self; 33] = [
         Self::AccountCreated,
         Self::ApiTokenCreated,
         Self::ApiTokenRevoked,
@@ -53,6 +55,8 @@ impl AccountEventKind {
         Self::EmailChangeRequested,
         Self::EmailChanged,
         Self::EmailVerified,
+        Self::NewsletterSubscribed,
+        Self::NewsletterUnsubscribed,
         Self::NotificationsUpdated,
         Self::OtherDevicesSignedOut,
         Self::PasskeyAdded,
@@ -88,6 +92,8 @@ impl AccountEventKind {
             Self::EmailChangeRequested => "email_change_requested",
             Self::EmailChanged => "email_changed",
             Self::EmailVerified => "email_verified",
+            Self::NewsletterSubscribed => "newsletter_subscribed",
+            Self::NewsletterUnsubscribed => "newsletter_unsubscribed",
             Self::NotificationsUpdated => "notifications_updated",
             Self::OtherDevicesSignedOut => "other_devices_signed_out",
             Self::PasskeyAdded => "passkey_added",

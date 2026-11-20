@@ -1,6 +1,8 @@
+mod newsletters;
 mod notifications;
 mod time_zone;
 
+pub use newsletters::{NewsletterSettings, UpdateNewsletters, get_newsletters, update_newsletters};
 pub use notifications::{
     SIGN_IN_ALERTS_FIELD, UpdateNotifications, get_notifications, update_notifications,
 };

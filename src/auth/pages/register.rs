@@ -95,6 +95,9 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
                         autocomplete="off"
                     >
                 </div>
+                <p class="p-auth__newsletters">
+                    "We'll send you our newsletter and product updates. You can turn them off any time in Settings."
+                </p>
                 if let Some(problem) = problem {
                     form_error((problem.message()))
                 }

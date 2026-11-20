@@ -76,6 +76,8 @@ fn summarize(kind: AccountEventKind, detail: &Value) -> String {
         AccountEventKind::PasskeyAdded => format!("Passkey “{name}” added"),
         AccountEventKind::PasskeyRenamed => format!("Passkey renamed to “{name}”"),
         AccountEventKind::PasskeyRemoved => format!("Passkey “{name}” removed"),
+        AccountEventKind::NewsletterSubscribed => format!("Subscribed to {name}"),
+        AccountEventKind::NewsletterUnsubscribed => format!("Unsubscribed from {name}"),
         other => fixed_summary(other).to_string(),
     }
 }

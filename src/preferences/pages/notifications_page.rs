@@ -5,6 +5,7 @@ use topcoat::{
     view::{View, attributes, component, view},
 };
 
+use super::newsletters_card::{newsletters_card, newsletters_saved_toast};
 use super::notifications_routes::{save_notifications, update_notifications_submit};
 use crate::account::tabs::AccountSection;
 use crate::action::require_browser_caller;
@@ -13,10 +14,11 @@ use crate::components::card::{card, card_body, card_header};
 use crate::components::form::{form, form_actions};
 use crate::components::setting_toggle::{InlineSave, setting_toggle};
 use crate::flash::{Flash, flash_toast, flash_toasts, take_flash};
-use crate::preferences::actions::{SIGN_IN_ALERTS_FIELD, get_notifications};
+use crate::preferences::actions::{SIGN_IN_ALERTS_FIELD, get_newsletters, get_notifications};
 use crate::web::env;
 
-const FLASHES: &[Flash] = &[Flash::NotificationsSaved];
+const FLASHES: &[Flash] = &[Flash::NotificationsSaved, Flash::NewslettersSaved];
+const PLAIN_FLASHES: &[Flash] = &[Flash::NotificationsSaved];
 const UNREACHABLE: &str = "We couldn't save that setting. Please try again.";
 
 #[component]
@@ -24,6 +26,10 @@ pub async fn notifications_page(cx: &Cx) -> Result<impl View> {
     let caller = require_browser_caller(cx)?;
     let settings = match get_notifications(&env(cx), &caller).await? {
         Ok(settings) => settings,
+        Err(error) => match error.for_browser()? {},
+    };
+    let newsletters = match get_newsletters(&env(cx), &caller).await? {
+        Ok(newsletters) => newsletters,
         Err(error) => match error.for_browser()? {},
     };
     let toast = flash_toast(cx, take_flash(cx, FLASHES).await?);
@@ -68,7 +74,9 @@ pub async fn notifications_page(cx: &Cx) -> Result<impl View> {
                     )
                 )
             )
-            flash_toasts(toast: &toast, flashes: FLASHES)
+            newsletters_card(settings: newsletters, toast: &toast)
+            flash_toasts(toast: &toast, flashes: PLAIN_FLASHES)
+            newsletters_saved_toast(toast: &toast)
         </div>
     })
 }
