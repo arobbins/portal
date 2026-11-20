@@ -32,7 +32,9 @@ paths:
   (`.claude/hooks/agent-boundary.sh`); `convention-reviewer` checks its
   branch against the spec. The main session doesn't build specs. When the
   scenarios, the full `check` and the review are green, it merges the branch
-  locally with `--no-ff` (revert with `git revert -m 1`), never pushes.
+  locally with `--no-ff` (revert with `git revert -m 1`). It pushes only
+  `main`, and only as a fast-forward, so builder worktrees start current.
+  Commit messages are one terse line.
 - **The builder never edits scenarios.** `check_conventions.py` fails when
   a scenario changes alongside `src/`, `assets/` or `migrations/` while its
   spec didn't. Commit an approved spec and its scenarios before building,

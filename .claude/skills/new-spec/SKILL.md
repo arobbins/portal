@@ -138,7 +138,8 @@ Options: build with them (recommended), or change some (the user says which).
 - **Build**: their interview answers plus this answer are the approval. Set
   `status: approved`, add a Changes line, commit only the spec and its scenario file
   (`Approve <capability> spec`; a standing authorisation for that one commit), and
-  continue with "After approval" in the same turn.
+  continue with "After approval" in the same turn. Every commit message in this
+  workflow is one terse, human-readable line, with no body or trailers.
 - **Change some**: revise the draft, have the `scenario-writer` update affected
   scenarios, and ask the final question again.
 
@@ -146,9 +147,9 @@ Options: build with them (recommended), or change some (the user says which).
 
 All in this window; give the user a one-line milestone as each step finishes.
 
-1. Worktrees start from `origin/main`, not the local branch. If `origin/main` doesn't
-   contain the approval commit, fast-forward `main` to it and ask the user before
-   pushing (`git push origin main`). Then spawn the `spec-builder` agent with
+1. Worktrees start from `origin/main`, not the local branch. Fast-forward `main` to the
+   current branch and push it (`git push origin main`); the user authorised this, but
+   only as a fast-forward: if `origin/main` has commits the branch lacks, stop and ask. Then spawn the `spec-builder` agent with
    `isolation: "worktree"` and the spec path; it first checks the approval commit is there. It works
    in its own git worktree (own e2e port and test database), can't read or edit the
    scenarios or edit specs (hooks), and commits once on its worktree branch.
@@ -160,8 +161,8 @@ All in this window; give the user a one-line milestone as each step finishes.
    check go back to the builder (`SendMessage`); then review and check again.
 4. Merge when everything is green: scenarios and full `check` pass and the review has no
    must-fix. The user authorised this. Merge locally into their current branch with
-   `git merge --no-ff <branch>` (one merge commit, so `git revert -m 1 <sha>` backs it
-   out), then remove the worktree and branch. If the branch isn't based on the current
+   `git merge --no-ff <branch> -m "Merge <capability>"` (one merge commit, so
+   `git revert -m 1 <sha>` backs it out), then remove the worktree and branch. If the branch isn't based on the current
    HEAD, rerun `check` on the merged result and revert if it's red. Never push.
    Should-fix findings become a follow-up the user decides on; they don't block.
 5. Take screenshots from the main checkout (`cd e2e && npm run screenshot`) and report:
