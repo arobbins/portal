@@ -13,7 +13,9 @@ paths:
 
 - **Registration is email-first**: `/register` takes name + email (+ a hidden
   `website` honeypot) and always redirects to `/register` with the
-  `RegistrationSent` flash, whatever the email's state (new → user with
+  `RegistrationSent` flash, which the page shows as an inline "Check your
+  inbox" notice naming the address (`auth/pages/link_sent.rs`; reset uses it
+  too), whatever the email's state (new → user with
   `password = NULL` + link, deleted again if the email fails; awaiting
   password → fresh link; active → "you already have an account" email), so
   it never reveals whether an account exists. The link

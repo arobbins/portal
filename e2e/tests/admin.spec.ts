@@ -104,7 +104,7 @@ test("an admin sorts the users table by a column and keeps the sort while search
   for (const email of emails) {
     await register(page, `${tag} user`, email);
     await expect(
-      page.getByText("Check your email to confirm your registration."),
+      page.getByText("Check your inbox"),
     ).toBeVisible();
   }
   await openAdmin(page);

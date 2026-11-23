@@ -1,18 +1,18 @@
 import { register, uniqueEmail } from "../support/flows";
 import { expect, test } from "../support/test";
 
-const CHECK_EMAIL = "Check your email to confirm your registration.";
+const CHECK_EMAIL = "Check your inbox";
 
 test("a confirmation message shows once and doesn't come back on refresh", async ({
   page,
 }, testInfo) => {
   await register(page, "Flash tester", uniqueEmail(testInfo, "flash"));
   await expect(page).toHaveURL("/register");
-  await expect(page.getByText(CHECK_EMAIL)).toHaveCSS("opacity", "1");
+  await expect(page.getByText(CHECK_EMAIL)).toBeVisible();
 
   await page.reload();
 
-  await expect(page.getByText(CHECK_EMAIL)).toHaveCSS("opacity", "0");
+  await expect(page.getByText(CHECK_EMAIL)).toHaveCount(0);
 });
 
 test("a message waits for the page it's meant for", async ({ page }, testInfo) => {
@@ -28,11 +28,11 @@ test("a message waits for the page it's meant for", async ({ page }, testInfo) =
   await expect(page.getByText(CHECK_EMAIL)).toHaveCount(0);
 
   await page.goto("/register");
-  await expect(page.getByText(CHECK_EMAIL)).toHaveCSS("opacity", "1");
+  await expect(page.getByText(CHECK_EMAIL)).toBeVisible();
 });
 
 test("typing a message flag into the URL shows nothing", async ({ page }) => {
   await page.goto("/register?sent=true");
 
-  await expect(page.getByText(CHECK_EMAIL)).toHaveCSS("opacity", "0");
+  await expect(page.getByText(CHECK_EMAIL)).toHaveCount(0);
 });

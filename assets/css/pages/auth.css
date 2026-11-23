@@ -48,3 +48,8 @@
     color: var(--color-text-strong);
   }
 }
+
+.p-auth__sent {
+  max-width: var(--width-form);
+  margin: 2em auto 0;
+}

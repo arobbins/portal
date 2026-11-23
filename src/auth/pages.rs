@@ -1,5 +1,6 @@
 mod confirm_email;
 pub mod expired_link;
+mod link_sent;
 pub mod login;
 pub mod logout;
 pub mod new_password_form;

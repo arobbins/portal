@@ -1,5 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 import { type Cell, type Machine, eachCell, writeResults } from "../support/state-machines";
+import { createAccount } from "../support/flows";
 import { expect, test } from "../support/test";
 
 test.skip(({ browserName }) => browserName !== "chromium", "one browser writes the report");
@@ -174,7 +175,11 @@ test("the form submit state machine", async ({ page }) => {
     const settles = event === "response_arrives" || event === "back_after_submit";
     if (settles && (actual !== "idle" || disabled)) broken.push(NEVER_STUCK);
     cells.push({ from, event, actual, accepted: true, broken });
-    await server.release();
+    if (server.held.length > 0) {
+      const loaded = page.waitForEvent("load");
+      await server.release();
+      await loaded;
+    }
   }
   expect(writeResults(formSubmit, cells)).toEqual([]);
 });
@@ -323,7 +328,7 @@ const HIDDEN_IS_GONE = "A closed toast can't be seen or read by screen readers."
 const toast: Machine<ToastState, ToastEvent> = {
   name: "Toast",
   summary:
-    "The toast a page shows for a flash message: open on arrival, closed by a click or after a few seconds.",
+    "The toast a page shows for a flash message (saving notification settings): open on arrival, closed by a click or after a few seconds.",
   testedBy: "e2e/tests/state-machines.spec.ts (Chromium)",
   states: { hidden: "Closed", open: "Open" },
   events: {
@@ -342,9 +347,16 @@ const toast: Machine<ToastState, ToastEvent> = {
   },
 };
 
-async function showResetToast(page: Page, email: string) {
-  await page.goto(FORM);
-  await submit(page, email, true);
+const TOAST_PAGE = "/account/settings/notifications";
+
+async function showSavedToast(page: Page) {
+  await page.goto(TOAST_PAGE);
+  const loaded = page.waitForEvent("load");
+  await page
+    .locator("form")
+    .filter({ has: page.getByRole("switch", { name: "New sign-in alerts" }) })
+    .evaluate((form: HTMLFormElement) => form.submit());
+  await loaded;
 }
 
 async function toastState(page: Page): Promise<ToastState> {
@@ -354,21 +366,20 @@ async function toastState(page: Page): Promise<ToastState> {
 test.describe("toasts that time out", () => {
   test.use({ holdToasts: false });
 
-  test("the toast state machine", async ({ page }) => {
+  test("the toast state machine", async ({ page }, testInfo) => {
+    await createAccount(page, testInfo, "Toast Tester");
     const cells: Cell<ToastState, ToastEvent>[] = [];
-    let count = 0;
     for (const { from, event, expected } of eachCell(toast)) {
       if ("unreachable" in expected) {
         cells.push({ from, event, actual: null, accepted: false, broken: [] });
         continue;
       }
-      const email = () => `toast-${count++}@example.test`;
-      if (from === "open") await showResetToast(page, email());
-      else await page.goto(FORM);
+      if (from === "open") await showSavedToast(page);
+      else await page.goto(TOAST_PAGE);
       expect(await toastState(page)).toBe(from);
       switch (event) {
         case "flash_arrives":
-          await showResetToast(page, email());
+          await showSavedToast(page);
           break;
         case "click":
           await page.locator(".a-toaster--is-open").click();

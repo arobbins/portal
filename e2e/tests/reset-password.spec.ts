@@ -12,7 +12,7 @@ import { expectNoEmails, resetLink, verificationLink, waitForEmails } from "../s
 import { expect, test } from "../support/test";
 
 const NEW_PASSWORD = "a-brand-new-password";
-const LINK_SENT = "If an account exists for that email, we've sent a link to reset your password.";
+const LINK_SENT = "Check your inbox";
 
 test.use({ allowedConsoleErrors: [/status of 400/] });
 
@@ -22,7 +22,7 @@ async function requestReset(page: Page, email: string) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Email").press("Enter");
   await expect(page).toHaveURL("/reset-password");
-  await expect(page.getByText(LINK_SENT)).toHaveCSS("opacity", "1");
+  await expect(page.getByText(LINK_SENT)).toBeVisible();
 }
 
 async function signedOutAccount(page: Page, testInfo: TestInfo, name: string) {
@@ -143,4 +143,16 @@ test("signed-in users are sent from the reset page to their account", async ({
   await page.goto("/reset-password");
 
   await expect(page).toHaveURL("/account");
+});
+
+test("after asking for a reset link, a notice replaces the form and names the address", async ({ page }) => {
+  await page.goto("/reset-password");
+  await page.getByLabel("Email").fill("someone@example.test");
+  await page.getByLabel("Email").press("Enter");
+
+  const notice = page.getByRole("status").filter({ hasText: "Check your inbox" });
+  await expect(notice).toContainText("someone@example.test");
+  await expect(notice).toContainText("1 hour");
+  await expect(page.getByRole("button", { name: "Send reset link" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Use a different email" })).toBeVisible();
 });

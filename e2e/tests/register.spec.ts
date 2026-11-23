@@ -3,7 +3,7 @@ import { expectNoEmails, waitForEmailAbout, waitForEmails } from "../support/mai
 import { expect, test } from "../support/test";
 import { verifiedUser } from "../support/users";
 
-const CHECK_EMAIL = "Check your email to confirm your registration.";
+const CHECK_EMAIL = "Check your inbox";
 
 test("registering asks only for a name and email, then says to check email", async ({
   page,
@@ -13,7 +13,7 @@ test("registering asks only for a name and email, then says to check email", asy
   await register(page, "New Tester", email);
 
   await expect(page).toHaveURL("/register");
-  await expect(page.getByText(CHECK_EMAIL)).toHaveCSS("opacity", "1");
+  await expect(page.getByText(CHECK_EMAIL)).toBeVisible();
   await expect(page.getByLabel("Password")).toHaveCount(0);
   const [message] = await waitForEmails(email);
   expect(message.subject).toBe("Confirm your email");
@@ -25,7 +25,7 @@ test("registering an email that already has an account looks the same, but email
   await register(page, "Someone Else", verifiedUser.email);
 
   await expect(page).toHaveURL("/register");
-  await expect(page.getByText(CHECK_EMAIL)).toHaveCSS("opacity", "1");
+  await expect(page.getByText(CHECK_EMAIL)).toBeVisible();
   await waitForEmailAbout(verifiedUser.email, "You already have an account");
 });
 
@@ -83,4 +83,18 @@ test("an empty registration shows the app's own error and links to sign in", asy
 
   await page.getByRole("link", { name: "Sign in", exact: true }).last().click();
   await expect(page).toHaveURL("/login");
+});
+
+test("after registering, a notice replaces the form and names the address", async ({ page }, testInfo) => {
+  const email = uniqueEmail(testInfo, "notice");
+  await register(page, "Notice Reader", email);
+
+  const notice = page.getByRole("status").filter({ hasText: "Check your inbox" });
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText(email);
+  await expect(notice).toContainText("24 hours");
+  await expect(page.getByRole("button", { name: "Register account" })).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Use a different email" }).click();
+  await expect(page.getByRole("button", { name: "Register account" })).toBeVisible();
 });

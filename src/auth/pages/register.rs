@@ -12,17 +12,19 @@ use topcoat::{
     view::{View, attributes, component, view},
 };
 
+use super::link_sent::{link_sent_notice, remember_link_sent_to, take_link_sent_to};
 use super::login::login_page;
 use super::switch_link::switch_link;
 use crate::action::{ActionProblem, page_status};
 use crate::app::page_title;
 use crate::auth::actions::{EMAIL_FIELD, Register, RegisterProblem, register};
+use crate::auth::links::TokenPurpose;
 use crate::auth::session::redirect_signed_in_users;
 use crate::components::button::{ButtonType, button};
 use crate::components::form::{
     Autocomplete, FormVariant, InputType, form, form_actions, form_error, form_field,
 };
-use crate::flash::{Flash, flash_toast, flash_toasts, set_flash, take_flash};
+use crate::flash::{Flash, set_flash, take_flash};
 use crate::layout::page_heading::page_heading;
 use crate::user::name::NAME_FIELD;
 use crate::web::{env, redisplay, session};
@@ -54,8 +56,15 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
     let name = failed.map(|failed| failed.name.clone());
     let email = failed.map(|failed| failed.email.clone());
     let problem = failed.map(|failed| failed.problem);
-    let is_submitting = signal(cx, || false);
-    let toast = flash_toast(cx, flash);
+    let sent_to = match flash {
+        Some(_) => take_link_sent_to(cx).await?,
+        None => None,
+    };
+    let sent_after = format!(
+        " to confirm it and set your password. It expires in {}.",
+        TokenPurpose::EmailVerification.lifetime_text()
+    );
+    let register_href = href!(register_page).resolve(cx);
     let login_href = href!(login_page).resolve(cx);
 
     Ok(view! {
@@ -64,57 +73,25 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
                 (page_status(problem))
             }
             page_heading(text: "Register")
-            flash_toasts(toast: &toast, flashes: FLASHES)
-            form(
-                submitting: Some(&is_submitting),
-                variant: FormVariant::Page,
-                attrs: attributes! {
-                    method="post"
-                    action=(href!(register_submit))
-                    novalidate=""
-                },
-                form_field(
-                    label: "Name",
-                    id: "name",
-                    autocomplete: Some(Autocomplete::Name),
-                    name: NAME_FIELD,
-                    placeholder: Some("Name"),
-                    value: name.as_deref(),
-                    required: true,
-                    invalid: problem.is_some_and(RegisterProblem::invalid_name)
+            if let Some(email) = &sent_to {
+                link_sent_notice(
+                    before: "We sent a link to ",
+                    email: email.as_str(),
+                    after: &sent_after,
+                    again_href: &register_href
                 )
-                form_field(
-                    label: "Email",
-                    id: "email",
-                    autocomplete: Some(Autocomplete::Email),
-                    name: EMAIL_FIELD,
-                    input_type: InputType::Email,
-                    placeholder: Some("Email"),
-                    value: email.as_deref(),
-                    required: true,
-                    invalid: problem.is_some_and(RegisterProblem::invalid_email)
+            } else {
+                register_form(
+                    name: name.as_deref(),
+                    email: email.as_deref(),
+                    problem: problem
                 )
-                honeypot_field()
-                <input type="hidden" name="time_zone" data-detect-time-zone="">
-                <p class="p-auth__newsletters">
-                    "We'll send you our newsletter and product updates. You can turn them off any time in Settings."
-                </p>
-                if let Some(problem) = problem {
-                    form_error((problem.message()))
-                }
-                form_actions(
-                    button(
-                        button_type: ButtonType::Submit,
-                        busy: $(is_submitting.get()),
-                        "Register account"
-                    )
+                switch_link(
+                    prompt: "Already have an account? ",
+                    href: &login_href,
+                    label: "Sign in"
                 )
-            )
-            switch_link(
-                prompt: "Already have an account? ",
-                href: &login_href,
-                label: "Sign in"
-            )
+            }
         </section>
     })
 }
@@ -124,7 +101,9 @@ pub async fn register_submit(cx: &Cx, Form(form): Form<RegisterForm>) -> Result<
     let sent = see_other(href!(register_page).resolve(cx));
     if !form.website.is_empty() {
         tracing::info!("registration ignored: honeypot field was filled");
-        set_flash(&session(cx)?, Flash::RegistrationSent).await?;
+        let session = session(cx)?;
+        set_flash(&session, Flash::RegistrationSent).await?;
+        remember_link_sent_to(&session, &form.email).await?;
         return Ok(sent);
     }
 
@@ -135,7 +114,9 @@ pub async fn register_submit(cx: &Cx, Form(form): Form<RegisterForm>) -> Result<
     };
     match register(&env(cx), &input).await? {
         Ok(()) => {
-            set_flash(&session(cx)?, Flash::RegistrationSent).await?;
+            let session = session(cx)?;
+            set_flash(&session, Flash::RegistrationSent).await?;
+            remember_link_sent_to(&session, &input.email).await?;
             Ok(sent)
         }
         Err(problem) => Err(redisplay(
@@ -162,5 +143,63 @@ async fn honeypot_field(cx: &Cx) -> Result<impl View> {
                 autocomplete="off"
             >
         </div>
+    })
+}
+
+#[component]
+async fn register_form(
+    cx: &Cx,
+    name: Option<&str>,
+    email: Option<&str>,
+    problem: Option<RegisterProblem>,
+) -> Result<impl View> {
+    let is_submitting = signal(cx, || false);
+
+    Ok(view! {
+        form(
+            submitting: Some(&is_submitting),
+            variant: FormVariant::Page,
+            attrs: attributes! {
+                method="post"
+                action=(href!(register_submit))
+                novalidate=""
+            },
+            form_field(
+                label: "Name",
+                id: "name",
+                autocomplete: Some(Autocomplete::Name),
+                name: NAME_FIELD,
+                placeholder: Some("Name"),
+                value: name,
+                required: true,
+                invalid: problem.is_some_and(RegisterProblem::invalid_name)
+            )
+            form_field(
+                label: "Email",
+                id: "email",
+                autocomplete: Some(Autocomplete::Email),
+                name: EMAIL_FIELD,
+                input_type: InputType::Email,
+                placeholder: Some("Email"),
+                value: email,
+                required: true,
+                invalid: problem.is_some_and(RegisterProblem::invalid_email)
+            )
+            honeypot_field()
+            <input type="hidden" name="time_zone" data-detect-time-zone="">
+            <p class="p-auth__newsletters">
+                "We'll send you our newsletter and product updates. You can turn them off any time in Settings."
+            </p>
+            if let Some(problem) = problem {
+                form_error((problem.message()))
+            }
+            form_actions(
+                button(
+                    button_type: ButtonType::Submit,
+                    busy: $(is_submitting.get()),
+                    "Register account"
+                )
+            )
+        )
     })
 }

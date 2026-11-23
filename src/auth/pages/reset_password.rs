@@ -9,9 +9,10 @@ use topcoat::{
         href, page, path_param, request, route,
     },
     runtime::signal,
-    view::{View, ViewExt, attributes, view},
+    view::{View, ViewExt, attributes, component, view},
 };
 
+use super::link_sent::{link_sent_notice, remember_link_sent_to, take_link_sent_to};
 use super::switch_link::switch_link;
 use crate::action::{ActionProblem, page_status};
 use crate::app::page_title;
@@ -30,7 +31,7 @@ use crate::components::form::{
     Autocomplete, FormVariant, InputType, form, form_actions, form_error, form_field,
 };
 use crate::devices::lifecycle::SignInMethod;
-use crate::flash::{Flash, flash_toast, flash_toasts, set_flash, take_flash};
+use crate::flash::{Flash, set_flash, take_flash};
 use crate::layout::page_heading::page_heading;
 use crate::two_factor::actions::needs_second_factor;
 use crate::two_factor::challenge::begin_second_factor;
@@ -60,8 +61,15 @@ pub async fn reset_password_page(cx: &Cx) -> Result<impl View> {
     let failed = try_context::<ResetRequestFailed>(cx);
     let email = failed.map(|failed| failed.email.clone());
     let problem = failed.map(|failed| failed.problem);
-    let is_submitting = signal(cx, || false);
-    let toast = flash_toast(cx, flash);
+    let sent_to = match flash {
+        Some(_) => take_link_sent_to(cx).await?,
+        None => None,
+    };
+    let sent_after = format!(
+        ", we sent it a link to choose a new password. It expires in {}.",
+        TokenPurpose::PasswordReset.lifetime_text()
+    );
+    let reset_href = href!(reset_password_page).resolve(cx);
     let login_href = href!(login_page).resolve(cx);
 
     Ok(view! {
@@ -70,41 +78,24 @@ pub async fn reset_password_page(cx: &Cx) -> Result<impl View> {
                 (page_status(problem))
             }
             page_heading(text: "Reset password")
-            <p class="p-auth__intro">
-                "Enter your email to receive a link for choosing a fancy new password."
-            </p>
-            flash_toasts(toast: &toast, flashes: FLASHES)
-            form(
-                submitting: Some(&is_submitting),
-                variant: FormVariant::Page,
-                attrs: attributes! { method="post" action=(href!(reset_password_submit)) },
-                form_field(
-                    label: "Email",
-                    id: "email",
-                    autocomplete: Some(Autocomplete::Email),
-                    name: EMAIL_FIELD,
-                    input_type: InputType::Email,
-                    placeholder: Some("Enter email"),
-                    value: email.as_deref(),
-                    required: true,
-                    invalid: problem == Some(ResetRequestProblem::InvalidEmail)
+            if let Some(email) = &sent_to {
+                link_sent_notice(
+                    before: "If an account exists for ",
+                    email: email.as_str(),
+                    after: &sent_after,
+                    again_href: &reset_href
                 )
-                if let Some(problem) = problem {
-                    form_error((problem.message()))
-                }
-                form_actions(
-                    button(
-                        button_type: ButtonType::Submit,
-                        busy: $(is_submitting.get()),
-                        "Send reset link"
-                    )
+            } else {
+                <p class="p-auth__intro">
+                    "Enter your email to receive a link for choosing a fancy new password."
+                </p>
+                reset_form(email: email.as_deref(), problem: problem)
+                switch_link(
+                    prompt: "Do you remember? ",
+                    href: &login_href,
+                    label: "Sign in instead"
                 )
-            )
-            switch_link(
-                prompt: "Do you remember? ",
-                href: &login_href,
-                label: "Sign in instead"
-            )
+            }
         </section>
     })
 }
@@ -116,7 +107,9 @@ pub async fn reset_password_submit(
 ) -> Result<SeeOther> {
     match request_password_reset(&env(cx), &input).await? {
         Ok(()) => {
-            set_flash(&session(cx)?, Flash::ResetLinkSent).await?;
+            let session = session(cx)?;
+            set_flash(&session, Flash::ResetLinkSent).await?;
+            remember_link_sent_to(&session, &input.email).await?;
             Ok(see_other(href!(reset_password_page).resolve(cx)))
         }
         Err(problem) => {
@@ -194,4 +187,42 @@ pub fn link_password_failed(cx: &Cx, problem: LinkPasswordProblem) -> topcoat::E
             redisplay(form_path, LinkPasswordFailed { problem })
         }
     }
+}
+
+#[component]
+async fn reset_form(
+    cx: &Cx,
+    email: Option<&str>,
+    problem: Option<ResetRequestProblem>,
+) -> Result<impl View> {
+    let is_submitting = signal(cx, || false);
+
+    Ok(view! {
+        form(
+            submitting: Some(&is_submitting),
+            variant: FormVariant::Page,
+            attrs: attributes! { method="post" action=(href!(reset_password_submit)) },
+            form_field(
+                label: "Email",
+                id: "email",
+                autocomplete: Some(Autocomplete::Email),
+                name: EMAIL_FIELD,
+                input_type: InputType::Email,
+                placeholder: Some("Enter email"),
+                value: email,
+                required: true,
+                invalid: problem == Some(ResetRequestProblem::InvalidEmail)
+            )
+            if let Some(problem) = problem {
+                form_error((problem.message()))
+            }
+            form_actions(
+                button(
+                    button_type: ButtonType::Submit,
+                    busy: $(is_submitting.get()),
+                    "Send reset link"
+                )
+            )
+        )
+    })
 }
