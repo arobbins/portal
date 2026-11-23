@@ -3,6 +3,7 @@ use topcoat::{
     context::Cx,
     metadata::Metadata,
     router::{href, page, request},
+    runtime::Event,
     view::{View, attributes, component, view},
 };
 
@@ -79,6 +80,7 @@ pub async fn admin_users_page(cx: &Cx) -> Result<impl View> {
 #[component]
 async fn users_search(cx: &Cx, list: &ListQuery<UserSort>) -> Result<impl View> {
     let action = href!(admin_users_page).resolve(cx);
+    let searching = !list.q.is_empty();
 
     Ok(view! {
         form(
@@ -94,17 +96,34 @@ async fn users_search(cx: &Cx, list: &ListQuery<UserSort>) -> Result<impl View> 
                 placeholder: Some("Search by email or name"),
                 id: "admin-user-search",
                 name: "q",
-                value: Some(list.q.as_str())
+                value: Some(list.q.as_str()),
+                attrs: attributes! {
+                    autofocus=(searching.then_some(""))
+                    @input=$(|_e: Event| {
+                        raw!(
+                            "clearTimeout(window.adminSearchTimer); window.adminSearchTimer = setTimeout(() => document.getElementById('admin-user-search').form.requestSubmit(), 400)",
+                            (),
+                        );
+                    })
+                    @focus=$(|_e: Event| {
+                        raw!(
+                            "const field = document.getElementById('admin-user-search'); field.setSelectionRange(field.value.length, field.value.length)",
+                            (),
+                        );
+                    })
+                }
             )
             <input type="hidden" name="sort" value=(list.sort.as_str())>
             <input type="hidden" name="dir" value=(list.direction.as_str())>
-            form_actions(
-                button(
-                    variant: ButtonVariant::Secondary,
-                    button_type: ButtonType::Submit,
-                    "Search"
+            <noscript>
+                form_actions(
+                    button(
+                        variant: ButtonVariant::Secondary,
+                        button_type: ButtonType::Submit,
+                        "Search"
+                    )
                 )
-            )
+            </noscript>
         )
     })
 }

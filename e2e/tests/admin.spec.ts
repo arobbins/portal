@@ -196,7 +196,7 @@ test("an admin signs a user out everywhere and it shows in their activity", asyn
   await userPage.goto("/account");
   await expect(userPage).toHaveURL("/login");
   await logIn(userPage, email, ACCOUNT_PASSWORD);
-  await userPage.goto("/account/security/devices");
+  await userPage.goto("/account/settings/devices");
   const activity = userPage.locator("#activity").getByRole("listitem");
   await expect(
     activity.filter({ hasText: "Signed out of every device" }),
@@ -295,6 +295,28 @@ test("confirming goes back to the admin page that was asked for", async ({
   ).toHaveCount(1);
 });
 
+test("the sidebar's admin links ask to confirm in a dialog, not a page", async ({ page }) => {
+  await logIn(page, adminUser.email, adminUser.password);
+  await expect(page).toHaveURL("/account");
+  const dialog = page.getByRole("dialog", { name: "Admin area" });
+
+  await page
+    .getByRole("navigation", { name: "Account" })
+    .getByRole("link", { name: "Admin log", exact: true })
+    .click();
+  await expect(dialog).toBeVisible();
+  await expect(page).toHaveURL("/account");
+  await expect(dialog).toContainText("It locks again after 15 minutes without activity.");
+  await dialog.getByLabel("Current password").fill("not-the-password");
+  await dialog.getByLabel("Current password").press("Enter");
+  await expect(dialog.getByRole("alert")).toHaveText("Your current password is incorrect.");
+  await expect(page).toHaveURL("/account");
+
+  await dialog.getByLabel("Current password").fill(adminUser.password);
+  await dialog.getByLabel("Current password").press("Enter");
+  await expect(page).toHaveURL("/admin/log");
+});
+
 test.describe("with a passkey-capable device", () => {
   test.skip(
     ({ browserName }) => browserName !== "chromium",
@@ -348,4 +370,17 @@ test.describe("with a passkey-capable device", () => {
     await expect(page).toHaveURL("/login");
     await adminPage.context().close();
   });
+});
+
+test("the user search runs as you type and keeps your place in the box", async ({ page }) => {
+  await openAdmin(page);
+  const search = page.getByLabel("Search by email or name");
+
+  await search.pressSequentially("verified@exam");
+
+  await expect(page).toHaveURL(/q=verified%40exam/);
+  await expect(page.getByRole("row", { name: /verified@example.test/ })).toHaveCount(1);
+  await expect(search).toBeFocused();
+  await expect(search).toHaveValue("verified@exam");
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toBeHidden();
 });
