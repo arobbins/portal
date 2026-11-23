@@ -16,7 +16,7 @@ use crate::components::button::{ButtonType, button};
 use crate::components::copy_field::copy_field;
 use crate::components::form::{DialogForm, dialog_form_error, dialog_input};
 use crate::components::form::{form, form_actions, form_field};
-use crate::components::modal::modal;
+use crate::components::modal::{modal, modal_cancel};
 use crate::components::notice::notice;
 use crate::components::toaster::NO_TOAST;
 use crate::components::tone::Tone;
@@ -128,6 +128,7 @@ async fn create_token_form(
             password_field(form: form, drafts: drafts)
             dialog_form_error(form: form)
             form_actions(
+                modal_cancel(modal_id: CREATE_MODAL)
                 button(
                     button_type: ButtonType::Submit,
                     busy: $(is_submitting.get()),

@@ -9,7 +9,7 @@ use super::dialog::{DialogForm, dialog_form_error};
 use super::layout::{form, form_actions};
 use crate::action::FieldError;
 use crate::components::button::{ButtonType, ButtonVariant, button};
-use crate::components::modal::modal;
+use crate::components::modal::{modal, modal_cancel};
 use crate::components::toaster::NO_TOAST;
 
 pub struct ModalSubmit<'a, P: TypedProcedure> {
@@ -89,7 +89,7 @@ where
                     })
                 },
                 (child)
-                modal_form_footer(form: form, label: label, variant: variant)
+                modal_form_footer(form: form, id: id, label: label, variant: variant)
             )
         )
     })
@@ -99,6 +99,7 @@ where
 async fn modal_form_footer(
     cx: &Cx,
     form: &DialogForm,
+    id: &str,
     label: &str,
     variant: ButtonVariant,
 ) -> Result<impl View> {
@@ -107,6 +108,7 @@ async fn modal_form_footer(
     Ok(view! {
         dialog_form_error(form: form)
         form_actions(
+            modal_cancel(modal_id: id)
             button(
                 variant: variant,
                 button_type: ButtonType::Submit,

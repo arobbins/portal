@@ -7,7 +7,7 @@ use topcoat::{
 
 use super::button::{ButtonType, ButtonVariant, button};
 use super::form::{form, form_actions, form_error};
-use super::modal::modal;
+use super::modal::{modal, modal_cancel};
 
 #[component]
 pub async fn confirm_dialog(
@@ -34,11 +34,7 @@ pub async fn confirm_dialog(
                     form_error((error))
                 }
                 form_actions(
-                    button(
-                        variant: ButtonVariant::Secondary,
-                        attrs: attributes! { command="close" commandfor=(id) },
-                        "Cancel"
-                    )
+                    modal_cancel(modal_id: id)
                     if let Some(submitting) = submitting {
                         button(
                             variant: ButtonVariant::Danger,

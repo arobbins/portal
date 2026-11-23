@@ -1,8 +1,10 @@
 use topcoat::{
     Result,
     context::Cx,
-    view::{Child, View, component, view},
+    view::{Child, View, attributes, component, view},
 };
+
+use super::button::{ButtonVariant, button};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ClosedBy {
@@ -51,5 +53,16 @@ pub async fn modal(
                 "✕"
             </button>
         </dialog>
+    })
+}
+
+#[component]
+pub async fn modal_cancel(cx: &Cx, modal_id: &str) -> Result<impl View> {
+    Ok(view! {
+        button(
+            variant: ButtonVariant::Secondary,
+            attrs: attributes! { command="close" commandfor=(modal_id) },
+            "Cancel"
+        )
     })
 }
