@@ -9,9 +9,11 @@ use topcoat::{
         href, page, route,
     },
     runtime::signal,
-    view::{View, attributes, view},
+    view::{View, attributes, component, view},
 };
 
+use super::login::login_page;
+use super::switch_link::switch_link;
 use crate::action::{ActionProblem, page_status};
 use crate::app::page_title;
 use crate::auth::actions::{EMAIL_FIELD, Register, RegisterProblem, register};
@@ -33,6 +35,8 @@ pub struct RegisterForm {
     email: String,
     #[serde(default)]
     website: String,
+    #[serde(default)]
+    time_zone: String,
 }
 
 struct RegisterFailed {
@@ -52,6 +56,7 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
     let problem = failed.map(|failed| failed.problem);
     let is_submitting = signal(cx, || false);
     let toast = flash_toast(cx, flash);
+    let login_href = href!(login_page).resolve(cx);
 
     Ok(view! {
         <section class="l-contain l-skinny">
@@ -63,7 +68,11 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
             form(
                 submitting: Some(&is_submitting),
                 variant: FormVariant::Page,
-                attrs: attributes! { method="post" action=(href!(register_submit)) },
+                attrs: attributes! {
+                    method="post"
+                    action=(href!(register_submit))
+                    novalidate=""
+                },
                 form_field(
                     label: "Name",
                     id: "name",
@@ -85,16 +94,8 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
                     required: true,
                     invalid: problem.is_some_and(RegisterProblem::invalid_email)
                 )
-                <div class="u-visually-hidden" aria-hidden="true">
-                    <label for="website">"Website"</label>
-                    <input
-                        type="text"
-                        id="website"
-                        name="website"
-                        tabindex="-1"
-                        autocomplete="off"
-                    >
-                </div>
+                honeypot_field()
+                <input type="hidden" name="time_zone" data-detect-time-zone="">
                 <p class="p-auth__newsletters">
                     "We'll send you our newsletter and product updates. You can turn them off any time in Settings."
                 </p>
@@ -108,6 +109,11 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
                         "Register account"
                     )
                 )
+            )
+            switch_link(
+                prompt: "Already have an account? ",
+                href: &login_href,
+                label: "Sign in"
             )
         </section>
     })
@@ -125,6 +131,7 @@ pub async fn register_submit(cx: &Cx, Form(form): Form<RegisterForm>) -> Result<
     let input = Register {
         name: form.name,
         email: form.email,
+        time_zone: Some(form.time_zone).filter(|zone| !zone.is_empty()),
     };
     match register(&env(cx), &input).await? {
         Ok(()) => {
@@ -140,4 +147,20 @@ pub async fn register_submit(cx: &Cx, Form(form): Form<RegisterForm>) -> Result<
             },
         )),
     }
+}
+
+#[component]
+async fn honeypot_field(cx: &Cx) -> Result<impl View> {
+    Ok(view! {
+        <div class="u-visually-hidden" aria-hidden="true">
+            <label for="website">"Website"</label>
+            <input
+                type="text"
+                id="website"
+                name="website"
+                tabindex="-1"
+                autocomplete="off"
+            >
+        </div>
+    })
 }

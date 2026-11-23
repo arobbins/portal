@@ -73,3 +73,14 @@ test("signing up twice at the same moment doesn't crash", async ({ page }, testI
   expect(responses.map((response) => response.status())).toEqual([303, 303, 303]);
   await waitForEmails(email);
 });
+
+test("an empty registration shows the app's own error and links to sign in", async ({ page }) => {
+  await page.goto("/register");
+  await page.getByRole("button", { name: "Register account" }).click();
+
+  await expect(page.getByRole("alert")).toHaveText("Please enter your name and email.");
+  await expect(page.getByLabel("Name")).toHaveAttribute("aria-invalid", "true");
+
+  await page.getByRole("link", { name: "Sign in", exact: true }).last().click();
+  await expect(page).toHaveURL("/login");
+});
