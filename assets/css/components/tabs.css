@@ -34,3 +34,28 @@
   border-bottom-color: var(--color-accent);
   color: var(--color-text-strong);
 }
+
+@media (--phone) {
+  .a-tabs {
+    border-bottom: none;
+  }
+
+  .a-tabs__list {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    overflow-x: visible;
+  }
+
+  .a-tabs__tab {
+    margin-bottom: 0;
+    padding: var(--space-1-5) var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    font-size: var(--text-sm);
+  }
+
+  .a-tabs__tab--is-active {
+    border-color: var(--color-accent);
+    background-color: var(--color-surface-hover);
+  }
+}
