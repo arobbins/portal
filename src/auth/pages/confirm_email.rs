@@ -10,7 +10,7 @@ use topcoat::{
     view::{View, ViewExt, attributes, component, view},
 };
 
-use crate::account::tabs::AccountTab;
+use crate::account::tabs::AccountPage;
 use crate::action::{ActionProblem, page_status};
 use crate::app::page_title;
 use crate::auth::actions::{ConfirmEmailProblem, confirm_email_change, pending_email_change};
@@ -104,7 +104,7 @@ pub async fn confirm_email_submit(cx: &Cx) -> Result<SeeOther> {
                 stay_signed_in(app(cx), &session, &user).await?;
             }
             set_flash(&session, Flash::EmailChanged).await?;
-            Ok(see_other(AccountTab::Profile.path()))
+            Ok(see_other(AccountPage::Profile.path()))
         }
         Err(problem) => Err(redisplay(
             request::uri(cx).path(),

@@ -114,3 +114,4 @@ this records each person's choice, ready for whatever sends them later.
 - 2026-11-18: fixed the confirmation, error and Save button wording and the API field
   names (gaps found by the scenario writer).
 - 2026-11-18: approved (interview answers plus accepted defaults and wording).
+- 2026-11-19: Profile and Security moved under Settings; the activity list is now at /account/settings/devices.

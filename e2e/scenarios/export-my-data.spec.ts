@@ -87,7 +87,7 @@ test.describe("with an API token", () => {
 
   test("S3 the owner is told and the export is in their activity", async () => {
     await waitForEmailAbout(email, DOWNLOADED_EMAIL);
-    await page.goto("/account/security/devices");
+    await page.goto("/account/settings/devices");
     const activity = page.locator("#activity").getByRole("listitem");
     await expect(activity.filter({ hasText: EXPORTED_ACTIVITY })).toHaveCount(1);
   });

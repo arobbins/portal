@@ -13,7 +13,7 @@ pub enum TabState {
 pub enum TabEvent {
     Open(AccountPage),
     OpenAccount,
-    OpenSecurity,
+    OpenSettings,
     OpenUnknown,
     SignOut,
 }
@@ -48,7 +48,7 @@ pub const ACCOUNT_TAB: Machine<TabState, TabEvent> = Machine {
         E::Open(P::TimeZone),
         E::Open(P::Developer),
         E::OpenAccount,
-        E::OpenSecurity,
+        E::OpenSettings,
         E::OpenUnknown,
         E::SignOut,
     ],
@@ -76,7 +76,7 @@ pub fn expect(from: TabState, event: TabEvent) -> Expect<TabState> {
         (S::SignedOut, _) => Refused,
         (_, E::Open(page)) => Moves(S::Shows(page)),
         (_, E::OpenAccount) => Moves(S::Shows(P::Profile)),
-        (_, E::OpenSecurity) => Moves(S::Shows(P::SignIn)),
+        (_, E::OpenSettings) => Moves(S::Shows(P::Profile)),
         (_, E::OpenUnknown) => Moves(S::NotFound),
         (_, E::SignOut) => Moves(S::SignedOut),
     }
@@ -112,7 +112,7 @@ impl Labeled for TabEvent {
             E::Open(P::TimeZone) => "open_time_zone",
             E::Open(P::Developer) => "open_developer",
             E::OpenAccount => "open_account",
-            E::OpenSecurity => "open_security",
+            E::OpenSettings => "open_settings",
             E::OpenUnknown => "open_unknown",
             E::SignOut => "sign_out",
         }
@@ -129,7 +129,7 @@ impl Labeled for TabEvent {
             E::Open(P::TimeZone) => "Opens the Time zone page's URL",
             E::Open(P::Developer) => "Opens the Developer page's URL",
             E::OpenAccount => "Opens /account",
-            E::OpenSecurity => "Opens /account/security, a section with several pages",
+            E::OpenSettings => "Opens /account/settings, a section with several pages",
             E::OpenUnknown => "Opens an unknown page's URL",
             E::SignOut => "Signs out, then reloads",
         }

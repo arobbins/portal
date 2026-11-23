@@ -24,7 +24,7 @@ export async function withoutPasskeyAutofill(page: Page) {
 }
 
 export async function addPasskeyToAccount(page: Page) {
-  await page.goto("/account/security");
+  await page.goto("/account/settings/authentication");
   await page.getByRole("button", { name: "Add passkey" }).click();
   const add = page.getByRole("dialog", { name: "Add passkey" });
   await add.getByLabel("Current password").fill(ACCOUNT_PASSWORD);

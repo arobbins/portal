@@ -40,7 +40,7 @@ test("unfinished pages say so instead of showing the profile", async ({
     for (const anchor of expected.cards) {
       await expect(page.locator(`#${anchor}`)).toContainText("Coming soon.");
     }
-    await expect(page.getByText(`Name: ${verifiedUser.name}`)).toHaveCount(0);
+    await expect(page.locator("#your-details")).toHaveCount(0);
   }
 });
 
@@ -70,21 +70,21 @@ test("a single-page section has no tabs", async ({ page }) => {
   );
 });
 
-test("the profile has one address", async ({ page }) => {
-  await page.goto("/account/profile");
+test("the settings section opens on the profile", async ({ page }) => {
+  await page.goto("/account/settings");
 
   await expect(page).toHaveURL("/account");
   await expect(
     page.getByRole("navigation", { name: "Account" }).getByRole("link", { name: "Profile" }),
   ).toHaveAttribute("aria-current", "page");
 
-  await expect(page.getByText(`Name: ${verifiedUser.name}`)).toBeVisible();
+  await expect(page.locator("#your-details")).toContainText(verifiedUser.name);
 });
 
 test("an unknown account section is a 404", async ({ page }) => {
   for (const path of [
     "/account/not-a-tab",
-    "/account/security/not-a-page",
+    "/account/settings/not-a-page",
     "/account/profile/extra",
   ]) {
     const response = await page.goto(path);

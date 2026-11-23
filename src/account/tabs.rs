@@ -9,26 +9,16 @@ pub enum AccountArea {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AccountTab {
-    Profile,
-    Security,
-    Billing,
     Settings,
+    Billing,
     Developer,
 }
 
 impl AccountTab {
-    pub const ALL: [Self; 5] = [
-        Self::Profile,
-        Self::Security,
-        Self::Billing,
-        Self::Settings,
-        Self::Developer,
-    ];
+    pub const ALL: [Self; 3] = [Self::Settings, Self::Billing, Self::Developer];
 
     pub fn slug(self) -> &'static str {
         match self {
-            Self::Profile => "profile",
-            Self::Security => "security",
             Self::Billing => "billing",
             Self::Settings => "settings",
             Self::Developer => "developer",
@@ -41,8 +31,6 @@ impl AccountTab {
 
     pub fn heading(self) -> &'static str {
         match self {
-            Self::Profile => "Profile",
-            Self::Security => "Security",
             Self::Billing => "Billing",
             Self::Settings => "Settings",
             Self::Developer => "Developer",
@@ -55,10 +43,14 @@ impl AccountTab {
 
     pub fn pages(self) -> &'static [AccountPage] {
         match self {
-            Self::Profile => &[AccountPage::Profile],
-            Self::Security => &[AccountPage::SignIn, AccountPage::Devices],
+            Self::Settings => &[
+                AccountPage::Profile,
+                AccountPage::SignIn,
+                AccountPage::Devices,
+                AccountPage::Notifications,
+                AccountPage::TimeZone,
+            ],
             Self::Billing => &[AccountPage::Plan, AccountPage::Invoices],
-            Self::Settings => &[AccountPage::Notifications, AccountPage::TimeZone],
             Self::Developer => &[AccountPage::Developer],
         }
     }
@@ -282,17 +274,20 @@ mod tests {
     #[test]
     fn a_page_has_its_own_path_only_when_its_tab_has_several() {
         assert_eq!(AccountPage::Profile.path(), "/account");
-        assert_eq!(AccountPage::Devices.path(), "/account/security/devices");
+        assert_eq!(AccountPage::Devices.path(), "/account/settings/devices");
+        assert_eq!(AccountTab::Settings.path(), "/account");
         assert_eq!(
-            AccountTab::Security.path(),
-            "/account/security/authentication"
+            AccountPage::SignIn.path(),
+            "/account/settings/authentication"
         );
         assert_eq!(
             AccountSection::Activity.path(),
-            "/account/security/devices#activity"
+            "/account/settings/devices#activity"
         );
         for page in AccountPage::ALL {
-            assert_eq!(page.slug().is_some(), page.tab().pages().len() > 1);
+            if page != AccountPage::Profile {
+                assert_eq!(page.slug().is_some(), page.tab().pages().len() > 1);
+            }
             assert_eq!(
                 AccountPage::from_slugs(page.tab().slug(), page.slug()),
                 Some(page)

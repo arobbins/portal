@@ -93,7 +93,7 @@ async fn apply(browser: &mut Browser, event: TabEvent, path: &mut String) -> See
     *path = match event {
         E::Open(page) => page.path(),
         E::OpenAccount => ACCOUNT_PATH.to_string(),
-        E::OpenSecurity => format!("{ACCOUNT_PATH}/{}", AccountTab::Security.slug()),
+        E::OpenSettings => format!("{ACCOUNT_PATH}/{}", AccountTab::Settings.slug()),
         E::OpenUnknown => UNKNOWN_TAB.to_string(),
         E::SignOut => {
             browser.post(crate::routes::LOGOUT_PATH, "").await;

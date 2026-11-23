@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use sqlx::PgPool;
 
 use super::*;
-use crate::account::tabs::{AccountPage, AccountTab};
+use crate::account::tabs::AccountPage;
 use crate::env::App;
 use crate::flash::{Flash, SESSION_FLASH};
 use crate::state_machines::testing::{Browser, assets, location};
@@ -55,7 +55,7 @@ async fn every_flash_state_and_event_behaves_as_declared(db: PgPool) {
 
 impl Visitor {
     async fn arrange(&mut self, from: FlashState) {
-        self.browser.get(&AccountTab::Security.path()).await;
+        self.browser.get(&AccountPage::SignIn.path()).await;
         match from {
             S::Empty => {}
             S::PasswordChanged => self.change_password().await,
@@ -76,7 +76,7 @@ impl Visitor {
             E::SignOutOthers => self.sign_out_others().await,
             E::OpenSignIn => shown_page = Some(self.open(&AccountPage::SignIn.path()).await),
             E::OpenDevices => shown_page = Some(self.open(&AccountPage::Devices.path()).await),
-            E::OpenProfile => shown_page = Some(self.open(&AccountTab::Profile.path()).await),
+            E::OpenProfile => shown_page = Some(self.open(&AccountPage::Profile.path()).await),
             E::SignOut => {
                 self.browser.post(crate::routes::LOGOUT_PATH, "").await;
             }

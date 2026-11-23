@@ -41,11 +41,17 @@ test("account pages fit a phone screen", async ({ page }, testInfo) => {
     await page.goto(path);
     await expectNoSidewaysScroll(page);
   }
-  await page.getByRole("link", { name: "Security", exact: true }).click();
-  await expect(page).toHaveURL("/account/security/authentication");
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await expect(page).toHaveURL("/account");
   await page
-    .getByRole("navigation", { name: "Security" })
+    .getByRole("navigation", { name: "Settings" })
+    .getByRole("link", { name: "Authentication" })
+    .click();
+  await expect(page).toHaveURL("/account/settings/authentication");
+  await expectNoSidewaysScroll(page);
+  await page
+    .getByRole("navigation", { name: "Settings" })
     .getByRole("link", { name: "Devices and activity" })
     .click();
-  await expect(page).toHaveURL("/account/security/devices");
+  await expect(page).toHaveURL("/account/settings/devices");
 });

@@ -9,7 +9,7 @@ use topcoat::{
     runtime::procedure,
 };
 
-use crate::account::tabs::AccountTab;
+use crate::account::tabs::AccountPage;
 use crate::action::{ActionResult, Caller, FieldError, browser_caller, require_browser_caller};
 use crate::auth::actions::{DeleteAccount, DeleteAccountProblem, delete_account};
 use crate::auth::pages::login::login_page;
@@ -50,7 +50,7 @@ pub async fn delete_account_submit(cx: &Cx, Form(input): Form<DeleteAccount>) ->
         Err(error) => {
             let problem = error.for_browser()?;
             Err(redisplay(
-                AccountTab::Profile.path(),
+                AccountPage::Profile.path(),
                 DeleteAccountFailed { problem },
             ))
         }

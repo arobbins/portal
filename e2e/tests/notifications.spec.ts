@@ -68,7 +68,7 @@ test("sign-in alerts can be turned off without JavaScript", async ({ browser }, 
 
 test("changing the password is always emailed", async ({ page }, testInfo) => {
   const email = await createAccount(page, testInfo, "Password Changer");
-  await page.goto("/account/security/authentication");
+  await page.goto("/account/settings/authentication");
   await page.getByRole("button", { name: "Change password" }).click();
   const dialog = page.getByRole("dialog", { name: "Change password" });
   await dialog.getByLabel("Current password").fill(ACCOUNT_PASSWORD);

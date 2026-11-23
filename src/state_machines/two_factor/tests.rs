@@ -10,7 +10,7 @@ use crate::state_machines::{CellResult, failures, write_results};
 use crate::two_factor::codes::{code_at, new_secret};
 use crate::user::testing::{TEST_PASSWORD, active_user};
 
-const PAGE: &str = "/account/security/authentication";
+const PAGE: &str = "/account/settings/authentication";
 const SHOWN_ONCE: &str = "see them again.";
 const ON_EMAIL: &str = "Two-factor authentication is on";
 const OFF_EMAIL: &str = "Two-factor authentication is off";

@@ -9,7 +9,7 @@ use topcoat::{
     runtime::procedure,
 };
 
-use crate::account::tabs::AccountTab;
+use crate::account::tabs::AccountPage;
 use crate::action::{ActionResult, Caller, FieldError, browser_caller, require_browser_caller};
 use crate::auth::actions::{ChangeEmail, ChangeEmailProblem, request_email_change};
 use crate::auth::reauth::{return_passkey_proof, take_passkey_proof};
@@ -47,12 +47,12 @@ pub async fn change_email_submit(cx: &Cx, Form(input): Form<ChangeEmail>) -> Res
     match change_email(cx, &caller, &input).await? {
         Ok(()) => {
             set_flash(&session(cx)?, Flash::EmailChangeSent).await?;
-            Ok(see_other(AccountTab::Profile.path()))
+            Ok(see_other(AccountPage::Profile.path()))
         }
         Err(error) => {
             let problem = error.for_browser()?;
             Err(redisplay(
-                AccountTab::Profile.path(),
+                AccountPage::Profile.path(),
                 EmailChangeFailed { problem },
             ))
         }

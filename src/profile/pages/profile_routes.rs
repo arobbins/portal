@@ -9,7 +9,7 @@ use topcoat::{
     runtime::procedure,
 };
 
-use crate::account::tabs::AccountTab;
+use crate::account::tabs::AccountPage;
 use crate::action::{FieldError, browser_caller, require_browser_caller};
 use crate::flash::{Flash, set_flash};
 use crate::profile::actions::{UpdateProfile, update_profile};
@@ -40,7 +40,7 @@ pub async fn update_profile_submit(cx: &Cx, Form(input): Form<UpdateProfile>) ->
     match update_profile(&env(cx), &caller, &input).await? {
         Ok(_) => {
             set_flash(&session(cx)?, Flash::ProfileSaved).await?;
-            Ok(see_other(AccountTab::Profile.path()))
+            Ok(see_other(AccountPage::Profile.path()))
         }
         Err(error) => {
             let problem = error.for_browser()?;
@@ -48,7 +48,7 @@ pub async fn update_profile_submit(cx: &Cx, Form(input): Form<UpdateProfile>) ->
                 name: input.name,
                 problem,
             };
-            Err(redisplay(AccountTab::Profile.path(), failed))
+            Err(redisplay(AccountPage::Profile.path(), failed))
         }
     }
 }

@@ -34,7 +34,7 @@ async function flip(page: Page, name: string) {
 }
 
 async function openActivity(page: Page) {
-  await page.goto("/account/security/devices");
+  await page.goto("/account/settings/devices");
   return activity(page);
 }
 

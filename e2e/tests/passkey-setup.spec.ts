@@ -95,7 +95,7 @@ test.describe("with a passkey-capable device", () => {
 
     await page.getByRole("button", { name: "Add passkey" }).click();
 
-    await expect(page).toHaveURL("/account/security/authentication#passkeys");
+    await expect(page).toHaveURL("/account/settings/authentication#passkeys");
     await expect(page.getByText("Passkey added. You can now use it to sign in.")).toHaveCSS(
       "opacity",
       "1",

@@ -2,11 +2,13 @@ use crate::routes::API_DOCS_PATH;
 use topcoat::{
     Result,
     context::Cx,
+    runtime::{Event, Signal},
     view::{View, component, view},
 };
 
 use crate::account::tabs::{AccountArea, AccountTab};
 use crate::admin::pages::admin_shell::AdminSection;
+use crate::admin::pages::admin_unlock_dialog::ADMIN_UNLOCK_MODAL;
 use crate::components::icon::{IconName, icon};
 use crate::web::config;
 
@@ -18,6 +20,7 @@ struct NavPage {
 
 struct NavSection {
     label: &'static str,
+    admin: bool,
     icon: IconName,
     href: String,
     active: bool,
@@ -32,6 +35,7 @@ impl NavSection {
         let single = pages.len() == 1;
         Self {
             label,
+            admin: false,
             icon,
             href,
             active,
@@ -66,15 +70,15 @@ fn sections(cx: &Cx, active: AccountArea, is_admin: bool) -> Vec<NavSection> {
                 current: active == AccountArea::Admin(section),
             })
             .collect();
-        sections.push(NavSection::of("Admin", IconName::UserSquare, pages));
+        let mut admin = NavSection::of("Admin", IconName::UserSquare, pages);
+        admin.admin = true;
+        sections.push(admin);
     }
     sections
 }
 
 fn tab_icon(tab: AccountTab) -> IconName {
     match tab {
-        AccountTab::Profile => IconName::User,
-        AccountTab::Security => IconName::Shield,
         AccountTab::Billing => IconName::CreditCard,
         AccountTab::Settings => IconName::Settings,
         AccountTab::Developer => IconName::Code,
@@ -82,7 +86,12 @@ fn tab_icon(tab: AccountTab) -> IconName {
 }
 
 #[component]
-pub async fn account_nav(cx: &Cx, active: AccountArea, is_admin: bool) -> Result<impl View> {
+pub async fn account_nav(
+    cx: &Cx,
+    active: AccountArea,
+    is_admin: bool,
+    #[default] admin_unlock: Option<&Signal<String>>,
+) -> Result<impl View> {
     let sections = sections(cx, active, is_admin);
     let external_links = external_links(cx);
 
@@ -95,6 +104,7 @@ pub async fn account_nav(cx: &Cx, active: AccountArea, is_admin: bool) -> Result
                         active: section.active,
                         current: section.current,
                         leading_icon: Some(section.icon),
+                        unlock: admin_unlock.filter(|_| section.admin),
                         text: section.label
                     )
                     if !section.pages.is_empty() {
@@ -105,6 +115,7 @@ pub async fn account_nav(cx: &Cx, active: AccountArea, is_admin: bool) -> Result
                                         href: page.href.as_str(),
                                         active: page.current,
                                         current: page.current,
+                                        unlock: admin_unlock.filter(|_| section.admin),
                                         text: page.label
                                     )
                                 </li>
@@ -117,7 +128,6 @@ pub async fn account_nav(cx: &Cx, active: AccountArea, is_admin: bool) -> Result
                 <li class="l-nav__list-item p-account__nav-external">
                     <a href=(href.as_str()) class="l-nav__link l-nav__link-external">
                         (*label)
-                        " "
                         icon(name: IconName::ExternalLink)
                     </a>
                 </li>
@@ -145,19 +155,39 @@ async fn nav_link(
     active: bool,
     current: bool,
     #[default] leading_icon: Option<IconName>,
+    #[default] unlock: Option<&Signal<String>>,
     text: &str,
 ) -> Result<impl View> {
     let class = match (active, current) {
         (_, true) => "l-nav__link p-account__nav-link--is-current",
         _ => "l-nav__link",
     };
+    let target = href.to_string();
+    let modal_id = ADMIN_UNLOCK_MODAL.to_string();
 
     Ok(view! {
-        <a href=(href) aria-current=(current.then_some("page")) class=(class)>
-            if let Some(name) = leading_icon {
-                icon(name: name)
-            }
-            (text)
-        </a>
+        if let Some(next) = unlock {
+            <a
+                href=(href)
+                class=(class)
+                @click=$(|e: Event| {
+                    e.prevent_default();
+                    next.set(target.clone());
+                    raw!("document.getElementById(String(${modal_id})).showModal()", ());
+                })
+            >
+                if let Some(name) = leading_icon {
+                    icon(name: name)
+                }
+                (text)
+            </a>
+        } else {
+            <a href=(href) aria-current=(current.then_some("page")) class=(class)>
+                if let Some(name) = leading_icon {
+                    icon(name: name)
+                }
+                (text)
+            </a>
+        }
     })
 }

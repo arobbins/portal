@@ -7,7 +7,7 @@ use topcoat::{
     runtime::procedure,
 };
 
-use crate::account::tabs::AccountTab;
+use crate::account::tabs::AccountPage;
 use crate::action::{ActionResult, Caller, FieldError, browser_caller, require_browser_caller};
 use crate::auth::reauth::{return_passkey_proof, take_passkey_proof};
 use crate::data_export::actions::{DataExport, ExportData, ExportProblem, export_data};
@@ -48,7 +48,7 @@ pub async fn export_data_submit(cx: &Cx, Form(input): Form<ExportData>) -> Resul
         Err(error) => {
             let problem = error.for_browser()?;
             Err(redisplay(
-                AccountTab::Profile.path(),
+                AccountPage::Profile.path(),
                 ExportFailed { problem },
             ))
         }
