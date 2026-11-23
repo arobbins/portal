@@ -1,6 +1,7 @@
 use topcoat::{
     Result,
     context::Cx,
+    runtime::{Event, Signal, signal},
     view::{Attributes, View, component, view},
 };
 
@@ -19,26 +20,51 @@ pub async fn form_input(
     #[default] autocomplete: Option<Autocomplete>,
     #[default] invalid: bool,
     #[default] max_length: Option<usize>,
+    #[default] hint_id: Option<&str>,
+    #[default] revealed: Option<&Signal<bool>>,
     #[default] attrs: Attributes,
 ) -> Result<impl View> {
     let max_length = max_length.map(|length| length.to_string());
+    let described_by = described_by(hint_id, invalid);
 
     Ok(view! {
-        <input
-            class="a-form-input"
-            id=(id)
-            name=(name)
-            type=(input_type.as_str())
-            placeholder=(placeholder)
-            value=(value)
-            required=(required)
-            autocomplete=(autocomplete.map(Autocomplete::as_str))
-            maxlength=(max_length)
-            aria-invalid=(invalid_attr(invalid))
-            aria-describedby=(error_link(invalid))
-            (attrs)
-        >
+        if let Some(revealed) = revealed {
+            <input
+                class="a-form-input"
+                id=(id)
+                name=(name)
+                :type=$(if revealed.get() { "text" } else { "password" })
+                placeholder=(placeholder)
+                value=(value)
+                required=(required)
+                autocomplete=(autocomplete.map(Autocomplete::as_str))
+                maxlength=(max_length.clone())
+                aria-invalid=(invalid_attr(invalid))
+                aria-describedby=(described_by.clone())
+                (attrs)
+            >
+        } else {
+            <input
+                class="a-form-input"
+                id=(id)
+                name=(name)
+                type=(input_type.as_str())
+                placeholder=(placeholder)
+                value=(value)
+                required=(required)
+                autocomplete=(autocomplete.map(Autocomplete::as_str))
+                maxlength=(max_length)
+                aria-invalid=(invalid_attr(invalid))
+                aria-describedby=(described_by)
+                (attrs)
+            >
+        }
     })
+}
+
+fn described_by(hint_id: Option<&str>, invalid: bool) -> Option<String> {
+    let ids: Vec<&str> = hint_id.into_iter().chain(error_link(invalid)).collect();
+    (!ids.is_empty()).then(|| ids.join(" "))
 }
 
 #[component]
@@ -56,8 +82,13 @@ pub async fn form_field(
     #[default] label_link: Option<LabelLink<'_>>,
     #[default] hide_label: bool,
     #[default] max_length: Option<usize>,
+    #[default] hint: Option<&str>,
+    #[default] reveal: bool,
     #[default] attrs: Attributes,
 ) -> Result<impl View> {
+    let hint_id = hint.map(|_| format!("{id}-hint"));
+    let revealed = signal(cx, || false);
+
     Ok(view! {
         form_group(
             if let Some(link) = label_link {
@@ -65,8 +96,24 @@ pub async fn form_field(
                     form_label(for_id: id, (label))
                     <a class="a-form-label-row__link" href=(link.href)>(link.text)</a>
                 </div>
+            } else if reveal {
+                <div class="a-form-label-row">
+                    form_label(for_id: id, (label))
+                    <button
+                        type="button"
+                        class="a-form-label-row__link"
+                        aria-controls=(id)
+                        :aria-pressed=$(if revealed.get() { "true" } else { "false" })
+                        @click=$(|_e: Event| revealed.set(!revealed.get()))
+                    >
+                        "Show password"
+                    </button>
+                </div>
             } else {
                 form_label(for_id: id, hidden: hide_label, (label))
+            }
+            if let (Some(hint), Some(hint_id)) = (hint, hint_id.as_deref()) {
+                <p class="a-form-hint" id=(hint_id)>(hint)</p>
             }
             form_input(
                 id: id,
@@ -78,6 +125,8 @@ pub async fn form_field(
                 autocomplete: autocomplete,
                 invalid: invalid,
                 max_length: max_length,
+                hint_id: hint_id.as_deref(),
+                revealed: reveal.then_some(&revealed),
                 attrs: attrs
             )
         )

@@ -55,6 +55,12 @@
   }
 }
 
+.a-form-hint {
+  margin: calc(-1 * var(--space-1)) 0 var(--form-label-gap);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
 .a-form-input {
   display: block;
   width: 100%;

@@ -30,7 +30,8 @@ pub async fn new_password_fields(
             autocomplete: Some(Autocomplete::NewPassword),
             name: PASSWORD_FIELD,
             input_type: InputType::Password,
-            placeholder: Some(&length_hint),
+            hint: Some(&length_hint),
+            reveal: true,
             required: true,
             invalid: problem.is_some_and(PasswordProblem::invalid_password),
             attrs: password_attrs
@@ -41,7 +42,7 @@ pub async fn new_password_fields(
             autocomplete: Some(Autocomplete::NewPassword),
             name: CONFIRMATION_FIELD,
             input_type: InputType::Password,
-            placeholder: Some("Confirm password"),
+            reveal: true,
             required: true,
             invalid: problem.is_some_and(PasswordProblem::invalid_confirmation),
             attrs: confirmation_attrs
