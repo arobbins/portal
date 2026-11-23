@@ -29,6 +29,11 @@ pub fn parse_email(input: &str) -> Option<String> {
     is_plausible.then(|| email.to_lowercase())
 }
 
+pub fn count(n: i64, one: &str, many: &str) -> String {
+    let noun = if n == 1 { one } else { many };
+    format!("{n} {noun}")
+}
+
 pub fn escape_html(text: &str) -> String {
     let mut escaped = String::with_capacity(text.len());
     for character in text.chars() {
@@ -46,6 +51,13 @@ pub fn escape_html(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn counts_say_one_thing_or_several_things() {
+        assert_eq!(super::count(1, "device", "devices"), "1 device");
+        assert_eq!(super::count(0, "device", "devices"), "0 devices");
+        assert_eq!(super::count(2, "passkey", "passkeys"), "2 passkeys");
+    }
+
     use super::*;
 
     #[test]

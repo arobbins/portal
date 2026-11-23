@@ -21,6 +21,7 @@ use crate::components::notice::notice;
 use crate::components::property_list::{PropertyTag, property, property_list};
 use crate::components::tone::Tone;
 use crate::flash::{Flash, flash_toast, flash_toasts, take_flash};
+use crate::utils::count;
 use crate::web::env;
 
 path_param!(pub id);
@@ -73,10 +74,12 @@ async fn account_card(cx: &Cx, overview: &UserOverview) -> Result<impl View> {
     let (status, tone) = status_label(listed_status(user));
     let status_tags = vec![PropertyTag::new(status, tone)];
     let counts = &overview.counts;
-    let security = format!(
-        "{} passkeys · {} signed-in devices · {} API tokens",
-        counts.passkeys, counts.devices, counts.api_tokens
-    );
+    let security = [
+        count(counts.passkeys, "passkey", "passkeys"),
+        count(counts.devices, "signed-in device", "signed-in devices"),
+        count(counts.api_tokens, "API token", "API tokens"),
+    ]
+    .join(" · ");
     let joined = crate::auth::session::viewer_zone(cx).date(counts.created_at);
 
     Ok(view! {
