@@ -55,6 +55,8 @@ pub const PASSKEY_REAUTH: Machine<ProofState, ProofEvent> = Machine {
         writer(EXPORT, "return_passkey_proof", &[E::UseItAndFail]),
         writer(ADMIN, "take_passkey_proof", &[E::UseIt]),
         writer(ADMIN, "return_passkey_proof", &[E::UseItAndFail]),
+        writer(ADMIN_DIALOG, "take_passkey_proof", &[E::UseIt]),
+        writer(ADMIN_DIALOG, "return_passkey_proof", &[E::UseItAndFail]),
         writer(TWO_FACTOR_TAKE, "take_passkey_proof", &[E::UseIt]),
         writer(
             TWO_FACTOR_RETURN,
@@ -72,6 +74,7 @@ const TOKEN: &str = "src/api_tokens/pages/token_routes.rs:create_token";
 const DELETE: &str = "src/profile/pages/delete_routes.rs:remove_account";
 const EXPORT: &str = "src/data_export/pages/export_routes.rs:run_export";
 const ADMIN: &str = "src/admin/pages/admin_confirm.rs:admin_confirm_submit";
+const ADMIN_DIALOG: &str = "src/admin/pages/admin_unlock_routes.rs:unlock_admin_js";
 const TWO_FACTOR_TAKE: &str = "src/two_factor/pages/two_factor_routes.rs:proof";
 const TWO_FACTOR_RETURN: &str = "src/two_factor/pages/two_factor_routes.rs:failed";
 const REMOVE: &str = "src/passkeys/pages/passkey_routes.rs:remove_passkey_submit";

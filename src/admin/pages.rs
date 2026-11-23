@@ -1,6 +1,8 @@
 pub mod admin_access;
 pub mod admin_confirm;
 pub mod admin_shell;
+pub mod admin_unlock_dialog;
+mod admin_unlock_routes;
 pub mod feedback_page;
 pub mod log_page;
 mod user_actions;

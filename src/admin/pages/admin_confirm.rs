@@ -11,8 +11,9 @@ use topcoat::{
     view::{View, attributes, view},
 };
 
-use super::admin_access::{ADMIN_IDLE_LIMIT, admin_caller, take_return_to, unlock_admin};
-use super::users_page::admin_users_page;
+use super::admin_access::{
+    ADMIN_IDLE_LIMIT, admin_caller, admin_destination, take_return_to, unlock_admin,
+};
 use crate::action::ActionProblem;
 use crate::admin::actions::{ConfirmAdmin, confirm_admin};
 use crate::app::page_title;
@@ -73,9 +74,7 @@ pub async fn admin_confirm_submit(cx: &Cx, Form(input): Form<ConfirmAdmin>) -> R
         Ok(()) => {
             unlock_admin(&session, &caller.user, env.now()).await?;
             let next = take_return_to(&session).await?;
-            Ok(see_other(
-                next.unwrap_or_else(|| href!(admin_users_page).resolve(cx)),
-            ))
+            Ok(see_other(admin_destination(cx, next)))
         }
         Err(error) => {
             return_passkey_proof(&session, passkey).await?;

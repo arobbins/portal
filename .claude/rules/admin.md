@@ -16,7 +16,10 @@ paths:
   within the last 15 minutes (`ADMIN_IDLE_LIMIT`, sliding, bound to
   `session_version` and to `users.admin_granted_at`, which is set exactly
   while the role is admin, so revoking and granting again locks it; a locked GET is remembered and reopened after
-  confirming). Actions (disable, enable, sign out everywhere, resend
+  confirming). While locked, the sidebar's Admin links open the "Admin area"
+  dialog (`admin_unlock_dialog`, procedure `unlock_admin_js`) and go to the
+  clicked page after confirming; `/admin/confirm` is only the fallback for
+  direct URLs and no-JS. Actions (disable, enable, sign out everywhere, resend
   confirmation, delete) refuse the admin's own account and other admins
   (`AdminUserProblem`), lock the target row (`FOR UPDATE`) inside their
   transaction, are idempotent (enabling an active account changes nothing),

@@ -46,6 +46,11 @@ pub const ADMIN_UNLOCK: Machine<UnlockState, UnlockEvent> = Machine {
             events: &[E::Confirm],
         },
         Writer {
+            caller: "src/admin/pages/admin_unlock_routes.rs:unlock_admin_js",
+            query: "unlock_admin",
+            events: &[E::Confirm],
+        },
+        Writer {
             caller: "src/admin/pages/admin_access.rs:require_admin",
             query: "unlock_admin",
             events: &[E::OpenSoon],

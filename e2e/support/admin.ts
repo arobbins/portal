@@ -9,8 +9,9 @@ export async function openAdmin(page: Page) {
     .getByRole("navigation", { name: "Account" })
     .getByRole("link", { name: "Admin", exact: true })
     .click();
-  await expect(page).toHaveURL("/admin/confirm");
-  await page.getByLabel("Current password").fill(adminUser.password);
-  await page.getByLabel("Current password").press("Enter");
+  const dialog = page.getByRole("dialog", { name: "Admin area" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("Current password").fill(adminUser.password);
+  await dialog.getByLabel("Current password").press("Enter");
   await expect(page).toHaveURL("/admin/users");
 }

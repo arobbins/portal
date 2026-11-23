@@ -12,6 +12,7 @@ use topcoat::{
 use tower_sessions::Session;
 
 use super::admin_confirm::admin_confirm_page;
+use super::users_page::admin_users_page;
 use crate::action::{Caller, browser_caller};
 use crate::permission::Permission;
 use crate::user::model::User;
@@ -65,6 +66,16 @@ pub async fn unlock_admin(session: &Session, user: &User, now: OffsetDateTime) -
     };
     session.insert(ADMIN_UNLOCK, unlock).await?;
     Ok(())
+}
+
+pub async fn admin_is_locked(cx: &Cx, user: &User) -> Result<bool> {
+    let session = session(cx)?;
+    Ok(!is_unlocked(&session, user, app(cx).clock.now()).await?)
+}
+
+pub fn admin_destination(cx: &Cx, next: Option<String>) -> String {
+    next.filter(|path| is_admin_path(path))
+        .unwrap_or_else(|| href!(admin_users_page).resolve(cx))
 }
 
 pub async fn take_return_to(session: &Session) -> Result<Option<String>> {
