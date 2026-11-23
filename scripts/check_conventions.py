@@ -141,8 +141,15 @@ for path in changed:
     if builds_feature and path.startswith("e2e/scenarios/") and f"specs/{name}.md" not in changed:
         problems.append(f"{path}: changed alongside feature code while specs/{name}.md didn't; the builder never edits scenarios (change the spec first with the new-spec skill, or revert)")
 
+INLINE_STYLE = re.compile(r'(^|[\s<])style\s*=\s*["\'(]', re.M)
+for pattern in ("src/**/*.rs", "assets/icons/*.svg", "assets/js/*.js"):
+    for path in sorted(ROOT.glob(pattern)):
+        for number, line in enumerate(path.read_text().splitlines(), 1):
+            if INLINE_STYLE.search(line):
+                problems.append(f"{path.relative_to(ROOT).as_posix()}:{number}: inline style; put it in a stylesheet and use a class")
+
 if problems:
     print("Convention check failed:")
     print("\n".join(f"  {problem}" for problem in problems))
     sys.exit(1)
-print("Conventions OK (paths, limits, components, event kinds, job kinds, API registry, clean code, spec areas, feature specs, rule files)")
+print("Conventions OK (paths, limits, components, event kinds, job kinds, API registry, clean code, spec areas, feature specs, inline styles, rule files)")

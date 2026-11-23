@@ -48,8 +48,12 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-.l-nav__link-external svg {
-  color: var(--color-text-muted);
+.l-nav__link-external {
+  gap: var(--space-2-5);
+
+  & svg {
+    color: var(--color-text-muted);
+  }
 }
 
 .l-nav__list--site {

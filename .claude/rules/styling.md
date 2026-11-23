@@ -1,6 +1,7 @@
 ---
 paths:
   - "assets/css/**"
+  - "assets/icons/*.svg"
   - "assets/js/theme.js"
   - "src/theme.rs"
   - "src/components/**"
@@ -12,7 +13,9 @@ paths:
 
 - **BEM classes are the styling contract**: components emit stable class
   names (e.g. `a-notice--success`); CSS targets only those, never element
-  structure or ids. No inline styles; add a class instead. Every class has
+  structure or ids. **Never inline styles**: no `style="…"` on any element, in
+  views, JS or SVG files in `assets/icons/`; an icon's spacing belongs to the
+  stylesheet that uses it (`check_conventions.py` fails on any). Use a class. Every class has
   a prefix: `a-` components (`assets/css/components/`), `l-` layout and
   layout parts (`l-header`, `l-nav`, `l-footer`, `l-page-heading`,
   `l-contain`, `l-flex*`), `p-` one page (`p-account`, `p-auth`, `p-home`,
