@@ -26,7 +26,7 @@ test("a new user can register, set a password from the email link, and log in", 
   await expect(page).toHaveURL("/passkey-setup");
   await expect(page.getByText("Your email is confirmed. Welcome!")).toHaveCSS("opacity", "1");
   await skipPasskeyPrompt(page);
-  await expect(page.getByText("Name: Journey tester")).toBeVisible();
+  await expect(page.locator("#your-details")).toContainText("Journey tester");
 
   await page.getByRole("button", { name: "Journey tester" }).click();
   await page.getByRole("button", { name: "Sign out" }).click();

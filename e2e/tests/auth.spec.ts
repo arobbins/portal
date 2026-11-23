@@ -13,7 +13,7 @@ test("logging in with valid details opens the account page", async ({ page }) =>
   await logIn(page, verifiedUser.email, verifiedUser.password);
 
   await expect(page).toHaveURL("/account");
-  await expect(page.getByText(`Name: ${verifiedUser.name}`)).toBeVisible();
+  await expect(page.locator("#your-details")).toContainText(verifiedUser.name);
 });
 
 test("a wrong password shows an error and keeps the email", async ({ page }, testInfo) => {

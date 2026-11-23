@@ -58,7 +58,8 @@ before they delete their account, so nobody deletes without the chance to keep a
 
 ## Placement
 
-- Profile page: an "Export data" card directly above "Delete account". Its button
+- Profile page: an "Export data" row in the "Your data" card, directly above "Delete
+  account". Its button
   "Export data" opens the "Export data" dialog with a "Current password" field and
   the usual passkey option.
 - Browser only. No `/api/v1` endpoint and no MCP tool.
@@ -128,3 +129,5 @@ before they delete their account, so nobody deletes without the chance to keep a
 - 2026-11-18: approved and built.
 - 2026-11-18: R13 added: CSV cells never run as spreadsheet formulas (found by
   the post-build review).
+- 2026-11-19: Export data moved into a "Your data" card as a row (user's layout choice).
+- 2026-11-19: Profile and Security moved under Settings; the activity list is now at /account/settings/devices.

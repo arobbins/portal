@@ -12,11 +12,11 @@ use crate::action::FieldError;
 use crate::auth::pages::reauth_field::reauth_field;
 use crate::auth::password::CURRENT_PASSWORD_FIELD;
 use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
-use crate::components::card::{card, card_body, card_header};
 use crate::components::form::{
     DialogForm, dialog_form_error, dialog_input, form, form_actions, form_group,
 };
-use crate::components::modal::modal;
+use crate::components::modal::{modal, modal_cancel};
+use crate::components::property_list::property;
 use crate::components::toaster::NO_TOAST;
 
 pub const EXPORT_MODAL: &str = "export-data-dialog";
@@ -37,7 +37,7 @@ impl ExportDrafts {
 }
 
 #[component]
-pub async fn export_card(cx: &Cx, form: &DialogForm, drafts: &ExportDrafts) -> Result<impl View> {
+pub async fn export_row(cx: &Cx, form: &DialogForm, drafts: &ExportDrafts) -> Result<impl View> {
     let ExportDrafts { blank, password } = drafts;
     let DialogForm {
         error_field,
@@ -47,30 +47,26 @@ pub async fn export_card(cx: &Cx, form: &DialogForm, drafts: &ExportDrafts) -> R
     let section = AccountSection::ExportData;
 
     Ok(view! {
-        card(
+        property(
+            name: section.label(),
             id: Some(section.anchor()),
-            card_header(
-                title: section.label(),
-                button(
-                    variant: ButtonVariant::Secondary,
-                    size: ButtonSize::Sm,
-                    attrs: attributes! {
-                        command="show-modal"
-                        commandfor=(EXPORT_MODAL)
-                        @click=$(|_e: Event| {
-                            blank.set("".to_owned());
-                            password.set("".to_owned());
-                            error_field.set("".to_owned());
-                            error_message.set("".to_owned());
-                        })
-                    },
-                    "Export data"
-                )
-            )
-            card_body(
-                <p>
-                    "Download a copy of everything we keep about you, as spreadsheet (CSV) files in one ZIP."
-                </p>
+            description: Some(
+                "Download a copy of everything we keep about you, as spreadsheet (CSV) files in one ZIP.",
+            ),
+            button(
+                variant: ButtonVariant::Secondary,
+                size: ButtonSize::Sm,
+                attrs: attributes! {
+                    command="show-modal"
+                    commandfor=(EXPORT_MODAL)
+                    @click=$(|_e: Event| {
+                        blank.set("".to_owned());
+                        password.set("".to_owned());
+                        error_field.set("".to_owned());
+                        error_message.set("".to_owned());
+                    })
+                },
+                "Export data"
             )
         )
     })
@@ -131,6 +127,7 @@ pub async fn export_dialog(
                 export_fields(form: form, drafts: drafts)
                 dialog_form_error(form: form)
                 form_actions(
+                    modal_cancel(modal_id: EXPORT_MODAL)
                     button(
                         button_type: ButtonType::Submit,
                         busy: $(is_submitting.get()),

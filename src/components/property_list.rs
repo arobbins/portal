@@ -1,6 +1,7 @@
 use topcoat::{
     Result,
     context::Cx,
+    runtime::Signal,
     view::{Child, View, component, view},
 };
 
@@ -31,14 +32,16 @@ pub async fn property_list(cx: &Cx, #[default] child: Child<'_>) -> Result<impl 
 pub async fn property(
     cx: &Cx,
     name: &str,
+    #[default] id: Option<&str>,
     #[default] code: bool,
     #[default] tags: &[PropertyTag],
     #[default] description: Option<&str>,
+    #[default] live_description: Option<&Signal<String>>,
     #[default] detail: Option<&str>,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {
-        <li class="a-property-list__item">
+        <li class="a-property-list__item" id=(id)>
             <div class="a-property-list__info">
                 <p class="a-property-list__head">
                     if code {
@@ -52,6 +55,9 @@ pub async fn property(
                 </p>
                 if let Some(description) = description {
                     <p class="a-property-list__description">(description)</p>
+                }
+                if let Some(live) = live_description {
+                    <p class="a-property-list__description">$(live.get())</p>
                 }
                 if let Some(detail) = detail {
                     <p class="a-property-list__detail">(detail)</p>

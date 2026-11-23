@@ -6,9 +6,9 @@ use topcoat::{
     view::{View, attributes, component, view},
 };
 
-use super::delete_account_card::{DeleteDrafts, delete_account_card, delete_account_dialog};
+use super::delete_account_card::{DeleteDrafts, delete_account_dialog, delete_account_row};
 use super::delete_routes::delete_account_problem;
-use super::email_card::{EmailDrafts, change_email_dialog, email_card};
+use super::email_card::{EmailDrafts, change_email_dialog, email_row};
 use super::email_routes::email_change_problem;
 use super::profile_routes::{ProfileUpdateFailed, save_profile_name, update_profile_submit};
 use crate::action::ActionProblem;
@@ -19,7 +19,8 @@ use crate::components::form::{
     DialogForm, ModalSubmit, dialog_error_toast, dialog_input, modal_form, page_toast,
 };
 use crate::components::icon::{IconName, icon};
-use crate::data_export::pages::export_card::{ExportDrafts, export_card, export_dialog};
+use crate::components::property_list::{property, property_list};
+use crate::data_export::pages::export_card::{ExportDrafts, export_dialog, export_row};
 use crate::data_export::pages::export_routes::export_problem;
 use crate::flash::{Flash, flash_toasts, take_flash};
 use crate::user::model::User;
@@ -68,10 +69,16 @@ pub async fn profile_tab(cx: &Cx, user: &User, display_name: &Signal<String>) ->
 
     Ok(view! {
         <div class="p-account__sub-page-content">
-            profile_card(display_name: display_name, form: &form, drafts: &drafts)
-            email_card(email: &user.email, form: &email_form, drafts: &email_drafts)
-            export_card(form: &export_form, drafts: &export_drafts)
-            delete_account_card(form: &delete_form, drafts: &delete_drafts)
+            details_card(
+                display_name: display_name,
+                email: &user.email,
+                forms: (&form, &email_form),
+                drafts: (&drafts, &email_drafts)
+            )
+            data_card(
+                forms: (&export_form, &delete_form),
+                drafts: (&export_drafts, &delete_drafts)
+            )
             edit_profile_dialog(
                 form: &form,
                 drafts: &drafts,
@@ -97,7 +104,55 @@ pub async fn profile_tab(cx: &Cx, user: &User, display_name: &Signal<String>) ->
 }
 
 #[component]
-async fn profile_card(
+async fn details_card(
+    cx: &Cx,
+    display_name: &Signal<String>,
+    email: &str,
+    forms: (&DialogForm, &DialogForm),
+    drafts: (&NameDrafts, &EmailDrafts),
+) -> Result<impl View> {
+    let (form, email_form) = forms;
+    let (drafts, email_drafts) = drafts;
+
+    Ok(view! {
+        card(
+            id: Some("your-details"),
+            card_header(title: "Your details")
+            card_body(
+                property_list(
+                    name_row(display_name: display_name, form: form, drafts: drafts)
+                    email_row(email: email, form: email_form, drafts: email_drafts)
+                )
+            )
+        )
+    })
+}
+
+#[component]
+async fn data_card(
+    cx: &Cx,
+    forms: (&DialogForm, &DialogForm),
+    drafts: (&ExportDrafts, &DeleteDrafts),
+) -> Result<impl View> {
+    let (export_form, delete_form) = forms;
+    let (export_drafts, delete_drafts) = drafts;
+
+    Ok(view! {
+        card(
+            id: Some("your-data"),
+            card_header(title: "Your data")
+            card_body(
+                property_list(
+                    export_row(form: export_form, drafts: export_drafts)
+                    delete_account_row(form: delete_form, drafts: delete_drafts)
+                )
+            )
+        )
+    })
+}
+
+#[component]
+async fn name_row(
     cx: &Cx,
     display_name: &Signal<String>,
     form: &DialogForm,
@@ -107,31 +162,23 @@ async fn profile_card(
     let error_message = &form.error_message;
 
     Ok(view! {
-        card(
-            id: Some("account-info"),
-            card_header(
-                title: "Account info",
-                button(
-                    variant: ButtonVariant::Secondary,
-                    size: ButtonSize::Sm,
-                    attrs: attributes! {
-                        command="show-modal"
-                        commandfor=(MODAL_ID)
-                        @click=$(|_e: Event| {
-                            value.set(display_name.get());
-                            draft.set(display_name.get());
-                            error_message.set("".to_owned());
-                        })
-                    },
-                    icon(name: IconName::Edit)
-                    "Edit profile"
-                )
-            )
-            card_body(
-                <p>
-                    "Name: "
-                    $(display_name.get())
-                </p>
+        property(
+            name: "Name",
+            live_description: Some(display_name),
+            button(
+                variant: ButtonVariant::Secondary,
+                size: ButtonSize::Sm,
+                attrs: attributes! {
+                    command="show-modal"
+                    commandfor=(MODAL_ID)
+                    @click=$(|_e: Event| {
+                        value.set(display_name.get());
+                        draft.set(display_name.get());
+                        error_message.set("".to_owned());
+                    })
+                },
+                icon(name: IconName::Edit)
+                "Edit profile"
             )
         )
     })

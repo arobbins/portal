@@ -21,7 +21,7 @@ test("saving a new name updates the page without reloading", async ({ page }, te
   await saveName(page, "After Name");
 
   await expect(page.getByText("Profile saved.")).toHaveCSS("opacity", "1");
-  await expect(page.getByText("Name: After Name")).toBeVisible();
+  await expect(page.locator("#your-details")).toContainText("After Name");
   await expect(page.getByRole("button", { name: "After Name" })).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { marker?: string }).marker)).toBe(
     "same-page",

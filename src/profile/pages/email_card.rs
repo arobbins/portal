@@ -11,10 +11,10 @@ use crate::auth::actions::NEW_EMAIL_FIELD;
 use crate::auth::pages::reauth_field::reauth_field;
 use crate::auth::password::CURRENT_PASSWORD_FIELD;
 use crate::components::button::{ButtonSize, ButtonVariant, button};
-use crate::components::card::{card, card_body, card_header};
 use crate::components::form::{Autocomplete, InputType, form_field};
 use crate::components::form::{DialogForm, ModalSubmit, dialog_input, modal_form};
 use crate::components::icon::{IconName, icon};
+use crate::components::property_list::property;
 use crate::flash::Flash;
 
 const UNREACHABLE: &str = "We couldn't send the confirmation link. Please try again.";
@@ -37,7 +37,7 @@ impl EmailDrafts {
 }
 
 #[component]
-pub async fn email_card(
+pub async fn email_row(
     cx: &Cx,
     email: &str,
     form: &DialogForm,
@@ -56,37 +56,29 @@ pub async fn email_card(
     } = form;
 
     Ok(view! {
-        card(
+        property(
+            name: "Email",
             id: Some("email"),
-            card_header(
-                title: "Email",
-                button(
-                    variant: ButtonVariant::Secondary,
-                    size: ButtonSize::Sm,
-                    attrs: attributes! {
-                        command="show-modal"
-                        commandfor=(MODAL_ID)
-                        @click=$(|_e: Event| {
-                            blank.set("".to_owned());
-                            new_email.set("".to_owned());
-                            password.set("".to_owned());
-                            error_field.set("".to_owned());
-                            error_message.set("".to_owned());
-                        })
-                    },
-                    icon(name: IconName::Edit)
-                    "Change email"
-                )
-            )
-            card_body(
-                <p>
-                    "You sign in with "
-                    <strong>(email)</strong>
-                    "."
-                </p>
-                <p>
-                    "To change it, we'll send a link to the new address. Nothing changes until you open it."
-                </p>
+            description: Some(email),
+            detail: Some(
+                "To change it, we'll send a link to the new address. Nothing changes until you open it.",
+            ),
+            button(
+                variant: ButtonVariant::Secondary,
+                size: ButtonSize::Sm,
+                attrs: attributes! {
+                    command="show-modal"
+                    commandfor=(MODAL_ID)
+                    @click=$(|_e: Event| {
+                        blank.set("".to_owned());
+                        new_email.set("".to_owned());
+                        password.set("".to_owned());
+                        error_field.set("".to_owned());
+                        error_message.set("".to_owned());
+                    })
+                },
+                icon(name: IconName::Edit)
+                "Change email"
             )
         )
     })

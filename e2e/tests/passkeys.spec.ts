@@ -11,7 +11,7 @@ function addDialog(page: Page) {
 }
 
 async function addPasskey(page: Page, password = ACCOUNT_PASSWORD) {
-  await page.goto("/account/security");
+  await page.goto("/account/settings/authentication");
   await page.getByRole("button", { name: "Add passkey" }).click();
   await addDialog(page).getByLabel("Current password").fill(password);
   await addDialog(page).getByLabel("Current password").press("Enter");
@@ -56,7 +56,7 @@ test.describe("with a passkey-capable device", () => {
       "aria-invalid",
       "true",
     );
-    await page.goto("/account/security");
+    await page.goto("/account/settings/authentication");
     await expect(page.locator("#passkeys").getByRole("listitem")).toHaveCount(0);
   });
 
@@ -72,7 +72,7 @@ test.describe("with a passkey-capable device", () => {
     await page.getByRole("button", { name: "Sign out" }).click();
 
     await expect(page).toHaveURL("/account");
-    await expect(page.getByText("Name: Autofill Signer")).toBeVisible();
+    await expect(page.locator("#your-details")).toContainText("Autofill Signer");
   });
 
   test("the passkey button signs in instead of a password", async ({ page }, testInfo) => {
@@ -86,7 +86,7 @@ test.describe("with a passkey-capable device", () => {
     await page.getByRole("button", { name: "Sign in with a passkey" }).click();
 
     await expect(page).toHaveURL("/account");
-    await page.goto("/account/security");
+    await page.goto("/account/settings/authentication");
     await expect(page.locator("#passkeys").getByText(/last used/)).toBeVisible();
   });
 

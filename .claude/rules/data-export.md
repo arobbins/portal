@@ -25,7 +25,7 @@ paths:
   in neither. Every cell goes through `spreadsheet_safe` (R13): a value
   starting with `= + - @`, tab or CR gets a leading `'` unless it's a plain
   number; the README explains it.
-- Page: the "Export data" card and dialog sit above Delete account on
+- Page: the "Export data" row (in the "Your data" card) and dialog sit above Delete account on
   Profile; the JS path gets the file from `export_data_js` (base64) and
   starts the download in the browser; the no-JS path posts to
   `/account/data/export`, which answers with the file and
