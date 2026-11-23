@@ -13,11 +13,11 @@ use crate::auth::pages::login::login_page;
 use crate::auth::pages::reauth_field::reauth_field;
 use crate::auth::password::CURRENT_PASSWORD_FIELD;
 use crate::components::button::{ButtonSize, ButtonVariant, button};
-use crate::components::card::{card, card_body, card_header};
 use crate::components::form::{
     DialogForm, ModalSubmit, dialog_input, form_field, form_group, modal_form,
 };
 use crate::components::notice::notice;
+use crate::components::property_list::property;
 use crate::components::tone::Tone;
 use crate::data_export::pages::export_card::export_first_prompt;
 use crate::flash::Flash;
@@ -42,7 +42,7 @@ impl DeleteDrafts {
 }
 
 #[component]
-pub async fn delete_account_card(
+pub async fn delete_account_row(
     cx: &Cx,
     form: &DialogForm,
     drafts: &DeleteDrafts,
@@ -60,31 +60,27 @@ pub async fn delete_account_card(
     let section = AccountSection::DeleteAccount;
 
     Ok(view! {
-        card(
+        property(
+            name: section.label(),
             id: Some(section.anchor()),
-            card_header(
-                title: section.label(),
-                button(
-                    variant: ButtonVariant::Danger,
-                    size: ButtonSize::Sm,
-                    attrs: attributes! {
-                        command="show-modal"
-                        commandfor=(MODAL_ID)
-                        @click=$(|_e: Event| {
-                            blank.set("".to_owned());
-                            confirmation.set("".to_owned());
-                            password.set("".to_owned());
-                            error_field.set("".to_owned());
-                            error_message.set("".to_owned());
-                        })
-                    },
-                    "Delete account"
-                )
-            )
-            card_body(
-                <p>
-                    "Permanently delete your account, passkeys and API tokens. This happens right away and can't be undone."
-                </p>
+            description: Some(
+                "Permanently delete your account, passkeys and API tokens. This happens right away and can't be undone.",
+            ),
+            button(
+                variant: ButtonVariant::Danger,
+                size: ButtonSize::Sm,
+                attrs: attributes! {
+                    command="show-modal"
+                    commandfor=(MODAL_ID)
+                    @click=$(|_e: Event| {
+                        blank.set("".to_owned());
+                        confirmation.set("".to_owned());
+                        password.set("".to_owned());
+                        error_field.set("".to_owned());
+                        error_message.set("".to_owned());
+                    })
+                },
+                "Delete account"
             )
         )
     })
@@ -121,13 +117,13 @@ pub async fn delete_account_dialog(
             args: $((confirmation.get(), password.get())),
             variant: ButtonVariant::Danger,
             navigate_to: Some(&login),
-            export_first_prompt(from_modal: MODAL_ID)
             form_group(
                 notice(
-                    tone: Tone::Warning,
+                    tone: Tone::Error,
                     "Your account, passkeys and API tokens are deleted right away. This can't be undone."
                 )
             )
+            export_first_prompt(from_modal: MODAL_ID)
             form_field(
                 label: "Type DELETE to confirm",
                 id: "delete-account-confirmation",
