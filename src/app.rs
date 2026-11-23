@@ -55,6 +55,7 @@ async fn root_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                 <link href="/assets/dist/app.css" rel="stylesheet">
                 <script src="/assets/js/theme.js"></script>
                 <script src="/assets/js/passkeys.js"></script>
+                <script src="/assets/js/time-zone.js" defer=(true)></script>
                 topcoat::runtime::script()
             </head>
             <body class="l-flex-col">

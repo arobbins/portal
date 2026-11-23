@@ -224,6 +224,7 @@ impl Bench<'_> {
         let input = Register {
             name: "Cell".to_string(),
             email: email.to_string(),
+            time_zone: None,
         };
         register(&self.env, &input).await.unwrap().is_ok()
     }

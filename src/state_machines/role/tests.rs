@@ -97,6 +97,7 @@ async fn run(app: &App, from: RoleState, event: RoleEvent, email: &str) -> Run {
             let input = Register {
                 name: "Role".to_string(),
                 email: email.to_string(),
+                time_zone: None,
             };
             register(&app.env(None), &input).await.unwrap().is_ok()
         }

@@ -10,10 +10,13 @@ use crate::env::Env;
 use crate::jobs::enqueue;
 use crate::mail::SendEmail;
 use crate::routes::LOGIN_PATH;
+use crate::time_zone::Zone;
 use crate::user::events::{AccountEventKind, EventSource, record_event};
 use crate::user::model::{AccountStatus, User};
 use crate::user::name::{MAX_NAME_LENGTH, NameProblem, check_name};
-use crate::user::queries::{NewUser, query_get_user_by_email, query_insert_user};
+use crate::user::queries::{
+    NewUser, query_get_user_by_email, query_insert_user, query_update_user_time_zone,
+};
 use crate::utils::parse_email;
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -24,6 +27,11 @@ pub struct Register {
     pub name: String,
     #[schemars(description = "Email address to sign in with.")]
     pub email: String,
+    #[serde(default)]
+    #[schemars(
+        description = "The browser's IANA time zone, e.g. Europe/London; unknown zones are ignored."
+    )]
+    pub time_zone: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,7 +82,7 @@ pub async fn register(env: &Env<'_>, input: &Register) -> Outcome<(), RegisterPr
 
     match query_get_user_by_email(&email, env.db()).await? {
         Some(user) => remind_existing_user(env, &user).await?,
-        None => start_new_account(env, name, &email).await?,
+        None => start_new_account(env, name, &email, known_zone(input)).await?,
     }
     Ok(Ok(()))
 }
@@ -86,6 +94,10 @@ fn valid_details(input: &Register) -> Result<(&str, String), RegisterProblem> {
     let name = check_name(&input.name).map_err(RegisterProblem::Name)?;
     let email = parse_email(&input.email).ok_or(RegisterProblem::InvalidEmail)?;
     Ok((name, email))
+}
+
+fn known_zone(input: &Register) -> Option<Zone> {
+    input.time_zone.as_deref().and_then(Zone::parse)
 }
 
 async fn remind_existing_user(env: &Env<'_>, user: &User) -> Result<(), sqlx::Error> {
@@ -101,11 +113,19 @@ async fn remind_existing_user(env: &Env<'_>, user: &User) -> Result<(), sqlx::Er
     }
 }
 
-async fn start_new_account(env: &Env<'_>, name: &str, email: &str) -> topcoat::Result<()> {
+async fn start_new_account(
+    env: &Env<'_>,
+    name: &str,
+    email: &str,
+    time_zone: Option<Zone>,
+) -> topcoat::Result<()> {
     let mut tx = env.db().begin().await?;
     let Some(user_id) = query_insert_user(&NewUser { name, email }, &mut *tx).await? else {
         return Ok(());
     };
+    if let Some(zone) = time_zone {
+        query_update_user_time_zone(user_id, zone.name(), &mut *tx).await?;
+    }
     let source = EventSource::browser(user_id);
     record_event(
         env,
@@ -119,3 +139,6 @@ async fn start_new_account(env: &Env<'_>, name: &str, email: &str) -> topcoat::R
 
     Ok(send_verification_link(env.app, user_id, email).await?)
 }
+
+#[cfg(test)]
+mod tests;
