@@ -22,6 +22,7 @@ struct AdminAction {
     description: &'static str,
     question: &'static str,
     action: String,
+    destructive: bool,
 }
 
 fn available_actions(cx: &Cx, user: &User) -> Vec<AdminAction> {
@@ -34,6 +35,7 @@ fn available_actions(cx: &Cx, user: &User) -> Vec<AdminAction> {
             description: "Send a new link so they can confirm their email and set a password.",
             question: "Send a new confirmation email to this user?",
             action: href!(resend_verification_submit).resolve(cx),
+            destructive: false,
         });
     }
     actions.push(AdminAction {
@@ -42,6 +44,7 @@ fn available_actions(cx: &Cx, user: &User) -> Vec<AdminAction> {
         description: "End every session on every device. They can sign in again.",
         question: "Sign this user out of every device?",
         action: href!(sign_out_user_submit).resolve(cx),
+        destructive: false,
     });
     actions.push(access_action(cx, status));
     actions.push(AdminAction {
@@ -50,6 +53,7 @@ fn available_actions(cx: &Cx, user: &User) -> Vec<AdminAction> {
         description: "Delete the account and everything in it. This can't be undone.",
         question: "Delete this account and everything in it? This can't be undone.",
         action: href!(delete_user_submit).resolve(cx),
+        destructive: true,
     });
     actions
 }
@@ -62,6 +66,7 @@ fn access_action(cx: &Cx, status: AccountStatus<'_>) -> AdminAction {
             description: "Let them sign in again. Their passkeys and API tokens work again too.",
             question: "Enable this account again?",
             action: href!(enable_user_submit).resolve(cx),
+            destructive: false,
         };
     }
     AdminAction {
@@ -70,6 +75,7 @@ fn access_action(cx: &Cx, status: AccountStatus<'_>) -> AdminAction {
         description: "Block every sign-in and API token until you enable it again.",
         question: "Disable this account? They'll be signed out everywhere.",
         action: href!(disable_user_submit).resolve(cx),
+        destructive: false,
     }
 }
 
@@ -101,7 +107,11 @@ pub async fn user_actions_card(cx: &Cx, user: &User, is_self: bool) -> Result<im
                                 name: action.label,
                                 description: Some(action.description),
                                 button(
-                                    variant: ButtonVariant::Secondary,
+                                    variant: if action.destructive {
+                                        ButtonVariant::Danger
+                                    } else {
+                                        ButtonVariant::Secondary
+                                    },
                                     size: ButtonSize::Sm,
                                     attrs: attributes! { command="show-modal" commandfor=(action.id) },
                                     (action.label)
