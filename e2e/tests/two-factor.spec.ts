@@ -7,7 +7,7 @@ import { expect, test } from "../support/test";
 const THIRTY_SECONDS = 30_000;
 
 async function turnOn(page: Page): Promise<{ secret: string; codes: string[] }> {
-  await page.goto("/account/security/authentication");
+  await page.goto("/account/settings/authentication");
   const card = page.locator("#two-factor");
   await card.getByRole("button", { name: "Set up" }).click();
   const dialog = page.getByRole("dialog", { name: "Set up two-factor authentication" });
@@ -53,7 +53,7 @@ test("a recovery code works once instead of the app", async ({ page }, testInfo)
   await page.getByLabel("Code").fill(codes[0].toUpperCase());
   await page.getByLabel("Code").press("Enter");
   await expect(page).toHaveURL("/account");
-  await page.goto("/account/security/authentication");
+  await page.goto("/account/settings/authentication");
   await expect(page.locator("#two-factor")).toContainText("9 of 10 recovery codes left.");
   await logOut(page, "Phone Loser");
 
@@ -107,4 +107,13 @@ test("resetting the password by email still asks for the code", async ({ page },
   await page.getByLabel("Code").press("Enter");
   await expect(page).toHaveURL("/account");
   await expect(page.getByText("Your password has been reset.")).toBeVisible();
+});
+
+test("the authentication page says what is set up", async ({ page }, testInfo) => {
+  await createAccount(page, testInfo, "Status Reader");
+  await page.goto("/account/settings/authentication");
+
+  await expect(page.locator("#password")).toContainText(/^Set |Set [A-Z][a-z]{2} \d/);
+  await expect(page.locator("#passkeys")).toContainText("None yet");
+  await expect(page.locator("#two-factor")).toContainText("Off");
 });

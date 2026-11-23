@@ -18,7 +18,8 @@ use crate::components::code_block::{code_block, code_panel};
 use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::copy_field::copy_field;
 use crate::components::form::{Autocomplete, form, form_actions, form_field};
-use crate::components::modal::modal;
+use crate::components::modal::{modal, modal_cancel};
+use crate::components::tone::Tone;
 use crate::two_factor::actions::{CODE_FIELD, get_two_factor};
 use crate::two_factor::codes::{new_secret, qr_code_image, setup_url};
 use crate::web::env;
@@ -49,29 +50,14 @@ pub async fn two_factor_card(cx: &Cx) -> Result<impl View> {
             id: Some(section.anchor()),
             card_header(
                 title: section.label(),
-                if status.is_some() {
-                    <div class="p-account__card-actions">
-                        button(
-                            variant: ButtonVariant::Secondary,
-                            size: ButtonSize::Sm,
-                            attrs: attributes! { command="show-modal" commandfor=(CODES_MODAL) },
-                            "New recovery codes"
-                        )
-                        button(
-                            variant: ButtonVariant::Danger,
-                            size: ButtonSize::Sm,
-                            attrs: attributes! { command="show-modal" commandfor=(OFF_MODAL) },
-                            "Turn off"
-                        )
-                    </div>
-                } else {
-                    button(
-                        variant: ButtonVariant::Secondary,
-                        size: ButtonSize::Sm,
-                        attrs: attributes! { command="show-modal" commandfor=(SETUP_MODAL) },
-                        "Set up"
-                    )
-                }
+                status: Some(
+                    if status.is_some() {
+                        ("On", Tone::Success)
+                    } else {
+                        ("Off", Tone::Neutral)
+                    },
+                ),
+                two_factor_actions(on: status.is_some())
             )
             card_body(
                 if let Some(status) = &status {
@@ -96,6 +82,35 @@ pub async fn two_factor_card(cx: &Cx) -> Result<impl View> {
             change_dialogs()
         } else {
             setup_dialog()
+        }
+    })
+}
+
+#[component]
+async fn two_factor_actions(cx: &Cx, on: bool) -> Result<impl View> {
+    Ok(view! {
+        if on {
+            <div class="p-account__card-actions">
+                button(
+                    variant: ButtonVariant::Secondary,
+                    size: ButtonSize::Sm,
+                    attrs: attributes! { command="show-modal" commandfor=(CODES_MODAL) },
+                    "New recovery codes"
+                )
+                button(
+                    variant: ButtonVariant::Danger,
+                    size: ButtonSize::Sm,
+                    attrs: attributes! { command="show-modal" commandfor=(OFF_MODAL) },
+                    "Turn off"
+                )
+            </div>
+        } else {
+            button(
+                variant: ButtonVariant::Secondary,
+                size: ButtonSize::Sm,
+                attrs: attributes! { command="show-modal" commandfor=(SETUP_MODAL) },
+                "Set up"
+            )
         }
     })
 }
@@ -143,11 +158,7 @@ async fn setup_dialog(cx: &Cx) -> Result<impl View> {
                 )
                 reauth_field(id: "two-factor-setup-password", suggest_passkey: false)
                 form_actions(
-                    button(
-                        variant: ButtonVariant::Secondary,
-                        attrs: attributes! { command="close" commandfor=(SETUP_MODAL) },
-                        "Cancel"
-                    )
+                    modal_cancel(modal_id: SETUP_MODAL)
                     button(button_type: ButtonType::Submit, "Turn on two-factor")
                 )
             )

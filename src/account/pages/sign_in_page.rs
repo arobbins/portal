@@ -10,6 +10,8 @@ use super::password_routes::{ChangePasswordFailed, change_password_submit, save_
 use super::placeholder_page::coming_soon_card;
 use crate::account::tabs::AccountSection;
 use crate::action::ActionProblem;
+use crate::action::require_browser_caller;
+use crate::auth::actions::{PasswordAge, password_age};
 use crate::auth::pages::new_password_form::new_password_fields;
 use crate::auth::password::{CONFIRMATION_FIELD, CURRENT_PASSWORD_FIELD, PASSWORD_FIELD};
 use crate::components::button::{ButtonSize, ButtonVariant, button};
@@ -24,6 +26,7 @@ use crate::passkeys::pages::passkey_routes::{remove_problem, rename_problem};
 use crate::passkeys::pages::passkeys_card::passkeys_card;
 use crate::two_factor::pages::two_factor_card::two_factor_card;
 use crate::two_factor::pages::two_factor_routes::two_factor_failure;
+use crate::web::env;
 
 const MODAL_ID: &str = "change-password";
 const UNREACHABLE: &str = "We couldn't change your password. Please try again.";
@@ -85,6 +88,7 @@ pub async fn sign_in_page(cx: &Cx) -> Result<impl View> {
 
 #[component]
 async fn password_card(cx: &Cx, form: &DialogForm, drafts: &PasswordDrafts) -> Result<impl View> {
+    let note = password_note(cx).await?;
     let PasswordDrafts {
         blank,
         current,
@@ -122,6 +126,7 @@ async fn password_card(cx: &Cx, form: &DialogForm, drafts: &PasswordDrafts) -> R
                 )
             )
             card_body(
+                <p class="p-account__card-note">(note)</p>
                 <p>
                     "Use a long password you don't use anywhere else. Changing it signs you out on your other devices."
                 </p>
@@ -193,5 +198,19 @@ async fn password_fields(cx: &Cx, form: &DialogForm, drafts: &PasswordDrafts) ->
                 confirmation,
             )
         )
+    })
+}
+
+async fn password_note(cx: &Cx) -> Result<String> {
+    let caller = require_browser_caller(cx)?;
+    let age = match password_age(&env(cx), &caller).await? {
+        Ok(age) => age,
+        Err(error) => match error.for_browser()? {},
+    };
+    let zone = caller.user.zone();
+    Ok(match age {
+        PasswordAge::Changed(at) => format!("Last changed {}.", zone.date(at)),
+        PasswordAge::Set(at) => format!("Set {}.", zone.date(at)),
+        PasswordAge::OverAYear => "Last changed more than a year ago.".to_string(),
     })
 }

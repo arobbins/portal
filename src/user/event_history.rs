@@ -45,3 +45,18 @@ pub async fn query_list_recent_account_events(
         })
         .collect())
 }
+
+pub async fn query_last_account_event_at(
+    user_id: i32,
+    kinds: &[AccountEventKind],
+    db: impl PgExecutor<'_>,
+) -> Result<Option<OffsetDateTime>, sqlx::Error> {
+    let kinds: Vec<String> = kinds.iter().map(|kind| kind.as_str().to_string()).collect();
+    sqlx::query_scalar!(
+        "SELECT max(created_at) FROM account_events WHERE user_id = $1 AND kind = ANY($2)",
+        user_id,
+        &kinds,
+    )
+    .fetch_one(db)
+    .await
+}

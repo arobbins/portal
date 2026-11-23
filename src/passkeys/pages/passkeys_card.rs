@@ -18,12 +18,13 @@ use crate::components::form::{
     Autocomplete, InputType, form, form_actions, form_error, form_field,
 };
 use crate::components::icon::{IconName, icon};
-use crate::components::modal::modal;
+use crate::components::modal::{modal, modal_cancel};
 use crate::components::notice::notice;
 use crate::components::property_list::{PropertyTag, property, property_list};
 use crate::components::tone::Tone;
 use crate::passkeys::actions::list_passkeys;
 use crate::user::name::{MAX_NAME_LENGTH, NAME_FIELD};
+use crate::utils::count;
 use crate::web::env;
 
 const ADD_MODAL: &str = "add-passkey";
@@ -45,12 +46,20 @@ pub async fn passkeys_card(cx: &Cx) -> Result<impl View> {
         .collect();
     let only_one = passkeys.len() == 1;
     let needs_backup = only_one && !passkeys[0].backup_eligible;
+    let count_label = count(rows.len() as i64, "passkey", "passkeys");
 
     Ok(view! {
         card(
             id: Some(AccountSection::Passkeys.anchor()),
             card_header(
                 title: "Passkeys",
+                status: Some(
+                    if rows.is_empty() {
+                        ("None yet", Tone::Neutral)
+                    } else {
+                        (count_label.as_str(), Tone::Success)
+                    },
+                ),
                 button(
                     variant: ButtonVariant::Secondary,
                     size: ButtonSize::Sm,
@@ -84,6 +93,13 @@ pub async fn passkeys_card(cx: &Cx) -> Result<impl View> {
         for row in &rows {
             passkey_dialogs(row: row, only_one: only_one)
         }
+        add_passkey_dialog()
+    })
+}
+
+#[component]
+async fn add_passkey_dialog(cx: &Cx) -> Result<impl View> {
+    Ok(view! {
         modal(
             id: ADD_MODAL,
             heading: "Add passkey",
@@ -101,7 +117,10 @@ pub async fn passkeys_card(cx: &Cx) -> Result<impl View> {
                 )
                 form_error(id: Some(ADD_ERROR_ID), hidden: true, "")
                 <noscript><p>"Adding a passkey needs JavaScript."</p></noscript>
-                form_actions(button(button_type: ButtonType::Submit, "Continue"))
+                form_actions(
+                    modal_cancel(modal_id: ADD_MODAL)
+                    button(button_type: ButtonType::Submit, "Continue")
+                )
             )
         )
     })
@@ -175,6 +194,7 @@ async fn passkey_dialogs(cx: &Cx, row: &PasskeyRow, only_one: bool) -> Result<im
                     max_length: Some(MAX_NAME_LENGTH)
                 )
                 form_actions(
+                    modal_cancel(modal_id: &rename_modal)
                     button(
                         button_type: ButtonType::Submit,
                         busy: $(is_renaming.get()),
@@ -202,6 +222,7 @@ async fn passkey_dialogs(cx: &Cx, row: &PasskeyRow, only_one: bool) -> Result<im
                 }
                 reauth_field(id: &password_field, suggest_passkey: false)
                 form_actions(
+                    modal_cancel(modal_id: &remove_modal)
                     button(
                         button_type: ButtonType::Submit,
                         busy: $(is_removing.get()),

@@ -4,6 +4,9 @@ use topcoat::{
     view::{Child, View, component, view},
 };
 
+use super::badge::badge;
+use super::tone::Tone;
+
 #[component]
 pub async fn card(
     cx: &Cx,
@@ -14,10 +17,20 @@ pub async fn card(
 }
 
 #[component]
-pub async fn card_header(cx: &Cx, title: &str, #[default] child: Child<'_>) -> Result<impl View> {
+pub async fn card_header(
+    cx: &Cx,
+    title: &str,
+    #[default] status: Option<(&str, Tone)>,
+    #[default] child: Child<'_>,
+) -> Result<impl View> {
     Ok(view! {
         <header class="a-card__header">
-            <h3 class="a-card__title">(title)</h3>
+            <div class="a-card__heading">
+                <h3 class="a-card__title">(title)</h3>
+                if let Some((label, tone)) = status {
+                    badge(tone: tone, (label))
+                }
+            </div>
             (child)
         </header>
     })
