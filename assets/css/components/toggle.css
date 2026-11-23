@@ -13,16 +13,16 @@
 
 .a-toggle,
 .a-setting-toggle {
-  &:has(+ :is(.a-toggle, .a-setting-toggle)) {
+  &:has(~ :is(.a-toggle, .a-setting-toggle)) {
     padding-bottom: var(--space-4);
     border-bottom: 1px solid var(--color-border-strong);
   }
 
-  &:not(
-      :is(.a-toggle, .a-setting-toggle) + *,
-      :has(+ :is(.a-toggle, .a-setting-toggle)),
-      .a-setting-toggle > *
-    ) {
+  & ~ :is(.a-toggle, .a-setting-toggle) {
+    padding-top: var(--space-4);
+  }
+
+  &:not(:is(.a-toggle, .a-setting-toggle) ~ *, .a-setting-toggle > *) {
     padding-top: var(--space-4);
     border-top: 1px solid var(--color-border-strong);
   }
