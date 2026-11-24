@@ -19,7 +19,8 @@ rather than grow one (`check_conventions.py` enforces it).
    `new-component`, `new-flash`); smallest change that passes.
 3. **`verify` each unit** before the next. Fix causes, not symptoms.
 4. **Done** = `check` passes and `convention-reviewer` has no must-fix.
-   Commit small, on the feature branch, only when asked.
+   Commit small, on `main` (a branch only for multi-day work), only when
+   asked; "commit" means the `commit` skill: stage, commit, push, watch CI.
 
 ## Architecture
 
