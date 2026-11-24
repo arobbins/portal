@@ -1,5 +1,5 @@
 name: setup
-description: Rust toolchain, cached build, sqlx and topcoat CLIs, env file and a migrated dev database
+description: Rust toolchain, cached build, prebuilt sqlx and topcoat CLIs, env file and a migrated dev database
 runs:
   using: composite
   steps:
@@ -10,12 +10,12 @@ runs:
     - uses: Swatinem/rust-cache@v2
       with:
         cache-all-crates: true
+        cache-on-failure: true
 
-    - name: Install sqlx-cli and topcoat-cli
-      shell: bash
-      run: |
-        command -v sqlx >/dev/null || cargo install sqlx-cli --version 0.9.0 --locked
-        command -v topcoat >/dev/null || cargo install topcoat-cli --version 0.12.1 --locked
+    - name: Install sqlx-cli and topcoat-cli (prebuilt)
+      uses: taiki-e/install-action@v2
+      with:
+        tool: sqlx-cli@0.9.0,topcoat-cli@0.12.1
 
     - name: Env file and dev database
       shell: bash
