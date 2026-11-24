@@ -39,6 +39,6 @@ test("a long unknown address wraps instead of widening the page", async ({ page 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/${"a-very-long-segment".repeat(12)}`);
 
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBe(0);
 });

@@ -63,3 +63,6 @@ for the full suite and the `verify` skill for one spec.
   `screenshots/`, settings via `SHOT_*` env vars, documented in the `verify`
   skill). It's a separate config, so `npm test` and `./check.sh` never run
   it; output goes to the gitignored `e2e/.screenshots`.
+- Layout checks must not depend on scrollbar width (CI has classic
+  scrollbars): overflow is `scrollWidth - clientWidth`; fixed and toast
+  positions compare with `innerWidth`.

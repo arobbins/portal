@@ -17,7 +17,7 @@ test("clicking Show toast shows the notice centered at the top of the page", asy
   await expect(toast).toHaveCSS("opacity", "1");
 
   const box = await toast.boundingBox();
-  const pageWidth = await page.evaluate(() => document.documentElement.clientWidth);
+  const pageWidth = await page.evaluate(() => innerWidth);
   expect(box).not.toBeNull();
   expect(Math.abs(box!.x + box!.width / 2 - pageWidth / 2)).toBeLessThanOrEqual(1);
   expect(box!.y).toBeLessThan(40);
