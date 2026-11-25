@@ -11,9 +11,11 @@ before committing only when something in step 1 or 2 is off.
 
 ## 1. Confirm it's green
 
-- Code changed since the last full `check` run in this session → run the
-  `check` skill (no flag) in the background and wait. Docs, rules, skills
-  and tests only → `--changed` is enough; pure config → skip, and say so.
+- Code changed since the last check in this session → run the `check`
+  skill with `--changed` in the background and wait; CI runs everything
+  after the push. Run it with no flag instead for infrastructure (layout,
+  server, sessions, auth, migrations, `check.sh`), security-invariant or
+  multi-day changes. Pure config → skip, and say so.
 - A page, form, component or flow changed → the `verify` skill passed after
   the last edit.
 - `convention-reviewer` reported no must-fix (skip only for docs-only changes).

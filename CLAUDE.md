@@ -18,7 +18,9 @@ rather than grow one (`check_conventions.py` enforces it).
 2. **Use the matching skill** (`new-action`, `new-form-flow`, `new-query`,
    `new-component`, `new-flash`); smallest change that passes.
 3. **`verify` each unit** before the next. Fix causes, not symptoms.
-4. **Done** = `check` passes and `convention-reviewer` has no must-fix.
+4. **Done** = `check --changed` passes (no flag for infrastructure or
+   security work; CI runs the full set after push) and
+   `convention-reviewer` has no must-fix.
    Commit small, on `main` (a branch only for multi-day work), only when
    asked; "commit" means the `commit` skill: stage, commit, push, watch CI.
 
@@ -67,8 +69,9 @@ rather than grow one (`check_conventions.py` enforces it).
 - Dev database (read-only, secret columns hidden): `scripts/sql.sh "SELECT …"`.
   Writes go through the app or a migration, never this.
 - Checks: `scripts/check-summary.sh --changed` (Chromium, only the specs for
-  changed areas) while iterating; no flag before calling work done. Failed
-  Playwright tests are rerun once and reported as flaky or environment.
+  changed areas) while iterating and before commit; no flag for
+  infrastructure or security work. Failed Playwright tests are rerun once
+  and reported as flaky or environment.
 - State machine report: `./check.sh` writes `target/state-machines/index.html`
   (how to model one: `.claude/state-machines.md`).
 - Format: `topcoat fmt --rustfmt $(find src -name "*.rs")`, never `leptosfmt`.

@@ -30,4 +30,26 @@ if lsof -nP -iTCP:3000 -sTCP:LISTEN >/dev/null 2>&1; then
 else
   echo "- topcoat dev: nothing on :3000 (start it with \`topcoat dev\` if you need the app running)"
 fi
+
+ci_line() {
+  with_timeout 5 gh run list --workflow check.yml --limit 1 "$@" \
+    --json conclusion,status,headSha,event,createdAt,url \
+    -q '.[0] // empty | "\(.status)/\(.conclusion) on \(.headSha[0:7]) (\(.event), \(.createdAt[0:16])Z) \(.url)"' 2>/dev/null
+}
+if command -v gh >/dev/null 2>&1; then
+  ci_dir=$(mktemp -d)
+  ci_line --branch main --event push >"$ci_dir/latest" &
+  ci_line --event schedule >"$ci_dir/nightly" &
+  wait
+  latest=$(cat "$ci_dir/latest")
+  nightly=$(cat "$ci_dir/nightly")
+  rm -rf "$ci_dir"
+  echo "- CI (latest push to main): ${latest:-unknown}"
+  echo "- CI (latest nightly, all browsers): ${nightly:-none yet}"
+  if grep -Eq '/(failure|timed_out|startup_failure)' <<<"$latest$nightly"; then
+    echo "  A CI run is red: tell the user before starting new work and offer to fix it (gh run view <id> --log-failed)."
+  fi
+else
+  echo "- CI: gh not installed, status unknown"
+fi
 exit 0
