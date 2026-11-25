@@ -35,9 +35,11 @@ test("failed logins on one account don't block a different account", async ({
   const target = uniqueEmail(testInfo, "target");
   const bystander = uniqueEmail(testInfo, "bystander");
 
-  for (let attempt = 1; attempt <= 6; attempt++) {
+  for (let attempt = 1; attempt <= 5; attempt++) {
     await logIn(page, target, "wrong-password");
+    await expect(page.getByText("Invalid email or password.")).toBeVisible();
   }
+  await logIn(page, target, "wrong-password");
   await expect(page.getByText(TOO_MANY)).toBeVisible();
 
   await logIn(page, bystander, "wrong-password");
