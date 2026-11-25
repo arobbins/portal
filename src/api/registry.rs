@@ -7,14 +7,15 @@ use serde_json::Value;
 use topcoat::{
     Result,
     context::Cx,
-    router::{Body, content::Json},
+    router::{Body, StatusCode, content::Json},
 };
 
-use crate::action::{ActionProblem, ActionResult, Caller};
+use crate::action::{ActionError, ActionProblem, ActionResult, Caller, Outcome};
 use crate::api::body::BodyProblem;
 use crate::api::catalog::{Endpoint, ErrorDoc, HttpMethod};
-use crate::api::handler::{api_call, api_call_with_body};
+use crate::api::handler::{api_call, api_call_with_body, public_api_call};
 use crate::api::problem::{ApiFailure, ApiResponse, action_failed, respond};
+use crate::billing::api::{GetBillingAction, ListPlansAction, StartCheckoutAction};
 use crate::env::Env;
 use crate::feedback::api::SendFeedbackAction;
 use crate::permission::{Permission, TokenAccess};
@@ -34,6 +35,7 @@ pub trait ApiAction {
     const SUMMARY: &'static str;
     const DESCRIPTION: &'static str;
     const PERMISSION: Permission;
+    const SUCCESS: StatusCode = StatusCode::OK;
 
     type Input: DeserializeOwned + Serialize + JsonSchema + Send + Sync;
     type Output: Serialize + JsonSchema + Send;
@@ -50,6 +52,13 @@ pub trait ApiAction {
     fn problems() -> Vec<ErrorDoc>;
 }
 
+pub trait PublicApiAction: ApiAction {
+    fn run_public<'a>(
+        env: &'a Env<'a>,
+        input: &'a Self::Input,
+    ) -> impl Future<Output = Outcome<Self::Output, Self::Problem>> + Send + 'a;
+}
+
 pub fn tools() -> Vec<Tool> {
     vec![
         tool::<GetProfileAction>(),
@@ -57,6 +66,9 @@ pub fn tools() -> Vec<Tool> {
         tool::<GetNewslettersAction>(),
         tool::<UpdateNewslettersAction>(),
         tool::<SendFeedbackAction>(),
+        tool::<ListPlansAction>(),
+        tool::<GetBillingAction>(),
+        tool::<StartCheckoutAction>(),
     ]
 }
 
@@ -122,7 +134,11 @@ fn has_body(method: HttpMethod) -> bool {
 
 pub fn endpoint<A: ApiAction>() -> Endpoint {
     let body = has_body(A::METHOD);
-    let mut errors = vec![ErrorDoc::of(ApiFailure::InsufficientScope)];
+    let public = A::PERMISSION.token_access() == TokenAccess::Public;
+    let mut errors = Vec::new();
+    if !public {
+        errors.push(ErrorDoc::of(ApiFailure::InsufficientScope));
+    }
     if body {
         errors.extend(BodyProblem::ALL.into_iter().map(ErrorDoc::of));
     }
@@ -135,9 +151,11 @@ pub fn endpoint<A: ApiAction>() -> Endpoint {
         path: A::PATH,
         summary: A::SUMMARY,
         description: A::DESCRIPTION,
+        public,
+        success: A::SUCCESS.as_u16(),
         scope: match A::PERMISSION.token_access() {
             TokenAccess::Scope(scope) => Some(scope),
-            TokenAccess::AnyToken => None,
+            TokenAccess::AnyToken | TokenAccess::Public => None,
             TokenAccess::BrowserOnly => panic!("an ApiAction's permission must allow tokens"),
         },
         request: body.then(|| schema_for!(A::Input)),
@@ -163,10 +181,39 @@ pub async fn serve<A: ApiAction<Input = NoInput>>(cx: &Cx) -> Result<ApiResponse
 }
 
 pub async fn serve_with_body<A: ApiAction>(cx: &Cx, body: Body) -> Result<ApiResponse> {
+    let key = idempotency_key(cx);
     api_call_with_body(cx, body, async |caller, input: A::Input| {
-        Ok(respond(A::run(&env(cx), &caller, &input).await?))
+        let env = env(cx).with_idempotency_key(key.as_deref());
+        Ok(with_success_status(
+            A::SUCCESS,
+            respond(A::run(&env, &caller, &input).await?),
+        ))
     })
     .await
+}
+
+pub async fn serve_public<A: PublicApiAction<Input = NoInput>>(cx: &Cx) -> Result<ApiResponse> {
+    public_api_call(
+        async {
+            let outcome = A::run_public(&env(cx), &NoInput {}).await?;
+            Ok(respond(outcome.map_err(ActionError::Problem)))
+        }
+        .await,
+    )
+}
+
+fn idempotency_key(cx: &Cx) -> Option<String> {
+    topcoat::router::request::headers(cx)
+        .get("idempotency-key")
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string)
+}
+
+fn with_success_status(success: StatusCode, response: ApiResponse) -> ApiResponse {
+    match response {
+        (StatusCode::OK, headers, body) => (success, headers, body),
+        other => other,
+    }
 }
 
 #[cfg(test)]

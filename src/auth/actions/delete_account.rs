@@ -4,6 +4,7 @@ use serde::Deserialize;
 use crate::action::{ActionProblem, ActionResult, Caller, Outcome, ProblemSpec, authorize, fail};
 use crate::auth::emails::account_deleted_email;
 use crate::auth::reauth::{PasskeyProof, ReauthProblem, check_reauth};
+use crate::billing::cancel_before_deleting;
 use crate::env::Env;
 use crate::jobs::enqueue;
 use crate::mail::SendEmail;
@@ -59,6 +60,7 @@ pub async fn delete_account(
     let user = &caller.user;
     let mut tx = env.db().begin().await?;
     enqueue(&SendEmail(account_deleted_email(&user.email)), &mut *tx).await?;
+    cancel_before_deleting(user.id, &mut tx).await?;
     if !query_delete_user(user.id, &mut *tx).await? {
         return Err(topcoat::Error::msg("signed-in user no longer exists"));
     }

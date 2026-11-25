@@ -20,6 +20,7 @@ pub use worker::Worker;
 pub trait Job: Serialize + DeserializeOwned + Send + Sync + 'static {
     const KIND: &'static str;
     const REPEAT_EVERY: Option<time::Duration> = None;
+    const MAX_ATTEMPTS: i32 = 5;
 
     fn run(self, app: &App) -> impl Future<Output = Result<(), JobError>> + Send;
 }
@@ -53,7 +54,7 @@ impl From<topcoat::Error> for JobError {
 
 pub async fn enqueue<J: Job>(job: &J, db: impl PgExecutor<'_>) -> Result<(), sqlx::Error> {
     let payload = serde_json::to_value(job).unwrap_or_else(|_| serde_json::json!({}));
-    queue::query_insert_job(J::KIND, &payload, db).await
+    queue::query_insert_job(J::KIND, &payload, J::MAX_ATTEMPTS, db).await
 }
 
 type HandlerFuture<'a> = Pin<Box<dyn Future<Output = Result<(), JobError>> + Send + 'a>>;

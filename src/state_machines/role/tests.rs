@@ -95,6 +95,7 @@ async fn run(app: &App, from: RoleState, event: RoleEvent, email: &str) -> Run {
     let accepted = match event {
         E::Register => {
             let input = Register {
+                price: None,
                 name: "Role".to_string(),
                 email: email.to_string(),
                 time_zone: None,

@@ -20,6 +20,7 @@ use crate::app::page_title;
 use crate::auth::actions::{EMAIL_FIELD, Register, RegisterProblem, register};
 use crate::auth::links::TokenPurpose;
 use crate::auth::session::redirect_signed_in_users;
+use crate::billing::pages::handoff::{PRICE_PARAM, price_param, with_price};
 use crate::components::button::{ButtonType, button};
 use crate::components::form::{
     Autocomplete, FormVariant, InputType, form, form_actions, form_error, form_field,
@@ -39,11 +40,14 @@ pub struct RegisterForm {
     website: String,
     #[serde(default)]
     time_zone: String,
+    #[serde(default)]
+    price: String,
 }
 
 struct RegisterFailed {
     name: String,
     email: String,
+    price: Option<String>,
     problem: RegisterProblem,
 }
 
@@ -56,6 +60,9 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
     let name = failed.map(|failed| failed.name.clone());
     let email = failed.map(|failed| failed.email.clone());
     let problem = failed.map(|failed| failed.problem);
+    let price = failed
+        .and_then(|failed| failed.price.clone())
+        .or_else(|| price_param(cx));
     let sent_to = match flash {
         Some(_) => take_link_sent_to(cx).await?,
         None => None,
@@ -65,7 +72,7 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
         TokenPurpose::EmailVerification.lifetime_text()
     );
     let register_href = href!(register_page).resolve(cx);
-    let login_href = href!(login_page).resolve(cx);
+    let login_href = with_price(&href!(login_page).resolve(cx), price.as_deref());
 
     Ok(view! {
         <section class="l-contain l-skinny">
@@ -84,6 +91,7 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
                 register_form(
                     name: name.as_deref(),
                     email: email.as_deref(),
+                    price: price.as_deref(),
                     problem: problem
                 )
                 switch_link(
@@ -111,6 +119,7 @@ pub async fn register_submit(cx: &Cx, Form(form): Form<RegisterForm>) -> Result<
         name: form.name,
         email: form.email,
         time_zone: Some(form.time_zone).filter(|zone| !zone.is_empty()),
+        price: Some(form.price).filter(|price| !price.is_empty()),
     };
     match register(&env(cx), &input).await? {
         Ok(()) => {
@@ -124,6 +133,7 @@ pub async fn register_submit(cx: &Cx, Form(form): Form<RegisterForm>) -> Result<
             RegisterFailed {
                 name: input.name,
                 email: input.email,
+                price: input.price,
                 problem,
             },
         )),
@@ -151,6 +161,7 @@ async fn register_form(
     cx: &Cx,
     name: Option<&str>,
     email: Option<&str>,
+    price: Option<&str>,
     problem: Option<RegisterProblem>,
 ) -> Result<impl View> {
     let is_submitting = signal(cx, || false);
@@ -187,6 +198,9 @@ async fn register_form(
             )
             honeypot_field()
             <input type="hidden" name="time_zone" data-detect-time-zone="">
+            if let Some(price) = price {
+                <input type="hidden" name=(PRICE_PARAM) value=(price)>
+            }
             <p class="p-auth__newsletters">
                 "We'll send you our newsletter and product updates. You can turn them off any time in Settings."
             </p>

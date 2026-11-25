@@ -18,6 +18,7 @@ use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::PostgresStore;
 
 use crate::auth::actions::{EmailChangeJob, PasswordResetJob};
+use crate::billing::jobs::{CancelStripeSubscription, UpdateStripeCustomerEmail};
 use crate::cleanup::CleanupJob;
 use crate::config::Config;
 use crate::devices::lifecycle::DEVICE_IDLE_LIMIT;
@@ -67,6 +68,8 @@ fn job_handlers() -> Vec<Handler> {
         Handler::of::<PasswordResetJob>(),
         Handler::of::<EmailChangeJob>(),
         Handler::of::<CleanupJob>(),
+        Handler::of::<CancelStripeSubscription>(),
+        Handler::of::<UpdateStripeCustomerEmail>(),
     ]
 }
 

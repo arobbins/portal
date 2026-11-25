@@ -1,6 +1,7 @@
 use crate::routes::ACCOUNT_PATH;
 use crate::routes::API_DOCS_PATH;
 use crate::routes::LOGIN_PATH;
+use crate::routes::PRICING_PATH;
 use crate::routes::REGISTER_PATH;
 use topcoat::{
     Result,
@@ -38,6 +39,7 @@ pub async fn nav(cx: &Cx) -> Result<impl View> {
                     label: "WebTransport"
                 )
                 nav_item(href: href!(styleguide_page).resolve(cx), label: "Styleguide")
+                nav_item(href: PRICING_PATH.to_string(), label: "Pricing")
                 nav_item(href: API_DOCS_PATH.to_string(), label: "API docs")
                 if is_signed_in {
                     nav_item(href: ACCOUNT_PATH.to_string(), label: "Account")

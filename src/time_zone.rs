@@ -56,6 +56,10 @@ impl Zone {
         self.zoned(at).strftime("%b %-d, %Y").to_string()
     }
 
+    pub fn iso_date(&self, at: OffsetDateTime) -> String {
+        self.zoned(at).strftime("%Y-%m-%d").to_string()
+    }
+
     pub fn date_time(&self, at: OffsetDateTime) -> String {
         self.zoned(at)
             .strftime("%b %-d, %Y at %H:%M %Z")

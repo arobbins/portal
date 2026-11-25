@@ -42,10 +42,11 @@ pub enum AccountEventKind {
     SignedOutEverywhere,
     TimeZoneChanged,
     VerificationResent,
+    Billing(BillingEventKind),
 }
 
 impl AccountEventKind {
-    pub const ALL: [Self; 33] = [
+    pub const ALL: [Self; 40] = [
         Self::AccountCreated,
         Self::ApiTokenCreated,
         Self::ApiTokenRevoked,
@@ -79,6 +80,13 @@ impl AccountEventKind {
         Self::SignedOutEverywhere,
         Self::TimeZoneChanged,
         Self::VerificationResent,
+        Self::Billing(BillingEventKind::CheckoutStarted),
+        Self::Billing(BillingEventKind::PaymentFailed),
+        Self::Billing(BillingEventKind::PlanChanged),
+        Self::Billing(BillingEventKind::Subscribed),
+        Self::Billing(BillingEventKind::SubscriptionCancelled),
+        Self::Billing(BillingEventKind::SubscriptionEnded),
+        Self::Billing(BillingEventKind::DuplicateRefunded),
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -116,6 +124,32 @@ impl AccountEventKind {
             Self::SignedOutEverywhere => "signed_out_everywhere",
             Self::TimeZoneChanged => "time_zone_changed",
             Self::VerificationResent => "verification_resent",
+            Self::Billing(kind) => kind.as_str(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BillingEventKind {
+    CheckoutStarted,
+    PaymentFailed,
+    PlanChanged,
+    Subscribed,
+    SubscriptionCancelled,
+    SubscriptionEnded,
+    DuplicateRefunded,
+}
+
+impl BillingEventKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::CheckoutStarted => "checkout_started",
+            Self::PaymentFailed => "payment_failed",
+            Self::PlanChanged => "plan_changed",
+            Self::Subscribed => "subscribed",
+            Self::SubscriptionCancelled => "subscription_cancelled",
+            Self::SubscriptionEnded => "subscription_ended",
+            Self::DuplicateRefunded => "duplicate_subscription_refunded",
         }
     }
 }

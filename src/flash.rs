@@ -39,6 +39,7 @@ pub enum Flash {
     NotificationsSaved,
     NewslettersSaved,
     TwoFactorDisabled,
+    CheckoutCancelled,
 }
 
 impl Flash {
@@ -68,6 +69,7 @@ impl Flash {
             Self::NotificationsSaved => "notifications-saved",
             Self::NewslettersSaved => "newsletters-saved",
             Self::TwoFactorDisabled => "two-factor-disabled",
+            Self::CheckoutCancelled => "checkout-cancelled",
         }
     }
 
@@ -105,6 +107,7 @@ impl Flash {
             Self::NotificationsSaved => "Notification settings saved.",
             Self::NewslettersSaved => "Newsletter preferences saved.",
             Self::TwoFactorDisabled => "Two-factor authentication is off.",
+            Self::CheckoutCancelled => "Checkout cancelled. You haven't been charged.",
         }
     }
 }

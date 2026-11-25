@@ -27,6 +27,7 @@ test("an AI assistant can use the account's tools over MCP", async ({ page, requ
     "get_newsletters",
     "update_newsletters",
     "send_feedback",
+    "list_plans",
   ]);
 
   const rename = await callMcp(request, token, "tools/call", {

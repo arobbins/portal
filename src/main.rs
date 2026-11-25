@@ -6,6 +6,7 @@ mod api;
 mod api_tokens;
 mod app;
 mod auth;
+mod billing;
 mod cleanup;
 mod components;
 mod config;
@@ -33,6 +34,7 @@ mod server;
 mod sql_console;
 #[cfg(test)]
 mod state_machines;
+mod stripe;
 mod syntax;
 mod theme;
 mod time_zone;

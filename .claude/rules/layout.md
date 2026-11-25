@@ -24,7 +24,7 @@ paths:
 `emails.rs`. Features today: `auth` (sign-in, sign-up, emailed links, password,
 session), `passkeys`, `profile`, `api_tokens`, `devices` (signed-in
 browsers), `activity` (the account event log as a list), `admin` (the admin
-area: users list and detail, `webserver admin` command), `account` (the
+area: users list and detail, `webserver admin` command), `billing` (plans, Checkout, Stripe webhooks; `src/stripe.rs` is its HTTP client), `account` (the
 account shell: sections, pages, cards, nav, the sign-in and devices pages). `user/` is only the `User` model, its
 queries, `name.rs` and the event log; `api/` is only HTTP plumbing (auth,
 bodies, problems, scopes, catalog, `v1` routes).

@@ -70,6 +70,8 @@ pub struct Endpoint {
     pub path: &'static str,
     pub summary: &'static str,
     pub description: &'static str,
+    pub public: bool,
+    pub success: u16,
     pub scope: Option<ApiScope>,
     pub request: Option<Schema>,
     pub response: Schema,
@@ -82,12 +84,17 @@ impl Endpoint {
     pub fn access_note(&self) -> String {
         match self.scope {
             Some(scope) => format!("Requires a token with the `{}` scope.", scope.as_str()),
+            None if self.public => "Public: works without a token.".to_string(),
             None => "Works with any valid token, whatever its scopes.".to_string(),
         }
     }
 
     pub fn scope_name(&self) -> &'static str {
-        self.scope.map_or("any", ApiScope::as_str)
+        match self.scope {
+            Some(scope) => scope.as_str(),
+            None if self.public => "none",
+            None => "any",
+        }
     }
 
     pub fn request_fields(&self) -> Vec<FieldDoc> {
@@ -103,9 +110,11 @@ impl Endpoint {
         if self.method != HttpMethod::Get {
             command.push_str(&format!(" \\\n  -X {}", self.method.as_str()));
         }
-        command.push_str(&format!(
-            " \\\n  -H \"Authorization: Bearer ${TOKEN_VARIABLE}\""
-        ));
+        if !self.public {
+            command.push_str(&format!(
+                " \\\n  -H \"Authorization: Bearer ${TOKEN_VARIABLE}\""
+            ));
+        }
         if let Some(body) = &self.example_request {
             command.push_str(&format!(
                 " \\\n  -H \"Content-Type: application/json\" \\\n  -d '{body}'"

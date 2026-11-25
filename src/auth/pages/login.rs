@@ -8,7 +8,7 @@ use topcoat::{
         href, page, route,
     },
     runtime::signal,
-    view::{View, attributes, view},
+    view::{View, attributes, component, view},
 };
 
 use super::switch_link::switch_link;
@@ -19,6 +19,7 @@ use crate::auth::pages::register::register_page;
 use crate::auth::pages::reset_password::reset_password_page;
 use crate::auth::password::PASSWORD_FIELD;
 use crate::auth::session::{redirect_signed_in_users, sign_in};
+use crate::billing::pages::handoff::{price_param, remember_chosen_price, with_price};
 use crate::components::button::{ButtonType, ButtonVariant, button};
 use crate::components::form::{
     Autocomplete, FormVariant, InputType, LabelLink, form, form_actions, form_error, form_field,
@@ -43,7 +44,10 @@ struct LoginFailed {
 #[page("/login", with(Metadata::new().title(page_title("Sign in"))))]
 pub async fn login_page(cx: &Cx) -> Result<impl View> {
     redirect_signed_in_users(cx)?;
-    end_second_factor(&session(cx)?).await?;
+    let session = session(cx)?;
+    end_second_factor(&session).await?;
+    let price = price_param(cx);
+    remember_chosen_price(&session, price.as_deref(), env(cx).now()).await?;
 
     let flash = take_flash(cx, FLASHES).await?;
     let toast = flash_toast(cx, flash);
@@ -53,7 +57,7 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
     let is_submitting = signal(cx, || false);
     let invalid_credentials = problem == Some(SignInProblem::InvalidCredentials);
     let reset_href = href!(reset_password_page).resolve(cx);
-    let register_href = href!(register_page).resolve(cx);
+    let register_href = with_price(&href!(register_page).resolve(cx), price.as_deref());
 
     Ok(view! {
         <section class="l-contain l-skinny">
@@ -99,21 +103,28 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
                     )
                 )
             )
-            <div class="p-auth__passkey">
-                <p class="p-auth__passkey-divider">"or"</p>
-                button(
-                    variant: ButtonVariant::Secondary,
-                    attrs: attributes! { data-passkey-login="" },
-                    "Sign in with a passkey"
-                )
-                form_error(id: Some(PASSKEY_ERROR_ID), hidden: true, "")
-            </div>
+            passkey_sign_in()
             switch_link(
                 prompt: "Don't have an account yet? ",
                 href: &register_href,
                 label: "Register"
             )
         </section>
+    })
+}
+
+#[component]
+async fn passkey_sign_in(cx: &Cx) -> Result<impl View> {
+    Ok(view! {
+        <div class="p-auth__passkey">
+            <p class="p-auth__passkey-divider">"or"</p>
+            button(
+                variant: ButtonVariant::Secondary,
+                attrs: attributes! { data-passkey-login="" },
+                "Sign in with a passkey"
+            )
+            form_error(id: Some(PASSKEY_ERROR_ID), hidden: true, "")
+        </div>
     })
 }
 

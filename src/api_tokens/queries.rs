@@ -163,6 +163,20 @@ pub async fn query_delete_expired_api_tokens(
     Ok(result.rows_affected())
 }
 
+pub async fn query_get_api_token_name(
+    id: i32,
+    user_id: i32,
+    db: impl PgExecutor<'_>,
+) -> Result<Option<String>, sqlx::Error> {
+    sqlx::query_scalar!(
+        "SELECT name FROM api_tokens WHERE id = $1 AND user_id = $2",
+        id,
+        user_id,
+    )
+    .fetch_optional(db)
+    .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

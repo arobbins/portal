@@ -222,6 +222,7 @@ impl Bench<'_> {
 
     async fn register(&self, email: &str) -> bool {
         let input = Register {
+            price: None,
             name: "Cell".to_string(),
             email: email.to_string(),
             time_zone: None,

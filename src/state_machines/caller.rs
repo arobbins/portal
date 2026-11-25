@@ -60,7 +60,12 @@ pub fn expect(from: CallerState, permission: Permission) -> Expect<CallerState> 
             S::NotPermitted
         }
         (S::SubscriberBrowser, _) => S::Allowed,
-        (S::ReadToken | S::WriteToken | S::AdminWriteToken, P::SendApiFeedback) => S::Allowed,
+        (S::ReadToken | S::WriteToken | S::AdminWriteToken, P::SendApiFeedback | P::ViewPlans) => {
+            S::Allowed
+        }
+        (S::ReadToken | S::WriteToken | S::AdminWriteToken, P::ViewBilling | P::StartCheckout) => {
+            S::MissingScope
+        }
         (S::ReadToken | S::WriteToken | S::AdminWriteToken, P::ViewProfile) => S::Allowed,
         (S::ReadToken, P::EditProfile) => S::MissingScope,
         (S::WriteToken | S::AdminWriteToken, P::EditProfile) => S::Allowed,
@@ -116,6 +121,10 @@ impl Labeled for Permission {
             P::ExportData => "export_data",
             P::AdministerUsers => "administer_users",
             P::SendApiFeedback => "send_api_feedback",
+            P::ViewPlans => "view_plans",
+            P::ViewBilling => "view_billing",
+            P::StartCheckout => "start_checkout",
+            P::ManageBilling => "manage_billing",
         }
     }
 
@@ -135,6 +144,10 @@ impl Labeled for Permission {
             P::ExportData => "Export data",
             P::AdministerUsers => "Administer users",
             P::SendApiFeedback => "Send API feedback",
+            P::ViewPlans => "View plans",
+            P::ViewBilling => "View billing",
+            P::StartCheckout => "Start a checkout",
+            P::ManageBilling => "Manage billing",
         }
     }
 }

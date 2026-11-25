@@ -16,6 +16,10 @@ pub enum Permission {
     ExportData,
     AdministerUsers,
     SendApiFeedback,
+    ViewPlans,
+    ViewBilling,
+    StartCheckout,
+    ManageBilling,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,10 +27,11 @@ pub enum TokenAccess {
     BrowserOnly,
     Scope(ApiScope),
     AnyToken,
+    Public,
 }
 
 impl Permission {
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 18] = [
         Self::ViewProfile,
         Self::EditProfile,
         Self::ManagePassword,
@@ -41,6 +46,10 @@ impl Permission {
         Self::ExportData,
         Self::AdministerUsers,
         Self::SendApiFeedback,
+        Self::ViewPlans,
+        Self::ViewBilling,
+        Self::StartCheckout,
+        Self::ManageBilling,
     ];
 
     pub fn token_access(self) -> TokenAccess {
@@ -48,6 +57,9 @@ impl Permission {
             Self::ViewProfile => TokenAccess::Scope(ApiScope::ProfileRead),
             Self::EditProfile => TokenAccess::Scope(ApiScope::ProfileWrite),
             Self::SendApiFeedback => TokenAccess::AnyToken,
+            Self::ViewPlans => TokenAccess::Public,
+            Self::ViewBilling => TokenAccess::Scope(ApiScope::BillingRead),
+            Self::StartCheckout => TokenAccess::Scope(ApiScope::BillingWrite),
             Self::ManagePassword
             | Self::ManageEmail
             | Self::ConfirmIdentity
@@ -58,7 +70,8 @@ impl Permission {
             | Self::ManageApiTokens
             | Self::DeleteAccount
             | Self::ExportData
-            | Self::AdministerUsers => TokenAccess::BrowserOnly,
+            | Self::AdministerUsers
+            | Self::ManageBilling => TokenAccess::BrowserOnly,
         }
     }
 
@@ -98,6 +111,7 @@ mod tests {
             Permission::DeleteAccount,
             Permission::ExportData,
             Permission::AdministerUsers,
+            Permission::ManageBilling,
         ] {
             assert_eq!(permission.token_access(), TokenAccess::BrowserOnly);
         }
@@ -109,6 +123,11 @@ mod tests {
             Permission::SendApiFeedback.token_access(),
             TokenAccess::AnyToken
         );
+    }
+
+    #[test]
+    fn anyone_may_see_the_plans() {
+        assert_eq!(Permission::ViewPlans.token_access(), TokenAccess::Public);
     }
 
     #[test]

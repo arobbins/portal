@@ -3,6 +3,7 @@ use topcoat::{Result, context::Cx, router::route};
 use crate::api::handler::public_api_call;
 use crate::api::problem::{ApiFailure, ApiProblem, ApiResponse};
 
+pub mod billing;
 pub mod docs;
 pub mod feedback;
 pub mod newsletters;

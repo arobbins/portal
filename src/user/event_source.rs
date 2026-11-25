@@ -6,6 +6,7 @@ pub enum EventChannel {
     ApiToken(i32),
     Admin,
     Console,
+    Stripe,
 }
 
 impl EventChannel {
@@ -15,6 +16,7 @@ impl EventChannel {
             Self::ApiToken(_) => "api_token",
             Self::Admin => "admin",
             Self::Console => "console",
+            Self::Stripe => "stripe",
         }
     }
 
@@ -30,6 +32,7 @@ impl EventChannel {
             "api_token" => Self::ApiToken(0),
             "admin" => Self::Admin,
             "console" => Self::Console,
+            "stripe" => Self::Stripe,
             _ => Self::Browser,
         }
     }
@@ -63,6 +66,13 @@ impl EventSource {
         Self {
             user_id,
             channel: EventChannel::Admin,
+        }
+    }
+
+    pub fn stripe(user_id: i32) -> Self {
+        Self {
+            user_id,
+            channel: EventChannel::Stripe,
         }
     }
 

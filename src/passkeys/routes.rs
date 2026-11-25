@@ -1,3 +1,4 @@
+use crate::billing::pages::handoff::checkout_after_sign_in;
 use crate::routes::ACCOUNT_PATH;
 use serde_json::json;
 use topcoat::{
@@ -100,7 +101,8 @@ pub async fn finish_authentication(cx: &Cx, body: Body) -> Result<ApiResponse> {
     sign_in(cx, &session(cx)?, &user, SignInMethod::Passkey).await?;
 
     let mut body = accepted_credentials(app(cx), &user).await?;
-    body["redirect"] = json!(ACCOUNT_PATH);
+    let checkout = checkout_after_sign_in(cx, &session(cx)?, &user).await?;
+    body["redirect"] = json!(checkout.as_deref().unwrap_or(ACCOUNT_PATH));
     Ok(ok(&body))
 }
 

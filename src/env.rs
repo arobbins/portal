@@ -40,7 +40,11 @@ impl App {
     }
 
     pub fn env(&self, ip: Option<IpAddr>) -> Env<'_> {
-        Env { app: self, ip }
+        Env {
+            app: self,
+            ip,
+            idempotency_key: None,
+        }
     }
 
     #[cfg(test)]
@@ -63,9 +67,17 @@ impl App {
 pub struct Env<'a> {
     pub app: &'a App,
     pub ip: Option<IpAddr>,
+    pub idempotency_key: Option<&'a str>,
 }
 
-impl Env<'_> {
+impl<'a> Env<'a> {
+    pub fn with_idempotency_key(self, key: Option<&'a str>) -> Self {
+        Self {
+            idempotency_key: key,
+            ..self
+        }
+    }
+
     pub fn db(&self) -> &PgPool {
         &self.app.db
     }
@@ -76,6 +88,10 @@ impl Env<'_> {
 
     pub fn now(&self) -> OffsetDateTime {
         self.app.clock.now()
+    }
+
+    pub fn stripe(&self) -> Option<&'a crate::stripe::Stripe> {
+        self.app.config.stripe.as_ref()
     }
 }
 

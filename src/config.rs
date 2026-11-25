@@ -6,6 +6,7 @@ use url::{Host, Url};
 
 use crate::mail::Mailer;
 use crate::rate_limit::RateLimitMode;
+use crate::stripe::{DEFAULT_API_BASE, Stripe};
 
 const MAIL_TIMEOUT: Duration = Duration::from_secs(10);
 const DEFAULT_JOB_WORKERS: usize = 2;
@@ -79,6 +80,44 @@ fn postmark_mailer(reader: &mut Reader<'_>) -> Mailer {
     }
 }
 
+fn parse_stripe(reader: &mut Reader<'_>) -> Option<Stripe> {
+    let secret_key = reader.optional("STRIPE_SECRET_KEY");
+    let webhook_secret = reader.optional("STRIPE_WEBHOOK_SECRET");
+    let api_base = reader
+        .optional_url("STRIPE_API_BASE")
+        .unwrap_or_else(|| DEFAULT_API_BASE.to_string());
+    if !is_https_or_loopback(&api_base) {
+        reader.problems.push(format!(
+            "STRIPE_API_BASE must use https unless it's this machine (got `{api_base}`)"
+        ));
+    }
+    match (secret_key, webhook_secret) {
+        (Some(secret_key), Some(webhook_secret)) => {
+            Some(Stripe::new(secret_key, webhook_secret, api_base))
+        }
+        (None, None) => None,
+        _ => {
+            reader.problems.push(
+                "STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET must be set together (leave both empty to turn billing off)".to_string(),
+            );
+            None
+        }
+    }
+}
+
+fn is_https_or_loopback(url: &str) -> bool {
+    let Ok(url) = Url::parse(url) else {
+        return false;
+    };
+    match url.host() {
+        _ if url.scheme() == "https" => true,
+        Some(Host::Domain(domain)) => domain == "localhost",
+        Some(Host::Ipv4(ip)) => ip.is_loopback(),
+        Some(Host::Ipv6(ip)) => ip.is_loopback(),
+        None => false,
+    }
+}
+
 fn parse_rate_limit_mode(reader: &mut Reader<'_>) -> RateLimitMode {
     match reader.optional("RATE_LIMITS").as_deref() {
         None | Some("strict") => RateLimitMode::Strict,
@@ -127,6 +166,7 @@ pub struct Config {
     pub job_workers: usize,
     pub support_url: Option<String>,
     pub status_url: Option<String>,
+    pub stripe: Option<Stripe>,
 }
 
 impl Config {
@@ -152,6 +192,7 @@ impl Config {
                 .unwrap_or(DEFAULT_JOB_WORKERS),
             support_url: reader.optional_url("SUPPORT_URL"),
             status_url: reader.optional_url("STATUS_URL"),
+            stripe: parse_stripe(&mut reader),
         };
 
         if reader.problems.is_empty() {
@@ -285,6 +326,58 @@ mod tests {
         ]);
         assert_eq!(problems.len(), 2, "{problems:?}");
         assert!(problems[0].starts_with("SUPPORT_URL"), "{problems:?}");
+    }
+
+    #[test]
+    fn billing_is_off_without_stripe_keys_and_needs_both() {
+        let local = [
+            ("APP_BASE_URL", "http://localhost"),
+            ("MAIL_TRANSPORT", "log"),
+        ];
+        assert!(config(&local).unwrap().stripe.is_none());
+
+        let set = config(&[
+            local[0],
+            local[1],
+            ("STRIPE_SECRET_KEY", "sk_test_abc"),
+            ("STRIPE_WEBHOOK_SECRET", "whsec_abc"),
+        ])
+        .unwrap();
+        let stripe = set.stripe.unwrap();
+        assert!(stripe.is_test_mode());
+        assert_eq!(stripe.webhook_secret(), "whsec_abc");
+
+        let keys = [
+            ("STRIPE_SECRET_KEY", "sk_test_abc"),
+            ("STRIPE_WEBHOOK_SECRET", "whsec_abc"),
+        ];
+        for base in [
+            "http://127.0.0.1:4000",
+            "http://localhost:4000",
+            "https://api.stripe.com",
+        ] {
+            let set = config(&[
+                local[0],
+                local[1],
+                keys[0],
+                keys[1],
+                ("STRIPE_API_BASE", base),
+            ]);
+            assert!(set.is_ok(), "{base}");
+        }
+        let plain = config_problems(&[
+            local[0],
+            local[1],
+            keys[0],
+            keys[1],
+            ("STRIPE_API_BASE", "http://stripe.example.com"),
+        ]);
+        assert_eq!(plain.len(), 1, "{plain:?}");
+        assert!(plain[0].starts_with("STRIPE_API_BASE"), "{plain:?}");
+
+        let problems = config_problems(&[local[0], local[1], ("STRIPE_SECRET_KEY", "sk_live_abc")]);
+        assert_eq!(problems.len(), 1, "{problems:?}");
+        assert!(problems[0].starts_with("STRIPE_SECRET_KEY"), "{problems:?}");
     }
 
     #[test]

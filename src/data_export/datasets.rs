@@ -29,6 +29,18 @@ pub const LEFT_OUT: &[LeftOut] = &[
         table: "recovery_codes",
         why: "Two-factor recovery codes. They're secrets; we only keep a fingerprint of each.",
     },
+    LeftOut {
+        table: "billing_customers",
+        why: "Your Stripe customer id. Your billing details, invoices and receipts are kept by Stripe: open Manage billing to see or download them.",
+    },
+    LeftOut {
+        table: "subscriptions",
+        why: "Your plan and its renewal date, as Stripe last told us. Stripe's billing portal (Manage billing) has the full record.",
+    },
+    LeftOut {
+        table: "checkout_requests",
+        why: "Links to Stripe Checkout pages started for your account, kept for a day so a repeated request gets the same link.",
+    },
 ];
 
 pub async fn collect(env: &Env<'_>, user: &User) -> Result<Vec<Dataset>, sqlx::Error> {

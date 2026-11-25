@@ -58,6 +58,7 @@ pub async fn admin_user_page(cx: &Cx) -> Result<impl View> {
             }
             account_card(overview: &overview)
             newsletters_card(overview: &overview)
+            billing_card(overview: &overview)
             user_actions_card(user: &overview.user, is_self: is_self)
             card(
                 card_header(title: "Recent activity")
@@ -97,6 +98,36 @@ async fn account_card(cx: &Cx, overview: &UserOverview) -> Result<impl View> {
                         description: Some(user.public_id.as_str())
                     )
                 )
+            )
+        )
+    })
+}
+
+#[component]
+async fn billing_card(cx: &Cx, overview: &UserOverview) -> Result<impl View> {
+    let billing = &overview.billing;
+    let plan = format!("Plan: {}", billing.plan_name);
+    let status = format!("Status: {}", billing.status);
+
+    Ok(view! {
+        card(
+            card_header(title: "Billing")
+            card_body(
+                <p>(plan.as_str())</p>
+                " "
+                <p>(status.as_str())</p>
+                " "
+                if let Some(url) = &billing.stripe_url {
+                    <p>
+                        <a
+                            href=(url.as_str())
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            "Open in Stripe"
+                        </a>
+                    </p>
+                }
             )
         )
     })

@@ -1,0 +1,25 @@
+.p-billing__manage {
+  margin: 0;
+}
+
+.p-billing__plan-name strong {
+  color: var(--color-text-strong);
+}
+
+.p-billing__poll {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  animation: p-billing-poll 3s linear infinite;
+}
+
+@keyframes p-billing-poll {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.01;
+  }
+}
