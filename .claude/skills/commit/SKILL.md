@@ -35,8 +35,8 @@ before committing only when something in step 1 or 2 is off.
 - Subject: imperative, sentence case, no trailing period, at most 72
   characters, in the style of `git log --oneline -10` (e.g. "Search admin
   users as you type"). What the user sees, not the files touched.
-- Body only when the why isn't obvious: 1–3 short lines.
-- End with the attribution lines from the current system reminder.
+- The subject line only: no body and no Co-Authored-By trailer (the
+  user's standing instruction, which overrides attribution reminders).
 - `git commit -F -` with a heredoc. Hooks fail → fix the cause, new commit;
   never `--no-verify`, never `--amend` something already pushed.
 - One logical change per commit; split unrelated work into two.
