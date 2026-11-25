@@ -5,7 +5,9 @@ export const TOKEN_SHAPE = /^wsk_[A-Za-z0-9]{49}$/;
 
 export type Access =
   | "Read your profile (profile:read)"
-  | "Read and update your profile (profile:write)";
+  | "Read and update your profile (profile:write)"
+  | "Read your billing (billing:read)"
+  | "Read your billing and start checkouts (billing:write)";
 
 export type UsedBy = "Scripts and apps (JSON API)" | "AI assistants (MCP)";
 
