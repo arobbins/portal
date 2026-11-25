@@ -3,13 +3,14 @@ name: check
 on:
   push:
     branches: [main]
+  pull_request:
   schedule:
     - cron: "0 7 * * *"
   workflow_dispatch:
 
 concurrency:
   group: check-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -38,7 +39,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - uses: ./.github/actions/setup
 
@@ -49,9 +50,11 @@ jobs:
         run: test -z "$(git status --porcelain -- .sqlx)" || { git status --short -- .sqlx; exit 1; }
 
   e2e:
-    name: e2e (${{ github.event_name == 'push' && 'chromium' || 'all browsers' }})
+    name: e2e (${{ contains(fromJSON('["push","pull_request"]'), github.event_name) && 'chromium' || 'all browsers' }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      BROWSER: ${{ contains(fromJSON('["push","pull_request"]'), github.event_name) && 'chromium' || '' }}
     services:
       postgres:
         image: postgres:17
@@ -65,11 +68,11 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - uses: ./.github/actions/setup
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 22
           cache: npm
@@ -79,14 +82,14 @@ jobs:
         working-directory: e2e
         run: |
           npm ci
-          npx playwright install --with-deps ${{ github.event_name == 'push' && 'chromium' || '' }}
+          npx playwright install --with-deps $BROWSER
 
       - name: Playwright
-        run: ./check.sh --part e2e -- ${{ github.event_name == 'push' && '--project=chromium' || '' }}
+        run: ./check.sh --part e2e -- ${BROWSER:+--project=$BROWSER}
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: playwright-report
           path: |

@@ -7,13 +7,13 @@ runs:
       shell: bash
       run: rustup show active-toolchain || rustup toolchain install
 
-    - uses: Swatinem/rust-cache@v2
+    - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
       with:
         cache-all-crates: true
         cache-on-failure: true
 
     - name: Install sqlx-cli and topcoat-cli (prebuilt)
-      uses: taiki-e/install-action@v2
+      uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c
       with:
         tool: sqlx-cli@0.9.0,topcoat-cli@0.12.1
 

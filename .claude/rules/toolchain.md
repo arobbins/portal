@@ -19,8 +19,9 @@ paths:
   regenerated files. Bump either CLI locally and in the `tool:` line of
   `.github/actions/setup` together.
 - CI (`check.yml`) runs `./check.sh --part rust` and `--part e2e` as
-  parallel jobs: Chromium only on push, all three browsers nightly (07:00
-  UTC) and on manual runs. Shared setup lives in `.github/actions/setup`.
+  parallel jobs: Chromium only on push and pull requests, all three
+  browsers nightly (07:00 UTC) and on manual runs. Shared setup lives in
+  `.github/actions/setup`.
   A new `check.sh` step goes inside the `--part` it belongs to.
   CI installs both CLIs prebuilt from cargo-quickinstall (if a log shows
   one compiling, pin it with `cargo install --locked`) and builds without
@@ -30,3 +31,7 @@ paths:
   within days). `Cargo.lock` versions are unaffected; to take a fresh fix
   sooner, run that one update with
   `CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE=allow`.
+- Actions are pinned to release commit SHAs (Nov 24: checkout v7.0.1,
+  setup-node v7.1.0, upload-artifact v7.0.2, rust-cache v2.9.3,
+  install-action v2.90.8). Dependabot (`.github/dependabot.yml`, 3-day
+  cooldown) opens weekly PRs for actions, cargo and npm.
