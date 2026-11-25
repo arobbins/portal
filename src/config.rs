@@ -86,6 +86,11 @@ fn parse_stripe(reader: &mut Reader<'_>) -> Option<Stripe> {
     let api_base = reader
         .optional_url("STRIPE_API_BASE")
         .unwrap_or_else(|| DEFAULT_API_BASE.to_string());
+    if !is_https_or_loopback(&api_base) {
+        reader.problems.push(format!(
+            "STRIPE_API_BASE must use https unless it's this machine (got `{api_base}`)"
+        ));
+    }
     match (secret_key, webhook_secret) {
         (Some(secret_key), Some(webhook_secret)) => {
             Some(Stripe::new(secret_key, webhook_secret, api_base))
@@ -97,6 +102,19 @@ fn parse_stripe(reader: &mut Reader<'_>) -> Option<Stripe> {
             );
             None
         }
+    }
+}
+
+fn is_https_or_loopback(url: &str) -> bool {
+    let Ok(url) = Url::parse(url) else {
+        return false;
+    };
+    match url.host() {
+        _ if url.scheme() == "https" => true,
+        Some(Host::Domain(domain)) => domain == "localhost",
+        Some(Host::Ipv4(ip)) => ip.is_loopback(),
+        Some(Host::Ipv6(ip)) => ip.is_loopback(),
+        None => false,
     }
 }
 
@@ -328,6 +346,34 @@ mod tests {
         let stripe = set.stripe.unwrap();
         assert!(stripe.is_test_mode());
         assert_eq!(stripe.webhook_secret(), "whsec_abc");
+
+        let keys = [
+            ("STRIPE_SECRET_KEY", "sk_test_abc"),
+            ("STRIPE_WEBHOOK_SECRET", "whsec_abc"),
+        ];
+        for base in [
+            "http://127.0.0.1:4000",
+            "http://localhost:4000",
+            "https://api.stripe.com",
+        ] {
+            let set = config(&[
+                local[0],
+                local[1],
+                keys[0],
+                keys[1],
+                ("STRIPE_API_BASE", base),
+            ]);
+            assert!(set.is_ok(), "{base}");
+        }
+        let plain = config_problems(&[
+            local[0],
+            local[1],
+            keys[0],
+            keys[1],
+            ("STRIPE_API_BASE", "http://stripe.example.com"),
+        ]);
+        assert_eq!(plain.len(), 1, "{plain:?}");
+        assert!(plain[0].starts_with("STRIPE_API_BASE"), "{plain:?}");
 
         let problems = config_problems(&[local[0], local[1], ("STRIPE_SECRET_KEY", "sk_live_abc")]);
         assert_eq!(problems.len(), 1, "{problems:?}");

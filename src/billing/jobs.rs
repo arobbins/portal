@@ -9,6 +9,8 @@ const RETRY_FOR_DAYS_OF_ATTEMPTS: i32 = 100;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CancelStripeSubscription {
     pub subscription: String,
+    #[serde(default)]
+    pub refund: bool,
 }
 
 impl Job for CancelStripeSubscription {
@@ -19,13 +21,50 @@ impl Job for CancelStripeSubscription {
         if !is_stripe_id(&self.subscription, "sub_") {
             return Err(JobError::new("not a Stripe subscription id"));
         }
+        let stripe = configured(app)?;
         let path = format!("/v1/subscriptions/{}", self.subscription);
-        match configured(app)?.send(Request::delete(&path)).await {
-            Ok(_) => Ok(()),
-            Err(error) if error.is_not_found() => Ok(()),
-            Err(error) => Err(JobError::new(error)),
+        match stripe.send(Request::delete(&path)).await {
+            Ok(_) => {}
+            Err(error) if error.is_not_found() => {}
+            Err(error) => return Err(JobError::new(error)),
         }
+        if self.refund {
+            refund_latest_invoice(stripe, &self.subscription).await?;
+        }
+        Ok(())
     }
+}
+
+async fn refund_latest_invoice(stripe: &Stripe, subscription: &str) -> Result<(), JobError> {
+    let path = format!("/v1/invoices?subscription={subscription}&limit=1");
+    let invoices = stripe
+        .send(Request::get(&path))
+        .await
+        .map_err(JobError::new)?;
+    let invoice = &invoices["data"][0];
+    if invoice["amount_paid"].as_i64().unwrap_or(0) <= 0 {
+        return Ok(());
+    }
+    let paid_with = [
+        ("payment_intent", &invoice["payment_intent"]),
+        ("charge", &invoice["charge"]),
+    ]
+    .into_iter()
+    .find_map(|(field, value)| {
+        let id = value.as_str().or_else(|| value["id"].as_str())?;
+        Some((field, id.to_string()))
+    });
+    let Some((field, id)) = paid_with else {
+        return Err(JobError::new("the invoice has no payment to refund"));
+    };
+    let form = [(field, id.as_str())];
+    let key = format!("refund-{subscription}");
+    let request = Request::post("/v1/refunds", &form).idempotent(Some(&key));
+    stripe
+        .send(request)
+        .await
+        .map(|_| ())
+        .map_err(JobError::new)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

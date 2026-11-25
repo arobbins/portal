@@ -22,6 +22,12 @@ paths:
   before the transaction; the event id is recorded in the same transaction
   as the change, so a failed apply is retried by Stripe. Events record
   account events with channel `stripe`.
+- A subscription event is re-read from Stripe (`GET /v1/subscriptions/{id}`)
+  before the transaction and its current state applied; a known
+  subscription keeps its stored plan when the price can't be found. One
+  live subscription per account (partial unique index, customer row locked
+  `FOR UPDATE`); a second is cancelled and refunded by a job.
+- Only a token's Checkout records an event (`checkout_started`).
 - Stripe calls never run inside a transaction. Deleting an account
   enqueues `CancelStripeSubscription` in the deletion's transaction; an
   email change enqueues `UpdateStripeCustomerEmail`.

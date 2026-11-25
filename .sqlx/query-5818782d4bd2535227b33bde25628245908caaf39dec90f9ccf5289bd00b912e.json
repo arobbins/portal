@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE user_tokens SET payload = 'not a price' WHERE payload = 'price_pro'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "5818782d4bd2535227b33bde25628245908caaf39dec90f9ccf5289bd00b912e"
+}

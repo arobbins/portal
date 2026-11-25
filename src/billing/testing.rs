@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -37,6 +38,7 @@ struct Fake {
     sessions: AtomicUsize,
     customers: AtomicUsize,
     failing_deletes: AtomicUsize,
+    subscriptions: Mutex<HashMap<String, Value>>,
 }
 
 pub struct FakeStripe {
@@ -90,6 +92,14 @@ impl FakeStripe {
             .into_iter()
             .filter(|seen| seen.method == method && seen.path == path)
             .collect()
+    }
+
+    pub fn set_subscription(&self, id: &str, object: Value) {
+        self.fake
+            .subscriptions
+            .lock()
+            .unwrap()
+            .insert(id.to_string(), object);
     }
 
     pub fn fail_next_deletes(&self, count: usize) {
@@ -147,6 +157,24 @@ async fn respond(
                 Json(json!({ "id": format!("cs_{n}"), "url": url })),
             )
         }
+        ("GET", "/v1/invoices") => (
+            StatusCode::OK,
+            Json(json!({ "object": "list", "data": [
+                { "id": "in_fake", "amount_paid": 1200, "payment_intent": "pi_fake" }
+            ] })),
+        ),
+        ("POST", "/v1/refunds") => (StatusCode::OK, Json(json!({ "id": "re_fake" }))),
+        ("GET", _) if path.starts_with("/v1/subscriptions/") => {
+            let id = path.trim_start_matches("/v1/subscriptions/");
+            match fake.subscriptions.lock().unwrap().get(id) {
+                Some(object) => (StatusCode::OK, Json(object.clone())),
+                None => (StatusCode::NOT_FOUND, Json(json!({ "error": {} }))),
+            }
+        }
+        ("POST", _) if path.starts_with("/v1/customers/") => (
+            StatusCode::OK,
+            Json(json!({ "id": path.trim_start_matches("/v1/customers/") })),
+        ),
         ("POST", "/v1/billing_portal/sessions") => (
             StatusCode::OK,
             Json(json!({ "url": "https://portal.test/bps_1" })),

@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT plan_key, plan_name, price_id FROM subscriptions WHERE stripe_subscription_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "plan_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "plan_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "price_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f8cceb8e04d5d2d492a81c329884947b3cbbfdd30eaa7207e59e3bf14850adc0"
+}

@@ -2,10 +2,14 @@ use topcoat::router::StatusCode;
 
 use super::sync::{Applied, Delivery, apply_change};
 use crate::billing::catalog::find_price;
-use crate::billing::queries::query_stripe_event_seen;
-use crate::billing::webhook::{Change, EventKind, StripeEvent, parse_event, subscription_state};
+use crate::billing::jobs::is_stripe_id;
+use crate::billing::queries::{query_get_subscription_plan, query_stripe_event_seen};
+use crate::billing::webhook::{
+    Change, EventKind, PlanRef, StripeEvent, SubscriptionPayload, parse_event, subscription,
+    subscription_state,
+};
 use crate::env::Env;
-use crate::stripe::{Stripe, StripeError, verify_signature};
+use crate::stripe::{Request, Stripe, StripeError, verify_signature};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WebhookReply {
@@ -45,7 +49,7 @@ pub async fn receive_stripe_event(
     if query_stripe_event_seen(&event.id, env.db()).await? {
         return Ok(WebhookReply::Accepted(Applied::Repeated));
     }
-    let change = match resolve(stripe, &event).await {
+    let change = match resolve(env, stripe, &event).await? {
         Ok(change) => change,
         Err(error) => {
             tracing::warn!(event = %event.id, "Stripe event not applied yet: {error}");
@@ -61,14 +65,24 @@ pub async fn receive_stripe_event(
     Ok(WebhookReply::Accepted(applied))
 }
 
-async fn resolve(stripe: &Stripe, event: &StripeEvent) -> Result<Change, StripeError> {
-    Ok(match &event.kind {
-        EventKind::Subscription(payload) => match find_price(stripe, &payload.price_id).await? {
-            Some(price) => {
-                subscription_state(payload, &price).map_or(Change::Nothing, Change::Subscription)
-            }
-            None => Change::Nothing,
-        },
+async fn resolve(
+    env: &Env<'_>,
+    stripe: &Stripe,
+    event: &StripeEvent,
+) -> topcoat::Result<Result<Change, StripeError>> {
+    Ok(Ok(match &event.kind {
+        EventKind::Subscription(payload) => {
+            let current = match current_state(stripe, payload).await {
+                Ok(current) => current,
+                Err(error) => return Ok(Err(error)),
+            };
+            let plan = match plan_for(env, stripe, &current).await? {
+                Ok(plan) => plan,
+                Err(error) => return Ok(Err(error)),
+            };
+            plan.and_then(|plan| subscription_state(&current, &plan))
+                .map_or(Change::Nothing, Change::Subscription)
+        }
         EventKind::InvoicePaid { subscription } => Change::InvoicePaid {
             subscription: subscription.clone(),
         },
@@ -76,5 +90,43 @@ async fn resolve(stripe: &Stripe, event: &StripeEvent) -> Result<Change, StripeE
             subscription: subscription.clone(),
         },
         EventKind::Other => Change::Nothing,
+    }))
+}
+
+async fn current_state(
+    stripe: &Stripe,
+    payload: &SubscriptionPayload,
+) -> Result<SubscriptionPayload, StripeError> {
+    if !is_stripe_id(&payload.id, "sub_") {
+        return Ok(payload.clone());
+    }
+    let path = format!("/v1/subscriptions/{}", payload.id);
+    match stripe.send(Request::get(&path)).await {
+        Ok(object) => Ok(subscription(&object, payload.deleted).unwrap_or_else(|| payload.clone())),
+        Err(error) if error.is_not_found() => Ok(payload.clone()),
+        Err(error) => Err(error),
+    }
+}
+
+async fn plan_for(
+    env: &Env<'_>,
+    stripe: &Stripe,
+    current: &SubscriptionPayload,
+) -> topcoat::Result<Result<Option<PlanRef>, StripeError>> {
+    let stored = query_get_subscription_plan(&current.id, env.db()).await?;
+    if let Some(stored) = stored
+        .as_ref()
+        .filter(|plan| plan.price_id == current.price_id)
+    {
+        return Ok(Ok(Some(PlanRef {
+            plan_key: stored.plan_key.clone(),
+            plan_name: stored.plan_name.clone(),
+            price_id: stored.price_id.clone(),
+        })));
+    }
+    Ok(match find_price(stripe, &current.price_id).await {
+        Ok(Some(price)) => Ok(Some(price.into())),
+        Ok(None) => Ok(stored.map(PlanRef::from)),
+        Err(error) => Err(error),
     })
 }

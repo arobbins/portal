@@ -31,13 +31,32 @@ pub async fn query_insert_customer(
     Ok(())
 }
 
-pub async fn query_get_user_id_by_customer(
+pub async fn query_lock_customer(
     customer_id: &str,
     db: impl PgExecutor<'_>,
 ) -> Result<Option<i32>, sqlx::Error> {
     sqlx::query_scalar!(
-        "SELECT user_id FROM billing_customers WHERE stripe_customer_id = $1",
+        "SELECT user_id FROM billing_customers WHERE stripe_customer_id = $1 FOR UPDATE",
         customer_id,
+    )
+    .fetch_optional(db)
+    .await
+}
+
+pub struct StoredPlan {
+    pub plan_key: String,
+    pub plan_name: String,
+    pub price_id: String,
+}
+
+pub async fn query_get_subscription_plan(
+    stripe_subscription_id: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<Option<StoredPlan>, sqlx::Error> {
+    sqlx::query_as!(
+        StoredPlan,
+        "SELECT plan_key, plan_name, price_id FROM subscriptions WHERE stripe_subscription_id = $1",
+        stripe_subscription_id,
     )
     .fetch_optional(db)
     .await

@@ -228,11 +228,6 @@ async fn store_checkout(
         Some(id) => token_name(id, caller.owner_id(), env.db()).await?,
         None => None,
     };
-    let mut detail =
-        json!({ "plan": price.plan_key, "plan_name": price.plan_name, "price": price.price_id });
-    if let Some(token) = token {
-        detail["token"] = json!(token);
-    }
     let mut tx = env.db().begin().await?;
     if let Some(key) = key {
         let request = CheckoutRequest {
@@ -241,15 +236,16 @@ async fn store_checkout(
         };
         query_insert_checkout_request(caller.owner_id(), key, &request, &mut *tx).await?;
     }
-    let source = EventSource::of(caller);
-    record_event(
-        env,
-        &source,
-        AccountEventKind::Billing(BillingEventKind::CheckoutStarted),
-        detail,
-        &mut *tx,
-    )
-    .await?;
+    if let Some(token) = token {
+        let detail = json!({
+            "plan": price.plan_key,
+            "plan_name": price.plan_name,
+            "price": price.price_id,
+            "token": token,
+        });
+        let kind = AccountEventKind::Billing(BillingEventKind::CheckoutStarted);
+        record_event(env, &EventSource::of(caller), kind, detail, &mut *tx).await?;
+    }
     tx.commit().await?;
     Ok(())
 }

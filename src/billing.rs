@@ -3,7 +3,7 @@ pub mod api;
 pub mod catalog;
 pub mod jobs;
 pub mod pages;
-mod queries;
+pub(crate) mod queries;
 pub mod subscription;
 #[cfg(test)]
 pub mod testing;
@@ -39,6 +39,7 @@ pub async fn cancel_before_deleting(
     };
     let job = CancelStripeSubscription {
         subscription: subscription.stripe_subscription_id,
+        refund: false,
     };
     enqueue(&job, &mut *tx).await
 }

@@ -104,6 +104,9 @@ fn billing_summary(kind: BillingEventKind, detail: &Value) -> String {
         },
         BillingEventKind::PaymentFailed => format!("Payment failed for {plan}"),
         BillingEventKind::SubscriptionEnded => format!("{plan} ended, back on Free"),
+        BillingEventKind::DuplicateRefunded => {
+            format!("Second {plan} subscription cancelled and refunded")
+        }
         BillingEventKind::CheckoutStarted => match text(detail, "token") {
             Some(token) => format!("Checkout for {plan} started by token {token}"),
             None => format!("Checkout for {plan} started"),

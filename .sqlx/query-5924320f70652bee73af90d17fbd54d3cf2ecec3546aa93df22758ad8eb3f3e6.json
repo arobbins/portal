@@ -1,12 +1,12 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT user_id FROM billing_customers WHERE stripe_customer_id = $1",
+  "query": "SELECT payload FROM jobs WHERE kind = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "user_id",
-        "type_info": "Int4"
+        "name": "payload",
+        "type_info": "Jsonb"
       }
     ],
     "parameters": {
@@ -18,5 +18,5 @@
       false
     ]
   },
-  "hash": "4058bcdf8b1328ee7a4060ef2dfdff0765de7d2c504f254ec99cd1b0ff10d671"
+  "hash": "5924320f70652bee73af90d17fbd54d3cf2ecec3546aa93df22758ad8eb3f3e6"
 }

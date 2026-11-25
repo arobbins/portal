@@ -50,10 +50,7 @@ async fn checkout_uses_automatic_payment_methods_and_reuses_the_customer(db: PgP
             .iter()
             .all(|(key, _)| !key.starts_with("payment_method_types"))
     );
-    assert_eq!(
-        activity_of(&app, &user).await[0],
-        "Checkout for Pro started"
-    );
+    assert!(activity_of(&app, &user).await.is_empty());
 }
 
 #[sqlx::test]

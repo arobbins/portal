@@ -46,7 +46,7 @@ pub enum AccountEventKind {
 }
 
 impl AccountEventKind {
-    pub const ALL: [Self; 39] = [
+    pub const ALL: [Self; 40] = [
         Self::AccountCreated,
         Self::ApiTokenCreated,
         Self::ApiTokenRevoked,
@@ -86,6 +86,7 @@ impl AccountEventKind {
         Self::Billing(BillingEventKind::Subscribed),
         Self::Billing(BillingEventKind::SubscriptionCancelled),
         Self::Billing(BillingEventKind::SubscriptionEnded),
+        Self::Billing(BillingEventKind::DuplicateRefunded),
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -136,6 +137,7 @@ pub enum BillingEventKind {
     Subscribed,
     SubscriptionCancelled,
     SubscriptionEnded,
+    DuplicateRefunded,
 }
 
 impl BillingEventKind {
@@ -147,6 +149,7 @@ impl BillingEventKind {
             Self::Subscribed => "subscribed",
             Self::SubscriptionCancelled => "subscription_cancelled",
             Self::SubscriptionEnded => "subscription_ended",
+            Self::DuplicateRefunded => "duplicate_subscription_refunded",
         }
     }
 }

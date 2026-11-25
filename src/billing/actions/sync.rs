@@ -4,7 +4,7 @@ use time::OffsetDateTime;
 
 use crate::billing::jobs::CancelStripeSubscription;
 use crate::billing::queries::{
-    query_get_current_subscription, query_get_user_id_by_customer, query_insert_subscription,
+    query_get_current_subscription, query_insert_subscription, query_lock_customer,
     query_lock_subscription, query_record_stripe_event, query_update_subscription,
     query_update_subscription_status,
 };
@@ -59,7 +59,7 @@ async fn apply_subscription(
     at: OffsetDateTime,
     tx: &mut PgConnection,
 ) -> topcoat::Result<Applied> {
-    let Some(user_id) = query_get_user_id_by_customer(&state.customer_id, &mut *tx).await? else {
+    let Some(user_id) = query_lock_customer(&state.customer_id, &mut *tx).await? else {
         return Ok(Applied::UnknownCustomer);
     };
     let existing = query_lock_subscription(&state.stripe_subscription_id, &mut *tx).await?;
@@ -90,11 +90,14 @@ async fn start_subscription(
         .await?
         .is_some()
     {
-        tracing::warn!(user_id, subscription = %state.stripe_subscription_id, "second subscription for one account: cancelling it at Stripe");
+        tracing::warn!(user_id, subscription = %state.stripe_subscription_id, "second subscription for one account: cancelling and refunding it at Stripe");
         let job = CancelStripeSubscription {
             subscription: state.stripe_subscription_id.clone(),
+            refund: true,
         };
         enqueue(&job, &mut *tx).await?;
+        let kind = AccountEventKind::Billing(BillingEventKind::DuplicateRefunded);
+        log(env, user_id, kind, state, &mut *tx).await?;
         return Ok(Applied::Duplicate);
     }
     query_insert_subscription(user_id, state, at, &mut *tx).await?;
@@ -152,12 +155,15 @@ async fn apply_invoice(
         return Ok(refused);
     }
     let status = match (paid, before.status) {
+        (true, SubscriptionStatus::PastDue) if before.ends_at.is_some() => {
+            SubscriptionStatus::Cancelling
+        }
         (true, SubscriptionStatus::PastDue) => SubscriptionStatus::Active,
         (true, status) => status,
         (false, _) => SubscriptionStatus::PastDue,
     };
     query_update_subscription_status(before.id, status, at, &mut *tx).await?;
-    if !paid {
+    if !paid && before.status != SubscriptionStatus::PastDue {
         let state = state_of(&before);
         log(
             env,

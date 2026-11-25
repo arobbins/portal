@@ -2,6 +2,7 @@ use serde_json::Value;
 use time::OffsetDateTime;
 
 use super::catalog::PaidPrice;
+use super::queries::StoredPlan;
 use super::subscription::{SubscriptionState, SubscriptionStatus};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -73,7 +74,7 @@ fn id_of(value: &Value) -> Option<String> {
         .map(str::to_string)
 }
 
-fn subscription(object: &Value, deleted: bool) -> Option<SubscriptionPayload> {
+pub fn subscription(object: &Value, deleted: bool) -> Option<SubscriptionPayload> {
     let item = &object["items"]["data"][0];
     Some(SubscriptionPayload {
         id: object["id"].as_str()?.to_string(),
@@ -109,9 +110,36 @@ pub fn status_of(payload: &SubscriptionPayload) -> Option<SubscriptionStatus> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlanRef {
+    pub plan_key: String,
+    pub plan_name: String,
+    pub price_id: String,
+}
+
+impl From<PaidPrice> for PlanRef {
+    fn from(price: PaidPrice) -> Self {
+        Self {
+            plan_key: price.plan_key,
+            plan_name: price.plan_name,
+            price_id: price.price_id,
+        }
+    }
+}
+
+impl From<StoredPlan> for PlanRef {
+    fn from(plan: StoredPlan) -> Self {
+        Self {
+            plan_key: plan.plan_key,
+            plan_name: plan.plan_name,
+            price_id: plan.price_id,
+        }
+    }
+}
+
 pub fn subscription_state(
     payload: &SubscriptionPayload,
-    price: &PaidPrice,
+    price: &PlanRef,
 ) -> Option<SubscriptionState> {
     let status = status_of(payload)?;
     let current_period_end =

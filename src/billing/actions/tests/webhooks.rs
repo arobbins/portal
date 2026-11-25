@@ -146,33 +146,60 @@ async fn a_failed_renewal_then_the_end_are_recorded_as_activity(db: PgPool) {
 }
 
 #[sqlx::test]
-async fn a_second_subscription_for_one_account_is_cancelled_at_stripe(db: PgPool) {
+async fn a_repeated_failure_is_logged_once_and_a_cancelled_plan_keeps_its_end(db: PgPool) {
     let stripe = FakeStripe::start().await;
     let app = stripe.app(&db);
-    let user = customer("twice@example.test", CUSTOMER, &db).await;
-    let first = subscription("customer.subscription.created", "evt_1", T, "active", false);
-    let second = subscription_for(
-        CUSTOMER,
-        "sub_2",
-        "customer.subscription.created",
-        "evt_2",
-        T + 1,
-        "active",
-        false,
-    );
+    let user = customer("cancelled-late@example.test", CUSTOMER, &db).await;
 
-    deliver(&app, &first).await;
+    deliver(&app, &sub("created", 1, "active", false)).await;
+    deliver(&app, &sub("updated", 2, "active", true)).await;
+    deliver(&app, &invoice("invoice.payment_failed", "evt_3", T + 3)).await;
+    deliver(&app, &invoice("invoice.payment_failed", "evt_4", T + 4)).await;
+    assert_eq!(plan_of(&app, &user).await.1, BillingStatus::PastDue);
+    deliver(&app, &invoice("invoice.paid", "evt_5", T + 5)).await;
+
+    assert_eq!(plan_of(&app, &user).await.1, BillingStatus::Cancelling);
+    let expected = [
+        "Payment failed for Pro",
+        "Cancelled Pro (ends Mar 17, 2030)",
+        "Subscribed to Pro",
+    ];
+    assert_eq!(activity_of(&app, &user).await, expected);
+}
+
+#[sqlx::test]
+async fn an_event_applies_the_subscription_as_stripe_has_it_now(db: PgPool) {
+    let stripe = FakeStripe::start().await;
+    let app = stripe.app(&db);
+    let user = customer("current@example.test", CUSTOMER, &db).await;
+    deliver(&app, &sub("created", 1, "active", false)).await;
+    let now_cancelling = sub("updated", 9, "active", true);
+    stripe.set_subscription("sub_1", now_cancelling["data"]["object"].clone());
+
+    let stale = sub("updated", 2, "active", false);
     assert_eq!(
-        deliver(&app, &second).await,
-        WebhookReply::Accepted(Applied::Duplicate)
+        deliver(&app, &stale).await,
+        WebhookReply::Accepted(Applied::Changed)
     );
 
-    let queued = sqlx::query_scalar!(
-        "SELECT payload->>'subscription' FROM jobs WHERE kind = 'cancel_stripe_subscription'"
-    )
-    .fetch_all(&db)
-    .await
-    .unwrap();
-    assert_eq!(queued, vec![Some("sub_2".to_string())]);
-    assert_eq!(activity_of(&app, &user).await, ["Subscribed to Pro"]);
+    assert_eq!(plan_of(&app, &user).await.1, BillingStatus::Cancelling);
+    assert_eq!(stripe.seen_at("GET", "/v1/subscriptions/sub_1").len(), 2);
+}
+
+#[sqlx::test]
+async fn an_end_still_applies_when_the_price_is_no_longer_offered(db: PgPool) {
+    let stripe = FakeStripe::start().await;
+    let app = stripe.app(&db);
+    let user = customer("retired@example.test", CUSTOMER, &db).await;
+    deliver(&app, &sub("created", 1, "active", false)).await;
+    let mut ended = sub("deleted", 2, "canceled", false);
+    ended["data"]["object"]["items"]["data"][0]["price"]["id"] = "price_retired".into();
+
+    assert_eq!(
+        deliver(&app, &ended).await,
+        WebhookReply::Accepted(Applied::Changed)
+    );
+
+    assert_eq!(plan_of(&app, &user).await.1, BillingStatus::Free);
+    assert_eq!(activity_of(&app, &user).await[0], "Pro ended, back on Free");
 }

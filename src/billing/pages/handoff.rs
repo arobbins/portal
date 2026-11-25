@@ -102,3 +102,49 @@ pub async fn clear_checkout_pending(session: &Session) -> Result<()> {
     session.remove::<i64>(CHECKOUT_PENDING).await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use tower_sessions::MemoryStore;
+
+    use super::*;
+
+    fn session() -> Session {
+        Session::new(None, Arc::new(MemoryStore::default()), None)
+    }
+
+    #[test]
+    fn only_price_ids_are_added_to_links() {
+        assert_eq!(
+            with_price("/login", Some("price_pro")),
+            "/login?price=price_pro"
+        );
+        assert_eq!(with_price("/login", Some("price_x&next=evil")), "/login");
+        assert_eq!(with_price("/login", None), "/login");
+    }
+
+    #[tokio::test]
+    async fn a_chosen_price_is_used_once_and_only_for_an_hour() {
+        let now = OffsetDateTime::now_utc();
+        let session = session();
+        let taken = async |at| take_chosen_price(&session, at).await.unwrap();
+        remember_chosen_price(&session, Some("price_pro"), now)
+            .await
+            .unwrap();
+
+        assert_eq!(taken(now).await.as_deref(), Some("price_pro"));
+        assert_eq!(taken(now).await, None);
+
+        remember_chosen_price(&session, Some("price_pro"), now)
+            .await
+            .unwrap();
+        assert_eq!(taken(now + CHOICE_LASTS + Duration::seconds(1)).await, None);
+
+        remember_chosen_price(&session, Some("javascript:alert(1)"), now)
+            .await
+            .unwrap();
+        assert_eq!(taken(now).await, None);
+    }
+}
