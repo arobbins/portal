@@ -43,7 +43,7 @@ serde_cbor_2 = "0.13"
 schemars = "1.2"
 jiff = { version = "0.2.44", features = ["tzdb-bundle-always"] }
 totp-rs = { version = "6.0.0", features = ["otpauth", "gen_secret"] }
-qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
+qrcode = { version = "0.15.0", default-features = false, features = ["svg"] }
 base64 = "0.22"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 csv = "1"
