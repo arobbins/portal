@@ -83,6 +83,12 @@ pub trait ActionProblem: Copy {
     }
 }
 
+impl ActionProblem for ProblemSpec {
+    fn spec(self) -> ProblemSpec {
+        self
+    }
+}
+
 impl ActionProblem for Infallible {
     fn spec(self) -> ProblemSpec {
         match self {}

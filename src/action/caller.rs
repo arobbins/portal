@@ -75,7 +75,8 @@ impl Caller {
             return Err(Denied::NotPermitted(permission));
         }
         match (&self.via, permission.token_access()) {
-            (Channel::Browser, _) | (Channel::ApiToken { .. }, TokenAccess::AnyToken) => Ok(()),
+            (Channel::Browser, _)
+            | (Channel::ApiToken { .. }, TokenAccess::AnyToken | TokenAccess::Public) => Ok(()),
             (Channel::ApiToken { .. }, TokenAccess::BrowserOnly) => Err(Denied::BrowserOnly),
             (Channel::ApiToken { scopes, .. }, TokenAccess::Scope(scope))
                 if grants(scopes, scope) =>

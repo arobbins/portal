@@ -49,11 +49,16 @@ fn document(base_url: &str, paths: Map<String, Value>) -> Value {
 }
 
 fn operation(endpoint: &Endpoint, common: &[ErrorDoc]) -> Value {
+    let security = if endpoint.public {
+        json!([])
+    } else {
+        json!([{ "bearer": [] }])
+    };
     let mut operation = json!({
         "operationId": endpoint.id,
         "summary": endpoint.summary,
         "description": format!("{} {}", endpoint.description, endpoint.access_note()),
-        "security": [{ "bearer": [] }],
+        "security": security,
         "x-required-scope": endpoint.scope_name(),
         "responses": responses(endpoint, common),
     });
@@ -72,7 +77,7 @@ fn operation(endpoint: &Endpoint, common: &[ErrorDoc]) -> Value {
 fn responses(endpoint: &Endpoint, common: &[ErrorDoc]) -> Map<String, Value> {
     let mut responses = Map::new();
     responses.insert(
-        "200".to_string(),
+        endpoint.success.to_string(),
         json!({
             "description": "Success",
             "content": { "application/json": {
@@ -81,6 +86,9 @@ fn responses(endpoint: &Endpoint, common: &[ErrorDoc]) -> Map<String, Value> {
             } }
         }),
     );
+    let common = common
+        .iter()
+        .filter(|error| !endpoint.public || error.status != StatusCode::UNAUTHORIZED.as_u16());
     let errors: Vec<ErrorDoc> = endpoint.errors.iter().chain(common).cloned().collect();
     error_responses(&errors, &mut responses);
     responses
@@ -174,7 +182,7 @@ mod tests {
         for (path, operations) in document["paths"].as_object().unwrap() {
             for (method, operation) in operations.as_object().unwrap() {
                 for (status, response) in operation["responses"].as_object().unwrap() {
-                    if status == "200" {
+                    if status.starts_with('2') {
                         continue;
                     }
                     let examples = &response["content"]["application/problem+json"]["examples"];
@@ -214,7 +222,12 @@ mod tests {
             let operation = &spec["paths"][endpoint.path][endpoint.method.openapi_key()];
             assert_eq!(operation["operationId"], endpoint.id);
             assert_eq!(operation["x-required-scope"], endpoint.scope_name());
-            assert!(operation["responses"]["401"].is_object());
+            assert_eq!(
+                operation["responses"]["401"].is_object(),
+                !endpoint.public,
+                "{}",
+                endpoint.id
+            );
         }
         assert!(spec["paths"]["/api/v1/me"]["patch"]["requestBody"].is_object());
         assert!(

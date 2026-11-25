@@ -16,6 +16,7 @@ use crate::account::tabs::AccountSection;
 use crate::action::require_browser_caller;
 use crate::app::page_title;
 use crate::auth::session::{grant_passkey_prompt, passkey_prompt_granted, require_user};
+use crate::billing::pages::handoff::checkout_after_sign_in;
 use crate::components::button::{ButtonType, ButtonVariant, button};
 use crate::components::form::{FormVariant, form, form_error};
 use crate::components::icon::{IconName, icon};
@@ -30,6 +31,9 @@ use crate::web::{app, env, session};
 const FLASHES: &[Flash] = &[Flash::EmailConfirmed];
 
 pub async fn after_password_sign_in(cx: &Cx, session: &Session, user: &User) -> Result<String> {
+    if let Some(checkout) = checkout_after_sign_in(cx, session, user).await? {
+        return Ok(checkout);
+    }
     let app = app(cx);
     if passkey_prompt_due(&env(cx), user.id).await? {
         grant_passkey_prompt(session, user, app.clock.now()).await?;

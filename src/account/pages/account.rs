@@ -12,13 +12,14 @@ use topcoat::{
 
 use crate::account::pages::account_shell::account_shell;
 use crate::account::pages::devices_page::devices_page;
-use crate::account::pages::placeholder_page::placeholder_page;
 use crate::account::pages::section_header::{SubPage, section_header};
 use crate::account::pages::sign_in_page::sign_in_page;
 use crate::account::tabs::{AccountArea, AccountPage, AccountTab};
 use crate::api_tokens::pages::developer_tab::developer_tab;
 use crate::app::page_title;
 use crate::auth::session::require_user;
+use crate::billing::pages::invoices_page::invoices_page;
+use crate::billing::pages::plan_page::plan_page;
 use crate::preferences::pages::notifications_page::notifications_page;
 use crate::preferences::pages::time_zone_page::time_zone_page;
 use crate::profile::pages::profile_tab::profile_tab;
@@ -110,9 +111,8 @@ async fn account_layout(cx: &Cx, user: &User, page: AccountPage) -> Result<impl 
                 AccountPage::Developer => developer_tab(),
                 AccountPage::Notifications => notifications_page(),
                 AccountPage::TimeZone => time_zone_page(user: user),
-                AccountPage::Plan | AccountPage::Invoices => placeholder_page(
-                    page: page
-                ),
+                AccountPage::Plan => plan_page(),
+                AccountPage::Invoices => invoices_page(),
             }
         )
     })

@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE subscriptions SET plan_key = $2, plan_name = $3, price_id = $4, status = $5,\n            current_period_end = $6, ends_at = $7, last_event_at = $8, updated_at = now()\n        WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6a639139865aafcdd26e80ffe61a3d38a1cefd29debb57b3848c2e750e29578e"
+}

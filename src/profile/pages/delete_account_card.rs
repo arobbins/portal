@@ -12,6 +12,7 @@ use crate::auth::actions::CONFIRMATION_FIELD;
 use crate::auth::pages::login::login_page;
 use crate::auth::pages::reauth_field::reauth_field;
 use crate::auth::password::CURRENT_PASSWORD_FIELD;
+use crate::billing::pages::plan_page::subscription_to_cancel;
 use crate::components::button::{ButtonSize, ButtonVariant, button};
 use crate::components::form::{
     DialogForm, ModalSubmit, dialog_input, form_field, form_group, modal_form,
@@ -99,6 +100,9 @@ pub async fn delete_account_dialog(
         password,
     } = drafts;
     let login = href!(login_page).resolve(cx);
+    let cancelled = subscription_to_cancel(cx)
+        .await?
+        .map(|plan| format!("Your {plan} subscription is cancelled now, with no refund."));
     let submit = ModalSubmit {
         procedure: delete_account_js,
         action: href!(delete_account_submit).resolve(cx),
@@ -121,6 +125,10 @@ pub async fn delete_account_dialog(
                 notice(
                     tone: Tone::Error,
                     "Your account, passkeys and API tokens are deleted right away. This can't be undone."
+                    if let Some(cancelled) = &cancelled {
+                        " "
+                        (cancelled.as_str())
+                    }
                 )
             )
             export_first_prompt(from_modal: MODAL_ID)

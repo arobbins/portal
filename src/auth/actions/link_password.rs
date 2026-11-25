@@ -13,6 +13,7 @@ use crate::auth::password::{
 };
 use crate::auth::queries::{
     query_consume_user_token, query_delete_user_tokens, query_get_valid_user_token,
+    query_get_valid_user_token_payload,
 };
 use crate::env::Env;
 use crate::secret::hash_secret;
@@ -61,6 +62,15 @@ pub async fn link_is_valid(
 ) -> topcoat::Result<bool> {
     let user_id = query_get_valid_user_token(purpose, &hash_secret(token), env.db()).await?;
     Ok(user_id.is_some())
+}
+
+pub async fn link_payload(
+    env: &Env<'_>,
+    purpose: TokenPurpose,
+    token: &str,
+) -> topcoat::Result<Option<String>> {
+    let found = query_get_valid_user_token_payload(purpose, &hash_secret(token), env.db()).await?;
+    Ok(found.map(|token| token.payload))
 }
 
 pub async fn set_password_from_link(

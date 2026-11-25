@@ -164,7 +164,7 @@ async fn other_hosts_are_sent_to_the_canonical_address() {
 }
 
 #[sqlx::test]
-async fn every_documented_endpoint_exists_and_needs_a_token(db: PgPool) {
+async fn every_documented_endpoint_exists_and_needs_a_token_unless_public(db: PgPool) {
     let app = test_app_with(db);
 
     for endpoint in crate::api::catalog::endpoints() {
@@ -175,10 +175,15 @@ async fn every_documented_endpoint_exists_and_needs_a_token(db: PgPool) {
             .body(Body::empty())
             .unwrap();
         let status = app.clone().oneshot(request).await.unwrap().status();
+        let expected = if endpoint.public {
+            StatusCode::OK
+        } else {
+            StatusCode::UNAUTHORIZED
+        };
 
         assert_eq!(
             status,
-            StatusCode::UNAUTHORIZED,
+            expected,
             "{} {}",
             endpoint.method.as_str(),
             endpoint.path

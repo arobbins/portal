@@ -26,12 +26,18 @@ test("the OpenAPI document describes the same endpoints", async ({ request }) =>
   const spec = await response.json();
   expect(spec.openapi).toBe("3.1.0");
   expect(Object.keys(spec.paths).sort()).toEqual([
+    "/api/v1/billing",
+    "/api/v1/billing/checkout",
+    "/api/v1/billing/plans",
     "/api/v1/feedback",
     "/api/v1/me",
     "/api/v1/newsletters",
   ]);
   expect(spec.paths["/api/v1/me"].patch["x-required-scope"]).toBe("profile:write");
   expect(spec.paths["/api/v1/feedback"].post["x-required-scope"]).toBe("any");
+  expect(spec.paths["/api/v1/billing/plans"].get["x-required-scope"]).toBe("none");
+  expect(spec.paths["/api/v1/billing/plans"].get.security).toEqual([]);
+  expect(spec.paths["/api/v1/billing/checkout"].post.responses["201"]).toBeDefined();
 });
 
 test("code examples can be copied", async ({ page, browserName, context }) => {

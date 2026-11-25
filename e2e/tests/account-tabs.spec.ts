@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
   await expect(page).toHaveURL("/account");
 });
 
-test("unfinished pages say so instead of showing the profile", async ({
+test("billing pages show their own cards instead of the profile", async ({
   page,
 }) => {
   const pages = [
@@ -17,13 +17,13 @@ test("unfinished pages say so instead of showing the profile", async ({
       path: "/account/billing/plan",
       heading: "Billing",
       page: "Plan and payment",
-      cards: ["subscriptions", "payment-methods"],
+      cards: [{ id: "your-plan", text: "You're on the Free plan." }],
     },
     {
       path: "/account/billing/invoices",
       heading: "Billing",
       page: "Invoices",
-      cards: ["invoices"],
+      cards: [{ id: "invoices", text: "No invoices yet." }],
     },
   ];
   for (const expected of pages) {
@@ -37,8 +37,8 @@ test("unfinished pages say so instead of showing the profile", async ({
         .getByRole("navigation", { name: "Account" })
         .getByRole("link", { name: expected.page, exact: true }),
     ).toHaveAttribute("aria-current", "page");
-    for (const anchor of expected.cards) {
-      await expect(page.locator(`#${anchor}`)).toContainText("Coming soon.");
+    for (const card of expected.cards) {
+      await expect(page.locator(`#${card.id}`)).toContainText(card.text);
     }
     await expect(page.locator("#your-details")).toHaveCount(0);
   }

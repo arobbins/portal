@@ -6,7 +6,7 @@ use topcoat::{
     view::{View, component, view},
 };
 
-use crate::account::tabs::AccountSection;
+use crate::account::tabs::AccountPage;
 use crate::components::avatar::avatar;
 use crate::components::icon::{IconName, icon};
 use crate::components::menu::{menu, menu_form_button, menu_link};
@@ -16,7 +16,7 @@ const MENU_ID: &str = "account-menu";
 #[component]
 pub async fn profile_menu(cx: &Cx, display_name: &Signal<String>) -> Result<impl View> {
     let logout_href = LOGOUT_PATH.to_string();
-    let subscriptions_href = AccountSection::Subscriptions.path();
+    let subscriptions_href = AccountPage::Plan.path();
 
     Ok(view! {
         <button popovertarget=(MENU_ID) class="p-account__profile-dropdown l-flex">

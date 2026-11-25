@@ -1,0 +1,27 @@
+.p-pricing {
+  padding-block: var(--space-8);
+}
+
+.p-pricing__plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-4);
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.p-pricing__plan > * {
+  height: 100%;
+}
+
+.p-pricing__price {
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-strong);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.p-pricing__choose {
+  margin: 0;
+}

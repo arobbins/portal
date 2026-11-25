@@ -12,12 +12,14 @@ pub(super) struct ClaimedJob {
 pub(super) async fn query_insert_job(
     kind: &str,
     payload: &Value,
+    max_attempts: i32,
     db: impl PgExecutor<'_>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "INSERT INTO jobs (kind, payload) VALUES ($1, $2)",
+        "INSERT INTO jobs (kind, payload, max_attempts) VALUES ($1, $2, $3)",
         kind,
         payload,
+        max_attempts,
     )
     .execute(db)
     .await?;

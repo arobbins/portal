@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT price_id, checkout_url FROM checkout_requests WHERE user_id = $1 AND idempotency_key = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "price_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "checkout_url",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "c83fb47557ba50fce3b4e96597e534bdb06e8d1560dc249abd043fb9ae571322"
+}

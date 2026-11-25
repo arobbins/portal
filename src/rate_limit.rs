@@ -2,7 +2,10 @@ use std::net::{IpAddr, Ipv4Addr};
 
 use sqlx::PgPool;
 
+mod limit;
 mod queries;
+
+use limit::Limit;
 
 use queries::{
     query_count_rate_limit_hits, query_delete_old_rate_limit_hits, query_delete_rate_limit_hits,
@@ -16,6 +19,8 @@ pub const API_CALLS_PER_MINUTE: u32 = 600;
 pub const FEEDBACK_PER_TOKEN_PER_HOUR: u32 = 20;
 pub const FEEDBACK_PER_ACCOUNT_PER_DAY: u32 = 100;
 pub const EXPORTS_PER_ACCOUNT_PER_HOUR: u32 = 5;
+pub const BILLING_SESSIONS_PER_ACCOUNT_PER_HOUR: u32 = 10;
+pub const PLAN_LISTS_PER_IP_PER_MINUTE: u32 = 60;
 pub const BAD_API_TOKENS_PER_WINDOW: u32 = 20;
 pub const BAD_API_TOKEN_WINDOW_MINUTES: u64 = 10;
 pub const KEEP_HITS_FOR: time::Duration = time::Duration::days(1);
@@ -24,85 +29,6 @@ pub const KEEP_HITS_FOR: time::Duration = time::Duration::days(1);
 pub enum RateLimitMode {
     Strict,
     Relaxed,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Limit {
-    PasswordSubmissionsByIp,
-    EmailRequestsByIp,
-    PasskeyChallengesByIp,
-    EmailsToAddress,
-    ApiCallsByToken,
-    FailedLoginsByAccountAndIp,
-    FailedLoginsByAccount,
-    FailedSecondFactorsByAccount,
-    FailedApiAuthByIp,
-    FeedbackByToken,
-    FeedbackByAccount,
-    ExportsByAccount,
-}
-
-impl Limit {
-    fn bucket(self) -> &'static str {
-        match self {
-            Self::PasswordSubmissionsByIp => "password_submissions_by_ip",
-            Self::EmailRequestsByIp => "email_requests_by_ip",
-            Self::PasskeyChallengesByIp => "passkey_challenges_by_ip",
-            Self::EmailsToAddress => "emails_to_address",
-            Self::ApiCallsByToken => "api_calls_by_token",
-            Self::FailedLoginsByAccountAndIp => "failed_logins_by_account_and_ip",
-            Self::FailedLoginsByAccount => "failed_logins_by_account",
-            Self::FailedSecondFactorsByAccount => "failed_second_factors_by_account",
-            Self::FailedApiAuthByIp => "failed_api_auth_by_ip",
-            Self::FeedbackByToken => "feedback_by_token",
-            Self::FeedbackByAccount => "feedback_by_account",
-            Self::ExportsByAccount => "exports_by_account",
-        }
-    }
-
-    fn window_seconds(self) -> f64 {
-        let minutes: u64 = match self {
-            Self::PasswordSubmissionsByIp | Self::PasskeyChallengesByIp | Self::ApiCallsByToken => {
-                1
-            }
-            Self::EmailRequestsByIp => 10,
-            Self::FailedLoginsByAccountAndIp | Self::FailedSecondFactorsByAccount => 15,
-            Self::FailedApiAuthByIp => BAD_API_TOKEN_WINDOW_MINUTES,
-            Self::EmailsToAddress
-            | Self::FailedLoginsByAccount
-            | Self::FeedbackByToken
-            | Self::ExportsByAccount => 60,
-            Self::FeedbackByAccount => 24 * 60,
-        };
-        (minutes * 60) as f64
-    }
-
-    fn max(self, mode: RateLimitMode) -> i64 {
-        let base: u32 = match self {
-            Self::PasswordSubmissionsByIp => 10,
-            Self::EmailRequestsByIp => 5,
-            Self::PasskeyChallengesByIp => 30,
-            Self::EmailsToAddress => 3,
-            Self::ApiCallsByToken => API_CALLS_PER_MINUTE,
-            Self::FailedLoginsByAccountAndIp | Self::FailedSecondFactorsByAccount => 5,
-            Self::FailedLoginsByAccount => 50,
-            Self::FailedApiAuthByIp => BAD_API_TOKENS_PER_WINDOW,
-            Self::FeedbackByToken => FEEDBACK_PER_TOKEN_PER_HOUR,
-            Self::FeedbackByAccount => FEEDBACK_PER_ACCOUNT_PER_DAY,
-            Self::ExportsByAccount => EXPORTS_PER_ACCOUNT_PER_HOUR,
-        };
-        let scales = !matches!(
-            self,
-            Self::FailedLoginsByAccountAndIp
-                | Self::FailedLoginsByAccount
-                | Self::FailedSecondFactorsByAccount
-        );
-        let scale = match mode {
-            RateLimitMode::Relaxed if scales => RELAXED_SCALE,
-            _ => 1,
-        };
-        i64::from(base * scale)
-    }
 }
 
 pub struct RateLimits {
@@ -196,6 +122,15 @@ impl RateLimits {
     pub async fn allow_export(&self, user_id: i32) -> Result<bool, sqlx::Error> {
         self.allow(Limit::ExportsByAccount, &user_id.to_string())
             .await
+    }
+
+    pub async fn allow_billing_session(&self, user_id: i32) -> Result<bool, sqlx::Error> {
+        self.allow(Limit::BillingSessionsByAccount, &user_id.to_string())
+            .await
+    }
+
+    pub async fn allow_plan_list(&self, ip: Option<IpAddr>) -> Result<bool, sqlx::Error> {
+        self.allow(Limit::PlanListsByIp, &ip_key(ip)).await
     }
 
     pub async fn login_blocked(

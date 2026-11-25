@@ -7,7 +7,7 @@ use crate::action::{ActionResult, Caller, authorize};
 use crate::env::Env;
 use crate::permission::Permission;
 use crate::user::event_history::{PastEvent, query_list_recent_account_events};
-use crate::user::events::{AccountEventKind, EventChannel};
+use crate::user::events::{AccountEventKind, BillingEventKind, EventChannel};
 
 pub const RECENT_ACTIVITY_LIMIT: i64 = 20;
 
@@ -78,6 +78,7 @@ fn summarize(kind: AccountEventKind, detail: &Value) -> String {
         AccountEventKind::PasskeyRemoved => format!("Passkey “{name}” removed"),
         AccountEventKind::NewsletterSubscribed => format!("Subscribed to {name}"),
         AccountEventKind::NewsletterUnsubscribed => format!("Unsubscribed from {name}"),
+        AccountEventKind::Billing(kind) => billing_summary(kind, detail),
         other => fixed_summary(other).to_string(),
     }
 }
@@ -88,6 +89,25 @@ fn actor(channel: EventChannel) -> Option<&'static str> {
         EventChannel::ApiToken(_) => Some("API token"),
         EventChannel::Admin => Some("By an admin"),
         EventChannel::Console => Some("By the server"),
+        EventChannel::Stripe => None,
+    }
+}
+
+fn billing_summary(kind: BillingEventKind, detail: &Value) -> String {
+    let plan = text(detail, "plan_name").unwrap_or_else(|| "a plan".to_string());
+    match kind {
+        BillingEventKind::Subscribed => format!("Subscribed to {plan}"),
+        BillingEventKind::PlanChanged => format!("Changed plan to {plan}"),
+        BillingEventKind::SubscriptionCancelled => match text(detail, "ends_on") {
+            Some(ends_on) => format!("Cancelled {plan} (ends {ends_on})"),
+            None => format!("Cancelled {plan}"),
+        },
+        BillingEventKind::PaymentFailed => format!("Payment failed for {plan}"),
+        BillingEventKind::SubscriptionEnded => format!("{plan} ended, back on Free"),
+        BillingEventKind::CheckoutStarted => match text(detail, "token") {
+            Some(token) => format!("Checkout for {plan} started by token {token}"),
+            None => format!("Checkout for {plan} started"),
+        },
     }
 }
 

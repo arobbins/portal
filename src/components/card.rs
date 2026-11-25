@@ -28,6 +28,7 @@ pub async fn card_header(
             <div class="a-card__heading">
                 <h3 class="a-card__title">(title)</h3>
                 if let Some((label, tone)) = status {
+                    " "
                     badge(tone: tone, (label))
                 }
             </div>

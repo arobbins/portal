@@ -78,7 +78,10 @@ async fn an_account_from_before_newsletters_starts_on_neither(db: PgPool) {
         .filter(|migration| migration.version < NEWSLETTERS_MIGRATION)
         .cloned()
         .collect();
-    assert_eq!(earlier.len() + 1, all.iter().count());
+    assert!(
+        all.iter()
+            .any(|migration| migration.version == NEWSLETTERS_MIGRATION)
+    );
     Migrator::new(Before(earlier))
         .await
         .unwrap()

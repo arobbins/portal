@@ -8,8 +8,11 @@ use topcoat::router::StatusCode;
 use super::queries::{
     UserCounts, UserListing, UserOrder, query_count_user_things, query_search_users,
 };
-use crate::action::{ActionProblem, ActionResult, Caller, Outcome, ProblemSpec, authorize, fail};
+use crate::action::{
+    ActionError, ActionProblem, ActionResult, Caller, Outcome, ProblemSpec, authorize, fail,
+};
 use crate::activity::actions::{ActivityView, activity_of};
+use crate::billing::actions::{AdminBilling, admin_billing};
 use crate::env::Env;
 use crate::listing::{ListQuery, SortDirection, SortKey};
 use crate::permission::Permission;
@@ -80,6 +83,7 @@ pub struct UserOverview {
     pub counts: UserCounts,
     pub activity: Vec<ActivityView>,
     pub newsletters: Vec<(Newsletter, bool)>,
+    pub billing: AdminBilling,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -159,12 +163,18 @@ pub async fn get_user(
     let counts = query_count_user_things(user.id, env.db()).await?;
     let activity = activity_of(env, user.id).await?;
     let newsletters = newsletters_of(user.id, env.db()).await?;
+    let billing = match admin_billing(env, caller, user.id).await? {
+        Ok(billing) => billing,
+        Err(ActionError::Denied(denied)) => return Ok(Err(ActionError::Denied(denied))),
+        Err(ActionError::Problem(never)) => match never {},
+    };
 
     Ok(Ok(UserOverview {
         user,
         counts,
         activity,
         newsletters,
+        billing,
     }))
 }
 

@@ -9,15 +9,26 @@ pub enum ApiScope {
     ProfileRead,
     #[serde(rename = "profile:write")]
     ProfileWrite,
+    #[serde(rename = "billing:read")]
+    BillingRead,
+    #[serde(rename = "billing:write")]
+    BillingWrite,
 }
 
 impl ApiScope {
-    pub const ALL: [Self; 2] = [Self::ProfileRead, Self::ProfileWrite];
+    pub const ALL: [Self; 4] = [
+        Self::ProfileRead,
+        Self::ProfileWrite,
+        Self::BillingRead,
+        Self::BillingWrite,
+    ];
 
     pub fn as_str(self) -> &'static str {
         match self {
             Self::ProfileRead => "profile:read",
             Self::ProfileWrite => "profile:write",
+            Self::BillingRead => "billing:read",
+            Self::BillingWrite => "billing:write",
         }
     }
 
@@ -29,6 +40,8 @@ impl ApiScope {
         match self {
             Self::ProfileRead => "Read your profile",
             Self::ProfileWrite => "Read and update your profile",
+            Self::BillingRead => "Read your billing",
+            Self::BillingWrite => "Read your billing and start checkouts",
         }
     }
 
@@ -36,16 +49,24 @@ impl ApiScope {
         match self {
             Self::ProfileRead => "Read your profile (profile:read)",
             Self::ProfileWrite => "Read and update your profile (profile:write)",
+            Self::BillingRead => "Read your billing (billing:read)",
+            Self::BillingWrite => "Read your billing and start checkouts (billing:write)",
         }
     }
 
     pub fn implies(self, needed: Self) -> bool {
-        self == needed || matches!((self, needed), (Self::ProfileWrite, Self::ProfileRead))
+        self == needed
+            || matches!(
+                (self, needed),
+                (Self::ProfileWrite, Self::ProfileRead) | (Self::BillingWrite, Self::BillingRead)
+            )
     }
 
     fn requires_admin(self) -> bool {
         match self {
-            Self::ProfileRead | Self::ProfileWrite => false,
+            Self::ProfileRead | Self::ProfileWrite | Self::BillingRead | Self::BillingWrite => {
+                false
+            }
         }
     }
 
@@ -125,6 +146,9 @@ mod tests {
         assert!(grants(&[ApiScope::ProfileRead], ApiScope::ProfileRead));
         assert!(!grants(&[ApiScope::ProfileRead], ApiScope::ProfileWrite));
         assert!(!grants(&[], ApiScope::ProfileRead));
+        assert!(grants(&[ApiScope::BillingWrite], ApiScope::BillingRead));
+        assert!(!grants(&[ApiScope::BillingRead], ApiScope::BillingWrite));
+        assert!(!grants(&[ApiScope::ProfileWrite], ApiScope::BillingRead));
     }
 
     #[test]

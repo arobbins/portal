@@ -86,12 +86,21 @@ pub async fn send_verification_link(
     user_id: i32,
     email: &str,
 ) -> Result<(), sqlx::Error> {
+    send_verification_link_for(app, user_id, email, None).await
+}
+
+pub async fn send_verification_link_for(
+    app: &App,
+    user_id: i32,
+    email: &str,
+    chosen_price: Option<&str>,
+) -> Result<(), sqlx::Error> {
     email_user_link(
         app,
         NewLink {
             user_id,
             purpose: TokenPurpose::EmailVerification,
-            payload: None,
+            payload: chosen_price,
             email: &|url| register_verification_email(email, url),
         },
     )

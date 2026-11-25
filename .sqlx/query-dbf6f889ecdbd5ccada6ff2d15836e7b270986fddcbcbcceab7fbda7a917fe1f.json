@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, user_id, stripe_subscription_id, plan_key, plan_name, price_id,\n            status AS \"status: SubscriptionStatus\", current_period_end, ends_at, last_event_at\n        FROM subscriptions WHERE stripe_subscription_id = $1 FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "stripe_subscription_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "plan_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "plan_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "price_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "status: SubscriptionStatus",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "current_period_end",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "ends_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "last_event_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "dbf6f889ecdbd5ccada6ff2d15836e7b270986fddcbcbcceab7fbda7a917fe1f"
+}

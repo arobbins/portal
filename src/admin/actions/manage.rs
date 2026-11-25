@@ -132,6 +132,7 @@ pub async fn delete_user(
     }
     let action = AdminLogAction::AccountDeleted;
     record_admin_action(env, caller, &user, action, &mut tx).await?;
+    crate::billing::cancel_before_deleting(user.id, &mut tx).await?;
     query_delete_user(user.id, &mut *tx).await?;
     tx.commit().await?;
 
