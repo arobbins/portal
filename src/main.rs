@@ -21,6 +21,7 @@ mod layout;
 mod listing;
 mod mail;
 mod mcp;
+mod oauth;
 mod pages;
 mod passkeys;
 mod permission;

@@ -29,6 +29,7 @@ pub enum Flash {
     DeviceSignedOut,
     OtherDevicesSignedOut,
     ApiTokenRevoked,
+    AppDisconnected,
     AccountDeleted,
     UserDisabled,
     UserEnabled,
@@ -59,6 +60,7 @@ impl Flash {
             Self::DeviceSignedOut => "device-signed-out",
             Self::OtherDevicesSignedOut => "other-devices-signed-out",
             Self::ApiTokenRevoked => "api-token-revoked",
+            Self::AppDisconnected => "app-disconnected",
             Self::AccountDeleted => "account-deleted",
             Self::UserDisabled => "user-disabled",
             Self::UserEnabled => "user-enabled",
@@ -92,6 +94,7 @@ impl Flash {
             Self::DeviceSignedOut => "That device has been signed out.",
             Self::OtherDevicesSignedOut => "Your other devices have been signed out.",
             Self::ApiTokenRevoked => "API token revoked. Apps using it can no longer sign in.",
+            Self::AppDisconnected => "App disconnected. It can no longer use your account.",
             Self::AccountDeleted => {
                 "Your account has been deleted. You've been signed out everywhere."
             }

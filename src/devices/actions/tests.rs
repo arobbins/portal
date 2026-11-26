@@ -158,7 +158,7 @@ async fn signing_out_other_devices_keeps_this_one_and_bumps_the_session_version(
     .fetch_one(&db)
     .await
     .unwrap();
-    assert_eq!(detail, json!({ "devices": 2 }));
+    assert_eq!(detail, json!({ "devices": 2, "apps_disconnected": 0 }));
 }
 
 #[sqlx::test]

@@ -16,7 +16,7 @@ pub async fn activity_export(env: &Env<'_>, user: &User) -> Result<Dataset, sqlx
                 vec![
                     event.summary,
                     utc(event.at),
-                    event.by.unwrap_or("In the browser").to_string(),
+                    event.by.unwrap_or_else(|| "In the browser".to_string()),
                     event.ip.unwrap_or_default(),
                     event.device.unwrap_or_default(),
                 ]

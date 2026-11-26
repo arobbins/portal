@@ -13,6 +13,9 @@ pub enum ApiScope {
     BillingRead,
     #[serde(rename = "billing:write")]
     BillingWrite,
+    #[cfg(test)]
+    #[serde(rename = "test:admin")]
+    TestAdmin,
 }
 
 impl ApiScope {
@@ -29,10 +32,16 @@ impl ApiScope {
             Self::ProfileWrite => "profile:write",
             Self::BillingRead => "billing:read",
             Self::BillingWrite => "billing:write",
+            #[cfg(test)]
+            Self::TestAdmin => "test:admin",
         }
     }
 
     pub fn from_str(value: &str) -> Option<Self> {
+        #[cfg(test)]
+        if value == Self::TestAdmin.as_str() {
+            return Some(Self::TestAdmin);
+        }
         Self::ALL.into_iter().find(|scope| scope.as_str() == value)
     }
 
@@ -42,6 +51,8 @@ impl ApiScope {
             Self::ProfileWrite => "Read and update your profile",
             Self::BillingRead => "Read your billing",
             Self::BillingWrite => "Read your billing and start checkouts",
+            #[cfg(test)]
+            Self::TestAdmin => "Administer the test",
         }
     }
 
@@ -51,6 +62,8 @@ impl ApiScope {
             Self::ProfileWrite => "Read and update your profile (profile:write)",
             Self::BillingRead => "Read your billing (billing:read)",
             Self::BillingWrite => "Read your billing and start checkouts (billing:write)",
+            #[cfg(test)]
+            Self::TestAdmin => "Administer the test (test:admin)",
         }
     }
 
@@ -67,7 +80,22 @@ impl ApiScope {
             Self::ProfileRead | Self::ProfileWrite | Self::BillingRead | Self::BillingWrite => {
                 false
             }
+            #[cfg(test)]
+            Self::TestAdmin => true,
         }
+    }
+
+    pub fn can_write(self) -> bool {
+        match self {
+            Self::ProfileRead | Self::BillingRead => false,
+            Self::ProfileWrite | Self::BillingWrite => true,
+            #[cfg(test)]
+            Self::TestAdmin => true,
+        }
+    }
+
+    pub fn offered_by_sign_in(self) -> bool {
+        !self.requires_admin()
     }
 
     pub fn available_to(self, user: &User) -> bool {

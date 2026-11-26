@@ -11,11 +11,13 @@ use topcoat::{
     router::{StatusCode, request},
 };
 
+use crate::action::Channel;
 use crate::action::{ActionProblem, Caller, ProblemSpec};
 use crate::api::problem::{ApiProblem, ApiResponse, REALM};
 use crate::api::scope::{ApiScope, TokenAudience, parse_scopes};
 use crate::api_tokens::lifecycle::{find_grant, record_use};
 use crate::env::Env;
+use crate::oauth::lifecycle::{app_caller, is_app_token, record_app_use};
 use crate::user::model::AccountStatus;
 use crate::user::queries::query_get_user_by_id;
 use crate::web::env;
@@ -104,7 +106,7 @@ async fn authenticate_header(
     if limits.api_auth_blocked(env.ip).await? {
         return Ok(Err(ApiAuthProblem::TooManyInvalidTokens));
     }
-    let caller = match check_bearer(header, audience, env.db()).await? {
+    let caller = match check_bearer(header, audience, env.db(), env.now()).await? {
         Ok(caller) => caller,
         Err(problem) => {
             if problem == ApiAuthProblem::InvalidToken {
@@ -113,11 +115,21 @@ async fn authenticate_header(
             return Ok(Err(problem));
         }
     };
-    let token_id = caller.api_token_id().unwrap_or_default();
-    if !limits.allow_api_call(token_id).await? {
+    let allowed = match &caller.via {
+        Channel::App(app) => limits.allow_app_call(app.connection_id).await?,
+        _ => {
+            limits
+                .allow_api_call(caller.api_token_id().unwrap_or_default())
+                .await?
+        }
+    };
+    if !allowed {
         return Ok(Err(ApiAuthProblem::RateLimited));
     }
-    record_use(token_id, env.db()).await?;
+    match &caller.via {
+        Channel::App(app) => record_app_use(app.connection_id, env.now(), env.db()).await?,
+        _ => record_use(caller.api_token_id().unwrap_or_default(), env.db()).await?,
+    }
 
     Ok(Ok(caller))
 }
@@ -126,12 +138,18 @@ async fn check_bearer(
     header: Option<&HeaderValue>,
     audience: TokenAudience,
     db: &PgPool,
+    now: time::OffsetDateTime,
 ) -> std::result::Result<std::result::Result<Caller, ApiAuthProblem>, sqlx::Error> {
     let raw = match bearer_token(header) {
         Bearer::Missing => return Ok(Err(ApiAuthProblem::MissingToken)),
         Bearer::Malformed => return Ok(Err(ApiAuthProblem::InvalidToken)),
         Bearer::Token(raw) => raw,
     };
+    if audience == TokenAudience::Mcp && is_app_token(raw) {
+        return Ok(app_caller(raw, now, db)
+            .await?
+            .ok_or(ApiAuthProblem::InvalidToken));
+    }
     let Some(grant) = find_grant(raw, audience, db).await? else {
         return Ok(Err(ApiAuthProblem::InvalidToken));
     };
@@ -193,9 +211,14 @@ mod tests {
 
     async fn check(raw: &str, db: &PgPool) -> std::result::Result<Caller, ApiAuthProblem> {
         let header = HeaderValue::from_str(&format!("Bearer {raw}")).unwrap();
-        check_bearer(Some(&header), TokenAudience::Api, db)
-            .await
-            .unwrap()
+        check_bearer(
+            Some(&header),
+            TokenAudience::Api,
+            db,
+            time::OffsetDateTime::now_utc(),
+        )
+        .await
+        .unwrap()
     }
 
     #[test]

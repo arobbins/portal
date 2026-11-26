@@ -293,7 +293,7 @@ async fn signing_a_user_out_ends_every_device(db: PgPool) {
         .unwrap();
     assert_eq!(overview.counts.devices, 0);
     assert_eq!(overview.activity[0].summary, "Signed out of every device");
-    assert_eq!(overview.activity[0].by, Some("By an admin"));
+    assert_eq!(overview.activity[0].by.as_deref(), Some("By an admin"));
 }
 
 #[sqlx::test]

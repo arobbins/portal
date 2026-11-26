@@ -13,9 +13,10 @@ use crate::action::{ActionProblem, require_browser_caller};
 use crate::api_tokens::actions::list_api_tokens;
 use crate::components::form::{DialogForm, dialog_error_toast, page_toast};
 use crate::flash::{Flash, flash_toasts, take_flash};
+use crate::oauth::pages::connected_apps_card::connected_apps_card;
 use crate::web::env;
 
-const FLASHES: &[Flash] = &[Flash::ApiTokenRevoked];
+const FLASHES: &[Flash] = &[Flash::ApiTokenRevoked, Flash::AppDisconnected];
 
 #[component]
 pub async fn developer_tab(cx: &Cx) -> Result<impl View> {
@@ -34,6 +35,7 @@ pub async fn developer_tab(cx: &Cx) -> Result<impl View> {
                 new_token_card(token: token)
             }
             tokens_card(rows: &rows, form: &form, drafts: &drafts)
+            connected_apps_card()
             create_token_dialog(form: &form, drafts: &drafts, toast: &toast)
             flash_toasts(toast: &toast, flashes: FLASHES)
             dialog_error_toast(failure: failure, toast: &toast)

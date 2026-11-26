@@ -8,13 +8,28 @@ use crate::user::model::{Role, User};
 pub enum Channel {
     Browser,
     ApiToken { id: i32, scopes: Vec<ApiScope> },
+    App(ConnectedApp),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConnectedApp {
+    pub connection_id: i32,
+    pub scopes: Vec<ApiScope>,
+    pub label: String,
 }
 
 impl Channel {
     pub fn api_token_id(&self) -> Option<i32> {
         match self {
-            Self::Browser => None,
+            Self::Browser | Self::App(_) => None,
             Self::ApiToken { id, .. } => Some(*id),
+        }
+    }
+
+    fn scopes(&self) -> Option<&[ApiScope]> {
+        match self {
+            Self::Browser => None,
+            Self::ApiToken { scopes, .. } | Self::App(ConnectedApp { scopes, .. }) => Some(scopes),
         }
     }
 }
@@ -55,6 +70,14 @@ impl Caller {
         }
     }
 
+    pub fn connected_app(user: Arc<User>, app: ConnectedApp) -> Self {
+        Self {
+            user,
+            via: Channel::App(app),
+            workspace: Workspace::Personal,
+        }
+    }
+
     pub fn owner_id(&self) -> i32 {
         match self.workspace {
             Workspace::Personal => self.user.id,
@@ -74,23 +97,26 @@ impl Caller {
         if permission.admins_only() && self.user.role != Role::Admin {
             return Err(Denied::NotPermitted(permission));
         }
-        match (&self.via, permission.token_access()) {
-            (Channel::Browser, _)
-            | (Channel::ApiToken { .. }, TokenAccess::AnyToken | TokenAccess::Public) => Ok(()),
-            (Channel::ApiToken { .. }, TokenAccess::BrowserOnly) => Err(Denied::BrowserOnly),
-            (Channel::ApiToken { scopes, .. }, TokenAccess::Scope(scope))
-                if grants(scopes, scope) =>
-            {
-                Ok(())
-            }
-            (Channel::ApiToken { .. }, TokenAccess::Scope(scope)) => {
-                Err(Denied::MissingScope(scope))
-            }
+        let Some(scopes) = self.via.scopes() else {
+            return Ok(());
+        };
+        match permission.token_access() {
+            TokenAccess::AnyToken | TokenAccess::Public => Ok(()),
+            TokenAccess::BrowserOnly => Err(Denied::BrowserOnly),
+            TokenAccess::Scope(scope) if grants(scopes, scope) => Ok(()),
+            TokenAccess::Scope(scope) => Err(Denied::MissingScope(scope)),
         }
     }
 
     pub fn api_token_id(&self) -> Option<i32> {
         self.via.api_token_id()
+    }
+
+    pub fn app(&self) -> Option<&ConnectedApp> {
+        match &self.via {
+            Channel::App(app) => Some(app),
+            Channel::Browser | Channel::ApiToken { .. } => None,
+        }
     }
 }
 

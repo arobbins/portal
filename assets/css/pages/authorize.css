@@ -1,0 +1,17 @@
+.p-authorize {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.p-authorize__app {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-lg);
+}
+
+.p-authorize__return strong {
+  font-size: var(--text-lg);
+}

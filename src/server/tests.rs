@@ -21,7 +21,7 @@ fn test_app() -> Router {
     )
 }
 
-fn test_app_with(db: PgPool) -> Router {
+pub(super) fn test_app_with(db: PgPool) -> Router {
     let assets = AssetBundle::load_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target/debug/assets"))
         .expect("missing asset bundle: run `topcoat asset bundle` before `cargo test`");
 

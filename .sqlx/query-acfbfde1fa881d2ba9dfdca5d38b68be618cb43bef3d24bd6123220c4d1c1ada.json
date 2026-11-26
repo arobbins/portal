@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE oauth_requests SET acted_at = $2 WHERE id = $1 AND status = 'pending' AND acted_at > $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "acfbfde1fa881d2ba9dfdca5d38b68be618cb43bef3d24bd6123220c4d1c1ada"
+}

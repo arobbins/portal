@@ -12,13 +12,13 @@ use topcoat::{
 
 use crate::app::page_title;
 use crate::auth::actions::{NewPassword, link_is_valid, link_payload, set_password_from_link};
+use crate::auth::handoff::{Handoff, keep_handoff_alive, remember_handoff};
 use crate::auth::links::TokenPurpose;
 use crate::auth::pages::expired_link::expired_link;
 use crate::auth::pages::new_password_form::new_password_form;
 use crate::auth::pages::register::register_page;
 use crate::auth::pages::reset_password::{LinkPasswordFailed, link_password_failed};
 use crate::auth::session::sign_in;
-use crate::billing::pages::handoff::remember_chosen_price;
 use crate::devices::lifecycle::SignInMethod;
 use crate::flash::{Flash, set_flash};
 use crate::layout::page_heading::page_heading;
@@ -52,6 +52,7 @@ pub async fn verify_email_page(cx: &Cx) -> Result<impl View> {
         .boxed());
     }
 
+    keep_handoff_alive(cx, link_handoff(cx).await?.as_ref()).await?;
     let problem = try_context::<LinkPasswordFailed>(cx).map(|failed| failed.problem);
 
     Ok(view! {
@@ -66,14 +67,19 @@ pub async fn verify_email_page(cx: &Cx) -> Result<impl View> {
     .boxed())
 }
 
+async fn link_handoff(cx: &Cx) -> Result<Option<Handoff>> {
+    let payload = link_payload(&env(cx), PURPOSE, token(cx)).await?;
+    Ok(payload.as_deref().and_then(Handoff::from_payload))
+}
+
 #[route(POST "/verify-email/{token}")]
 pub async fn set_password_submit(cx: &Cx, Form(input): Form<NewPassword>) -> Result<SeeOther> {
-    let chosen_price = link_payload(&env(cx), PURPOSE, token(cx)).await?;
+    let handoff = link_handoff(cx).await?;
     match set_password_from_link(&env(cx), PURPOSE, token(cx), &input).await? {
         Ok(user) => {
             let session = session(cx)?;
             sign_in(cx, &session, &user, SignInMethod::NewAccount).await?;
-            remember_chosen_price(&session, chosen_price.as_deref(), env(cx).now()).await?;
+            remember_handoff(cx, &session, handoff).await?;
             set_flash(&session, Flash::EmailConfirmed).await?;
             Ok(see_other(
                 after_password_sign_in(cx, &session, &user).await?,

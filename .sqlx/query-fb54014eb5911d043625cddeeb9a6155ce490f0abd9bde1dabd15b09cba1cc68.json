@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE oauth_clients SET created_at = now() - interval '25 hours' WHERE client_id = ANY($1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fb54014eb5911d043625cddeeb9a6155ce490f0abd9bde1dabd15b09cba1cc68"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE oauth_tokens SET replaced_at = $2 WHERE id = $1 AND kind = 'refresh' AND replaced_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "76564a8d464d06a0e5595797f28b33c66554ede0fad5c9aa968d8c7e56f5526c"
+}

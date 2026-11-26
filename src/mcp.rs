@@ -1,4 +1,7 @@
-use axum::http::{HeaderMap, HeaderValue, header::CONTENT_TYPE};
+use axum::http::{
+    HeaderMap, HeaderValue,
+    header::{CONTENT_TYPE, WWW_AUTHENTICATE},
+};
 use serde_json::{Value, json};
 use topcoat::{
     Result,
@@ -7,7 +10,7 @@ use topcoat::{
 };
 
 use crate::action::Caller;
-use crate::api::auth::authenticate;
+use crate::api::auth::{ApiAuthProblem, authenticate};
 use crate::api::body::{MAX_JSON_BODY, read_json};
 use crate::api::openapi::without_meta;
 use crate::api::problem::{ApiResponse, no_store, or_internal_error};
@@ -15,6 +18,7 @@ use crate::api::registry::{Tool, ToolOutcome, feedback_tool, tools};
 use crate::api::scope::TokenAudience;
 use crate::app::SITE_NAME;
 use crate::env::Env;
+use crate::routes::PROTECTED_RESOURCE_METADATA_PATH;
 use crate::web::env;
 
 pub const PROTOCOL_VERSION: &str = "2025-06-18";
@@ -29,9 +33,11 @@ type McpResponse = (StatusCode, HeaderMap, String);
 
 #[route(POST "/mcp", with(BodyLimit::max(MAX_JSON_BODY)))]
 pub async fn mcp_endpoint(cx: &Cx, body: Body) -> Result<McpResponse> {
+    let env = env(cx);
     let caller = match authenticate(cx, TokenAudience::Mcp).await {
-        Ok(Ok(caller)) => caller,
-        Ok(Err(problem)) => return Ok(from_api(problem.response())),
+        Ok(Ok(caller)) => Some(caller),
+        Ok(Err(ApiAuthProblem::MissingToken)) => None,
+        Ok(Err(problem)) => return Ok(unauthorized(&env, problem)),
         Err(error) => return Ok(from_api(or_internal_error(Err(error)))),
     };
     let message: Value = match read_json(cx, body).await? {
@@ -39,10 +45,25 @@ pub async fn mcp_endpoint(cx: &Cx, body: Body) -> Result<McpResponse> {
         Err(response) => return Ok(from_api(response)),
     };
 
-    handle(&env(cx), &caller, message).await
+    handle(&env, caller.as_ref(), message).await
 }
 
-async fn handle(env: &Env<'_>, caller: &Caller, message: Value) -> Result<McpResponse> {
+fn unauthorized(env: &Env<'_>, problem: ApiAuthProblem) -> McpResponse {
+    let (status, mut headers, body) = from_api(problem.response());
+    let metadata = env.app.url(PROTECTED_RESOURCE_METADATA_PATH);
+    let challenge = match problem {
+        ApiAuthProblem::InvalidToken => {
+            format!("Bearer resource_metadata=\"{metadata}\", error=\"invalid_token\"")
+        }
+        _ => format!("Bearer resource_metadata=\"{metadata}\""),
+    };
+    if let Ok(value) = HeaderValue::from_str(&challenge) {
+        headers.insert(WWW_AUTHENTICATE, value);
+    }
+    (status, headers, body)
+}
+
+async fn handle(env: &Env<'_>, caller: Option<&Caller>, message: Value) -> Result<McpResponse> {
     let Some(request) = message.as_object() else {
         return Ok(rpc_error(
             Value::Null,
@@ -101,8 +122,11 @@ fn initialize(params: &Value) -> Value {
     })
 }
 
-fn usable(caller: &Caller, tool: &Tool) -> bool {
-    caller.require(tool.permission).is_ok()
+fn usable(caller: Option<&Caller>, tool: &Tool) -> bool {
+    match caller {
+        Some(caller) => caller.require(tool.permission).is_ok(),
+        None => tool.run_public.is_some(),
+    }
 }
 
 fn describe(tool: &Tool) -> Value {
@@ -120,7 +144,7 @@ fn describe(tool: &Tool) -> Value {
     })
 }
 
-fn list_tools(caller: &Caller) -> Value {
+fn list_tools(caller: Option<&Caller>) -> Value {
     let tools: Vec<Value> = tools()
         .iter()
         .filter(|tool| usable(caller, tool))
@@ -132,7 +156,7 @@ fn list_tools(caller: &Caller) -> Value {
 
 async fn call_tool(
     env: &Env<'_>,
-    caller: &Caller,
+    caller: Option<&Caller>,
     id: Value,
     params: &Value,
 ) -> Result<McpResponse> {
@@ -156,7 +180,11 @@ async fn call_tool(
         .cloned()
         .unwrap_or_else(|| json!({}));
 
-    let outcome = (tool.run)(env, caller, arguments).await?;
+    let outcome = match (caller, tool.run_public) {
+        (Some(caller), _) => (tool.run)(env, caller, arguments).await?,
+        (None, Some(run_public)) => run_public(env, arguments).await?,
+        (None, None) => return Ok(unauthorized(env, ApiAuthProblem::MissingToken)),
+    };
     Ok(tool_response(id, outcome))
 }
 
@@ -230,7 +258,7 @@ mod tests {
     #[test]
     fn a_token_only_sees_the_tools_its_scopes_allow() {
         let names = |scopes| {
-            list_tools(&caller(scopes))["tools"]
+            list_tools(Some(&caller(scopes)))["tools"]
                 .as_array()
                 .unwrap()
                 .iter()
@@ -305,7 +333,7 @@ mod tests {
 
         let notification = handle(
             &env,
-            &reader,
+            Some(&reader),
             json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }),
         )
         .await
@@ -314,19 +342,21 @@ mod tests {
 
         let unknown = handle(
             &env,
-            &reader,
+            Some(&reader),
             json!({ "jsonrpc": "2.0", "id": 1, "method": "nope" }),
         )
         .await
         .unwrap();
         assert_eq!(body(&unknown)["error"]["code"], METHOD_NOT_FOUND);
 
-        let not_rpc = handle(&env, &reader, json!({ "id": 2 })).await.unwrap();
+        let not_rpc = handle(&env, Some(&reader), json!({ "id": 2 }))
+            .await
+            .unwrap();
         assert_eq!(not_rpc.0, StatusCode::BAD_REQUEST);
 
         let call = handle(
             &env,
-            &reader,
+            Some(&reader),
             json!({ "jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": { "name": "get_profile" } }),
         )
         .await

@@ -13,6 +13,7 @@ async fn stored_zone(email: &str, db: &PgPool) -> Option<String> {
 fn signing_up(email: &str, time_zone: Option<&str>) -> Register {
     Register {
         price: None,
+        authorize: None,
         name: "Zoned".to_string(),
         email: email.to_string(),
         time_zone: time_zone.map(str::to_string),

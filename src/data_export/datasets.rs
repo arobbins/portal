@@ -42,6 +42,14 @@ pub const LEFT_OUT: &[LeftOut] = &[
         why: "Links to Stripe Checkout pages started for your account, kept for a day so a repeated request gets the same link.",
     },
     LeftOut {
+        table: "oauth_requests",
+        why: "Requests from apps waiting for you to approve them. They expire within minutes.",
+    },
+    LeftOut {
+        table: "oauth_connections",
+        why: "Apps you connected by signing in, with what each may do. The Connected apps card on the Developer tab lists them; their tokens are secrets and are never stored.",
+    },
+    LeftOut {
         table: "duplicate_subscriptions",
         why: "Stripe ids of any second subscription that was cancelled and refunded, so it's refunded only once. Your Recent activity lists each one.",
     },

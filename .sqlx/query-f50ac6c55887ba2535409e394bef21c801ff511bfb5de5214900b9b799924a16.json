@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO oauth_connections (public_id, user_id, client_id, return_host, scopes, created_at, updated_at) SELECT $1, $2, $3, $4, $5, $7, $7 WHERE (SELECT count(*) FROM oauth_connections WHERE user_id = $2) < $6 OR EXISTS (SELECT 1 FROM oauth_connections WHERE user_id = $2 AND client_id = $3) ON CONFLICT (user_id, client_id) DO UPDATE SET scopes = EXCLUDED.scopes, return_host = EXCLUDED.return_host, updated_at = EXCLUDED.updated_at RETURNING id, public_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "public_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4",
+        "Int4",
+        "Text",
+        "TextArray",
+        "Int8",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "f50ac6c55887ba2535409e394bef21c801ff511bfb5de5214900b9b799924a16"
+}
