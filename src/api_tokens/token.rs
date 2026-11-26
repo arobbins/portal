@@ -1,10 +1,10 @@
-use sha2::{Digest, Sha256};
-
-use crate::secret::{BASE62, hash_secret, random_base62};
+use crate::secret::{checked_secret, hash_secret, is_checked_secret};
 
 pub const TOKEN_PREFIX: &str = "wsk_";
 const SECRET_LENGTH: usize = 43;
+#[cfg(test)]
 const CHECKSUM_LENGTH: usize = 6;
+#[cfg(test)]
 pub const TOKEN_LENGTH: usize = TOKEN_PREFIX.len() + SECRET_LENGTH + CHECKSUM_LENGTH;
 const LAST_FOUR: usize = 4;
 
@@ -15,8 +15,7 @@ pub struct NewApiToken {
 }
 
 pub fn generate_api_token() -> NewApiToken {
-    let secret = random_base62(SECRET_LENGTH);
-    let raw = format!("{TOKEN_PREFIX}{secret}{}", checksum(&secret));
+    let raw = checked_secret(TOKEN_PREFIX, SECRET_LENGTH);
 
     NewApiToken {
         hash: hash_secret(&raw),
@@ -26,31 +25,11 @@ pub fn generate_api_token() -> NewApiToken {
 }
 
 pub fn is_well_formed(raw: &str) -> bool {
-    let Some(body) = raw.strip_prefix(TOKEN_PREFIX) else {
-        return false;
-    };
-    if raw.len() != TOKEN_LENGTH || !body.bytes().all(|byte| byte.is_ascii_alphanumeric()) {
-        return false;
-    }
-    let (secret, given) = body.split_at(SECRET_LENGTH);
-
-    checksum(secret) == given
+    is_checked_secret(TOKEN_PREFIX, SECRET_LENGTH, raw)
 }
 
 pub fn display_hint(last_four: &str) -> String {
     format!("{TOKEN_PREFIX}…{last_four}")
-}
-
-fn checksum(secret: &str) -> String {
-    let digest = Sha256::digest(secret.as_bytes());
-    let mut value = u32::from_be_bytes([digest[0], digest[1], digest[2], digest[3]]);
-    let mut digits = [b'0'; CHECKSUM_LENGTH];
-    for digit in digits.iter_mut().rev() {
-        *digit = BASE62[(value % 62) as usize];
-        value /= 62;
-    }
-
-    String::from_utf8(digits.to_vec()).expect("base62 digits are ASCII")
 }
 
 #[cfg(test)]

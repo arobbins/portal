@@ -11,6 +11,7 @@ use crate::devices::lifecycle::end_every_device;
 use crate::env::Env;
 use crate::jobs::enqueue;
 use crate::mail::SendEmail;
+use crate::oauth::lifecycle::disconnect_all_for_user;
 use crate::permission::Permission;
 use crate::user::events::{EventSource, record_event};
 use crate::user::model::{AccountStatus, User};
@@ -80,6 +81,7 @@ pub async fn sign_out_user(
 
     query_bump_session_version(user.id, &mut *tx).await?;
     end_every_device(user.id, &mut *tx).await?;
+    disconnect_all_for_user(user.id, &mut *tx).await?;
     let action = AdminLogAction::SignedOutEverywhere;
     record_admin_action(env, caller, &user, action, &mut tx).await?;
     tx.commit().await?;

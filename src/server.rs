@@ -1,3 +1,5 @@
+#[cfg(test)]
+mod oauth_tests;
 pub mod router;
 #[cfg(test)]
 mod tests;

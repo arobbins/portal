@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM oauth_tokens WHERE connection_id = $1 AND kind = 'access'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "652ed65aaaf6d87217bd4a4d497f08d7453fec0817b1f5346627e7230930a28f"
+}

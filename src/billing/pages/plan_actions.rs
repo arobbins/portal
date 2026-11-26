@@ -6,8 +6,8 @@ use topcoat::{
     view::{View, attributes, component, view},
 };
 
-use super::handoff::PRICE_PARAM;
 use super::routes::{open_portal_submit, start_checkout_submit};
+use crate::auth::handoff::PRICE_PARAM;
 use crate::billing::actions::{BillingPage, PRICE_FIELD, PlanPrice};
 use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
 use crate::components::form::form;

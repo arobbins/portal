@@ -7,7 +7,7 @@ use crate::action::{ActionResult, Caller, authorize};
 use crate::env::Env;
 use crate::permission::Permission;
 use crate::user::event_history::{PastEvent, query_list_recent_account_events};
-use crate::user::events::{AccountEventKind, BillingEventKind, EventChannel};
+use crate::user::events::{APP_DETAIL, AccountEventKind, BillingEventKind, EventChannel};
 
 pub const RECENT_ACTIVITY_LIMIT: i64 = 20;
 
@@ -16,7 +16,7 @@ pub struct ActivityView {
     pub summary: String,
     pub device: Option<String>,
     pub ip: Option<String>,
-    pub by: Option<&'static str>,
+    pub by: Option<String>,
     pub at: OffsetDateTime,
 }
 
@@ -55,7 +55,7 @@ impl ActivityView {
             summary: summarize(event.kind, &event.detail),
             device,
             ip: event.ip,
-            by: actor(event.via),
+            by: actor(event.via, &event.detail),
             at: event.at,
         }
     }
@@ -73,6 +73,8 @@ fn summarize(kind: AccountEventKind, detail: &Value) -> String {
         AccountEventKind::DeviceSignedOut => format!("{name} signed out"),
         AccountEventKind::ApiTokenCreated => format!("API token “{name}” created"),
         AccountEventKind::ApiTokenRevoked => format!("API token “{name}” revoked"),
+        AccountEventKind::AppConnected => format!("Connected {name}"),
+        AccountEventKind::AppDisconnected => format!("Disconnected {name}"),
         AccountEventKind::PasskeyAdded => format!("Passkey “{name}” added"),
         AccountEventKind::PasskeyRenamed => format!("Passkey renamed to “{name}”"),
         AccountEventKind::PasskeyRemoved => format!("Passkey “{name}” removed"),
@@ -83,14 +85,15 @@ fn summarize(kind: AccountEventKind, detail: &Value) -> String {
     }
 }
 
-fn actor(channel: EventChannel) -> Option<&'static str> {
-    match channel {
-        EventChannel::Browser => None,
+fn actor(channel: EventChannel, detail: &Value) -> Option<String> {
+    let fixed = match channel {
+        EventChannel::Browser | EventChannel::Stripe => None,
         EventChannel::ApiToken(_) => Some("API token"),
+        EventChannel::App => return text(detail, APP_DETAIL).map(|app| format!("By {app}")),
         EventChannel::Admin => Some("By an admin"),
         EventChannel::Console => Some("By the server"),
-        EventChannel::Stripe => None,
-    }
+    };
+    fixed.map(str::to_string)
 }
 
 fn billing_summary(kind: BillingEventKind, detail: &Value) -> String {
@@ -107,10 +110,13 @@ fn billing_summary(kind: BillingEventKind, detail: &Value) -> String {
         BillingEventKind::DuplicateRefunded => {
             format!("Second {plan} subscription cancelled and refunded")
         }
-        BillingEventKind::CheckoutStarted => match text(detail, "token") {
-            Some(token) => format!("Checkout for {plan} started by token {token}"),
-            None => format!("Checkout for {plan} started"),
-        },
+        BillingEventKind::CheckoutStarted => {
+            match (text(detail, "token"), text(detail, APP_DETAIL)) {
+                (Some(token), _) => format!("Checkout for {plan} started by token {token}"),
+                (None, Some(app)) => format!("Checkout for {plan} started by {app}"),
+                (None, None) => format!("Checkout for {plan} started"),
+            }
+        }
     }
 }
 

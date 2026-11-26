@@ -13,6 +13,8 @@ pub enum AccountEventKind {
     ApiTokenCreated,
     ApiTokenRevoked,
     ApiFeedbackSent,
+    AppConnected,
+    AppDisconnected,
     DataExported,
     DeviceSignedOut,
     EmailChangeRequested,
@@ -46,11 +48,13 @@ pub enum AccountEventKind {
 }
 
 impl AccountEventKind {
-    pub const ALL: [Self; 40] = [
+    pub const ALL: [Self; 42] = [
         Self::AccountCreated,
         Self::ApiTokenCreated,
         Self::ApiTokenRevoked,
         Self::ApiFeedbackSent,
+        Self::AppConnected,
+        Self::AppDisconnected,
         Self::DataExported,
         Self::DeviceSignedOut,
         Self::EmailChangeRequested,
@@ -95,6 +99,8 @@ impl AccountEventKind {
             Self::ApiTokenCreated => "api_token_created",
             Self::ApiTokenRevoked => "api_token_revoked",
             Self::ApiFeedbackSent => "api_feedback_sent",
+            Self::AppConnected => "app_connected",
+            Self::AppDisconnected => "app_disconnected",
             Self::DataExported => "data_exported",
             Self::DeviceSignedOut => "device_signed_out",
             Self::EmailChangeRequested => "email_change_requested",
@@ -154,6 +160,8 @@ impl BillingEventKind {
     }
 }
 
+pub const APP_DETAIL: &str = "app";
+
 pub struct NewAccountEvent<'a> {
     pub source: &'a EventSource,
     pub kind: AccountEventKind,
@@ -165,9 +173,12 @@ pub async fn record_event(
     env: &Env<'_>,
     source: &EventSource,
     kind: AccountEventKind,
-    detail: Value,
+    mut detail: Value,
     db: impl PgExecutor<'_>,
 ) -> Result<()> {
+    if let (Some(app), Some(fields)) = (&source.app, detail.as_object_mut()) {
+        fields.insert(APP_DETAIL.to_string(), Value::String(app.clone()));
+    }
     query_insert_account_event(
         &NewAccountEvent {
             source,
@@ -241,7 +252,11 @@ mod tests {
         for channel in channels {
             query_insert_account_event(
                 &NewAccountEvent {
-                    source: &EventSource { user_id, channel },
+                    source: &EventSource {
+                        user_id,
+                        channel,
+                        app: None,
+                    },
                     kind: AccountEventKind::ProfileUpdated,
                     detail: &json!({ "fields": ["name"] }),
                     ip: None,

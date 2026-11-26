@@ -28,7 +28,7 @@ paths:
   live subscription per account (partial unique index, customer row locked
   `FOR UPDATE`); a second is cancelled and refunded by a job, once per Stripe
   subscription id (`duplicate_subscriptions`); `charge_already_refunded` counts as done.
-- Only a token's Checkout records an event (`checkout_started`).
+- Only a token's or a connected app's Checkout records an event (`checkout_started`).
 - Stripe calls never run inside a transaction. Deleting an account
   enqueues `CancelStripeSubscription` in the deletion's transaction; an
   email change enqueues `UpdateStripeCustomerEmail`.

@@ -4,6 +4,7 @@ use crate::action::{Caller, Channel};
 pub enum EventChannel {
     Browser,
     ApiToken(i32),
+    App,
     Admin,
     Console,
     Stripe,
@@ -14,6 +15,7 @@ impl EventChannel {
         match self {
             Self::Browser => "browser",
             Self::ApiToken(_) => "api_token",
+            Self::App => "app",
             Self::Admin => "admin",
             Self::Console => "console",
             Self::Stripe => "stripe",
@@ -30,6 +32,7 @@ impl EventChannel {
     pub fn parse(channel: &str) -> Self {
         match channel {
             "api_token" => Self::ApiToken(0),
+            "app" => Self::App,
             "admin" => Self::Admin,
             "console" => Self::Console,
             "stripe" => Self::Stripe,
@@ -41,6 +44,7 @@ impl EventChannel {
 pub struct EventSource {
     pub user_id: i32,
     pub channel: EventChannel,
+    pub app: Option<String>,
 }
 
 impl EventSource {
@@ -48,10 +52,12 @@ impl EventSource {
         let channel = match caller.via {
             Channel::Browser => EventChannel::Browser,
             Channel::ApiToken { id, .. } => EventChannel::ApiToken(id),
+            Channel::App(_) => EventChannel::App,
         };
         Self {
             user_id: caller.user.id,
             channel,
+            app: caller.app().map(|app| app.label.clone()),
         }
     }
 
@@ -59,6 +65,7 @@ impl EventSource {
         Self {
             user_id,
             channel: EventChannel::Browser,
+            app: None,
         }
     }
 
@@ -66,6 +73,7 @@ impl EventSource {
         Self {
             user_id,
             channel: EventChannel::Admin,
+            app: None,
         }
     }
 
@@ -73,6 +81,7 @@ impl EventSource {
         Self {
             user_id,
             channel: EventChannel::Stripe,
+            app: None,
         }
     }
 
@@ -80,6 +89,7 @@ impl EventSource {
         Self {
             user_id,
             channel: EventChannel::Console,
+            app: None,
         }
     }
 }

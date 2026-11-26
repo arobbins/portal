@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH ended AS (DELETE FROM oauth_connections WHERE id = $1 RETURNING user_id, public_id, client_id, return_host) SELECT ended.user_id, ended.public_id, c.name, ended.return_host FROM ended JOIN oauth_clients c ON c.id = ended.client_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "public_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "return_host",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "5ff2dbea6859f3c37b4c15692fae417a16f40c66e68611fdb2c9d8ff8ca0ba5e"
+}

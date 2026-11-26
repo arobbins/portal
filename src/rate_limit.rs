@@ -21,6 +21,8 @@ pub const FEEDBACK_PER_ACCOUNT_PER_DAY: u32 = 100;
 pub const EXPORTS_PER_ACCOUNT_PER_HOUR: u32 = 5;
 pub const BILLING_SESSIONS_PER_ACCOUNT_PER_HOUR: u32 = 10;
 pub const PLAN_LISTS_PER_IP_PER_MINUTE: u32 = 60;
+pub const CLIENT_REGISTRATIONS_PER_IP_PER_HOUR: u32 = 20;
+pub const TOKEN_REQUESTS_PER_CLIENT_PER_MINUTE: u32 = 60;
 pub const BAD_API_TOKENS_PER_WINDOW: u32 = 20;
 pub const BAD_API_TOKEN_WINDOW_MINUTES: u64 = 10;
 pub const KEEP_HITS_FOR: time::Duration = time::Duration::days(1);
@@ -101,6 +103,24 @@ impl RateLimits {
     pub async fn allow_api_call(&self, token_id: i32) -> Result<bool, sqlx::Error> {
         self.allow(Limit::ApiCallsByToken, &token_id.to_string())
             .await
+    }
+
+    pub async fn allow_app_call(&self, connection_id: i32) -> Result<bool, sqlx::Error> {
+        self.allow(Limit::ApiCallsByApp, &connection_id.to_string())
+            .await
+    }
+
+    pub async fn allow_client_registration(&self, ip: Option<IpAddr>) -> Result<bool, sqlx::Error> {
+        self.allow(Limit::ClientRegistrationsByIp, &ip_key(ip))
+            .await
+    }
+
+    pub async fn allow_token_request(&self, client_id: &str) -> Result<bool, sqlx::Error> {
+        let key = match client_id.len() {
+            length if length <= MAX_KEY_LENGTH => client_id.to_string(),
+            _ => crate::secret::hash_secret(client_id),
+        };
+        self.allow(Limit::TokenRequestsByClient, &key).await
     }
 
     pub async fn allow_feedback(

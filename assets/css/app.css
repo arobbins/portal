@@ -34,6 +34,7 @@
 @import "./components/setting-toggle.css";
 @import "./pages/auth.css";
 @import "./pages/passkey-setup.css";
+@import "./pages/authorize.css";
 @import "./pages/home.css";
 @import "./pages/not-found.css";
 @import "./pages/api-docs.css";

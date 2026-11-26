@@ -11,6 +11,7 @@ use super::queries::{Device, query_delete_device, query_delete_other_devices, qu
 use super::user_agent::describe_user_agent;
 use crate::action::{ActionProblem, ActionResult, Caller, ProblemSpec, authorize, fail};
 use crate::env::Env;
+use crate::oauth::lifecycle::disconnect_all_for_user;
 use crate::permission::Permission;
 use crate::secret::PublicIdKind;
 use crate::user::events::{AccountEventKind, EventSource, record_event};
@@ -125,7 +126,8 @@ pub async fn sign_out_other_devices(
         return Err(topcoat::Error::msg("this device is no longer signed in"));
     }
     let signed_out = query_delete_other_devices(user.id, current, &mut *tx).await?;
-    let detail = json!({ "devices": signed_out });
+    let apps = disconnect_all_for_user(user.id, &mut *tx).await?;
+    let detail = json!({ "devices": signed_out, "apps_disconnected": apps });
     let kind = AccountEventKind::OtherDevicesSignedOut;
     record_event(env, &EventSource::of(caller), kind, detail, &mut *tx).await?;
     tx.commit().await?;

@@ -3,6 +3,7 @@ use sha2::{Digest, Sha256};
 
 pub const BASE62: &[u8; 62] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const PUBLIC_ID_LENGTH: usize = 20;
+const CHECKSUM_LENGTH: usize = 6;
 
 pub fn random_base62(length: usize) -> String {
     let mut rng = rand::thread_rng();
@@ -15,9 +16,43 @@ pub fn hash_secret(secret: &str) -> String {
     hex::encode(Sha256::digest(secret.as_bytes()))
 }
 
+pub fn checked_secret(prefix: &str, length: usize) -> String {
+    let secret = random_base62(length);
+    format!("{prefix}{secret}{}", checksum(&secret))
+}
+
+pub fn is_checked_secret(prefix: &str, length: usize, raw: &str) -> bool {
+    let Some(body) = raw.strip_prefix(prefix) else {
+        return false;
+    };
+    if body.len() != length + CHECKSUM_LENGTH
+        || !body.bytes().all(|byte| byte.is_ascii_alphanumeric())
+    {
+        return false;
+    }
+    let (secret, given) = body.split_at(length);
+
+    checksum(secret) == given
+}
+
+fn checksum(secret: &str) -> String {
+    let digest = Sha256::digest(secret.as_bytes());
+    let mut value = u32::from_be_bytes([digest[0], digest[1], digest[2], digest[3]]);
+    let mut digits = [b'0'; CHECKSUM_LENGTH];
+    for digit in digits.iter_mut().rev() {
+        *digit = BASE62[(value % 62) as usize];
+        value /= 62;
+    }
+
+    String::from_utf8(digits.to_vec()).expect("base62 digits are ASCII")
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PublicIdKind {
     ApiToken,
+    AuthorizationRequest,
+    ConnectedApp,
+    OAuthClient,
     Device,
     Feedback,
     Passkey,
@@ -28,6 +63,9 @@ impl PublicIdKind {
     pub fn prefix(self) -> &'static str {
         match self {
             Self::ApiToken => "tok_",
+            Self::AuthorizationRequest => "oar_",
+            Self::ConnectedApp => "app_",
+            Self::OAuthClient => "cli_",
             Self::Device => "dev_",
             Self::Feedback => "fbk_",
             Self::User => "usr_",

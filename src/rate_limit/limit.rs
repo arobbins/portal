@@ -1,8 +1,9 @@
 use super::{
     API_CALLS_PER_MINUTE, BAD_API_TOKEN_WINDOW_MINUTES, BAD_API_TOKENS_PER_WINDOW,
-    BILLING_SESSIONS_PER_ACCOUNT_PER_HOUR, EXPORTS_PER_ACCOUNT_PER_HOUR,
-    FEEDBACK_PER_ACCOUNT_PER_DAY, FEEDBACK_PER_TOKEN_PER_HOUR, PLAN_LISTS_PER_IP_PER_MINUTE,
-    RELAXED_SCALE, RateLimitMode,
+    BILLING_SESSIONS_PER_ACCOUNT_PER_HOUR, CLIENT_REGISTRATIONS_PER_IP_PER_HOUR,
+    EXPORTS_PER_ACCOUNT_PER_HOUR, FEEDBACK_PER_ACCOUNT_PER_DAY, FEEDBACK_PER_TOKEN_PER_HOUR,
+    PLAN_LISTS_PER_IP_PER_MINUTE, RELAXED_SCALE, RateLimitMode,
+    TOKEN_REQUESTS_PER_CLIENT_PER_MINUTE,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,6 +22,9 @@ pub(super) enum Limit {
     ExportsByAccount,
     BillingSessionsByAccount,
     PlanListsByIp,
+    ApiCallsByApp,
+    ClientRegistrationsByIp,
+    TokenRequestsByClient,
 }
 
 impl Limit {
@@ -40,6 +44,9 @@ impl Limit {
             Self::ExportsByAccount => "exports_by_account",
             Self::BillingSessionsByAccount => "billing_sessions_by_account",
             Self::PlanListsByIp => "plan_lists_by_ip",
+            Self::ApiCallsByApp => "api_calls_by_app",
+            Self::ClientRegistrationsByIp => "client_registrations_by_ip",
+            Self::TokenRequestsByClient => "token_requests_by_client",
         }
     }
 
@@ -48,6 +55,8 @@ impl Limit {
             Self::PasswordSubmissionsByIp
             | Self::PasskeyChallengesByIp
             | Self::ApiCallsByToken
+            | Self::ApiCallsByApp
+            | Self::TokenRequestsByClient
             | Self::PlanListsByIp => 1,
             Self::EmailRequestsByIp => 10,
             Self::FailedLoginsByAccountAndIp | Self::FailedSecondFactorsByAccount => 15,
@@ -56,7 +65,8 @@ impl Limit {
             | Self::FailedLoginsByAccount
             | Self::FeedbackByToken
             | Self::ExportsByAccount
-            | Self::BillingSessionsByAccount => 60,
+            | Self::BillingSessionsByAccount
+            | Self::ClientRegistrationsByIp => 60,
             Self::FeedbackByAccount => 24 * 60,
         };
         (minutes * 60) as f64
@@ -77,6 +87,9 @@ impl Limit {
             Self::ExportsByAccount => EXPORTS_PER_ACCOUNT_PER_HOUR,
             Self::BillingSessionsByAccount => BILLING_SESSIONS_PER_ACCOUNT_PER_HOUR,
             Self::PlanListsByIp => PLAN_LISTS_PER_IP_PER_MINUTE,
+            Self::ApiCallsByApp => API_CALLS_PER_MINUTE,
+            Self::ClientRegistrationsByIp => CLIENT_REGISTRATIONS_PER_IP_PER_HOUR,
+            Self::TokenRequestsByClient => TOKEN_REQUESTS_PER_CLIENT_PER_MINUTE,
         };
         let scales = !matches!(
             self,

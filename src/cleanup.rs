@@ -10,6 +10,7 @@ use crate::devices::lifecycle::delete_stale_devices;
 use crate::env::App;
 use crate::feedback::delete_old_feedback;
 use crate::jobs::{Job, JobError, delete_old_failed_jobs};
+use crate::oauth::lifecycle::delete_expired as delete_expired_sign_ins;
 use crate::user::events::delete_old_events;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,13 +35,14 @@ async fn run(app: &App) -> Result<(), JobError> {
     let known = forget_unseen_devices(app).await?;
     let feedback = delete_old_feedback(app).await?;
     let (stripe_events, checkouts) = delete_expired_billing_records(app).await?;
+    let sign_ins = delete_expired_sign_ins(app).await?;
     PostgresStore::new(app.db.clone())
         .delete_expired()
         .await
         .map_err(JobError::new)?;
 
     tracing::info!(
-        "cleanup removed {links} expired links, {sign_ups} abandoned sign-ups, {api_tokens} expired API tokens, {hits} rate-limit hits, {events} old account events, {jobs} failed jobs, {devices} signed-out devices, {known} long-unseen browsers, {feedback} old API feedback messages, {stripe_events} old Stripe event ids and {checkouts} old checkout requests"
+        "cleanup removed {links} expired links, {sign_ups} abandoned sign-ups, {api_tokens} expired API tokens, {hits} rate-limit hits, {events} old account events, {jobs} failed jobs, {devices} signed-out devices, {known} long-unseen browsers, {feedback} old API feedback messages, {stripe_events} old Stripe event ids, {checkouts} old checkout requests and {sign_ins} expired app sign-in records"
     );
     Ok(())
 }

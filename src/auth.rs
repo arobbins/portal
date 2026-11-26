@@ -1,5 +1,6 @@
 pub mod actions;
 pub mod emails;
+pub mod handoff;
 pub mod links;
 pub mod pages;
 pub mod password;

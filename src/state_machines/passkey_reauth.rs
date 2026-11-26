@@ -49,6 +49,8 @@ pub const PASSKEY_REAUTH: Machine<ProofState, ProofEvent> = Machine {
         writer(EMAIL, "return_passkey_proof", &[E::UseItAndFail]),
         writer(TOKEN, "take_passkey_proof", &[E::UseIt]),
         writer(TOKEN, "return_passkey_proof", &[E::UseItAndFail]),
+        writer(CONNECT, "take_passkey_proof", &[E::UseIt]),
+        writer(CONNECT, "return_passkey_proof", &[E::UseItAndFail]),
         writer(DELETE, "take_passkey_proof", &[E::UseIt]),
         writer(DELETE, "return_passkey_proof", &[E::UseItAndFail]),
         writer(EXPORT, "take_passkey_proof", &[E::UseIt]),
@@ -71,6 +73,7 @@ pub const PASSKEY_REAUTH: Machine<ProofState, ProofEvent> = Machine {
 
 const EMAIL: &str = "src/profile/pages/email_routes.rs:change_email";
 const TOKEN: &str = "src/api_tokens/pages/token_routes.rs:create_token";
+const CONNECT: &str = "src/oauth/pages/authorize_page.rs:connect";
 const DELETE: &str = "src/profile/pages/delete_routes.rs:remove_account";
 const EXPORT: &str = "src/data_export/pages/export_routes.rs:run_export";
 const ADMIN: &str = "src/admin/pages/admin_confirm.rs:admin_confirm_submit";

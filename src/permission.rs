@@ -12,6 +12,7 @@ pub enum Permission {
     ManageDevices,
     ViewActivity,
     ManageApiTokens,
+    ManageConnectedApps,
     DeleteAccount,
     ExportData,
     AdministerUsers,
@@ -31,7 +32,7 @@ pub enum TokenAccess {
 }
 
 impl Permission {
-    pub const ALL: [Self; 18] = [
+    pub const ALL: [Self; 19] = [
         Self::ViewProfile,
         Self::EditProfile,
         Self::ManagePassword,
@@ -42,6 +43,7 @@ impl Permission {
         Self::ManageDevices,
         Self::ViewActivity,
         Self::ManageApiTokens,
+        Self::ManageConnectedApps,
         Self::DeleteAccount,
         Self::ExportData,
         Self::AdministerUsers,
@@ -68,6 +70,7 @@ impl Permission {
             | Self::ManageDevices
             | Self::ViewActivity
             | Self::ManageApiTokens
+            | Self::ManageConnectedApps
             | Self::DeleteAccount
             | Self::ExportData
             | Self::AdministerUsers
@@ -108,6 +111,7 @@ mod tests {
             Permission::ManageDevices,
             Permission::ViewActivity,
             Permission::ManageApiTokens,
+            Permission::ManageConnectedApps,
             Permission::DeleteAccount,
             Permission::ExportData,
             Permission::AdministerUsers,

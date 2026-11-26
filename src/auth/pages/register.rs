@@ -18,9 +18,9 @@ use super::switch_link::switch_link;
 use crate::action::{ActionProblem, page_status};
 use crate::app::page_title;
 use crate::auth::actions::{EMAIL_FIELD, Register, RegisterProblem, register};
+use crate::auth::handoff::{Handoff, handoff_param, keep_handoff_alive, with_handoff};
 use crate::auth::links::TokenPurpose;
 use crate::auth::session::redirect_signed_in_users;
-use crate::billing::pages::handoff::{PRICE_PARAM, price_param, with_price};
 use crate::components::button::{ButtonType, button};
 use crate::components::form::{
     Autocomplete, FormVariant, InputType, form, form_actions, form_error, form_field,
@@ -42,12 +42,14 @@ pub struct RegisterForm {
     time_zone: String,
     #[serde(default)]
     price: String,
+    #[serde(default)]
+    authorize: String,
 }
 
 struct RegisterFailed {
     name: String,
     email: String,
-    price: Option<String>,
+    handoff: Option<Handoff>,
     problem: RegisterProblem,
 }
 
@@ -60,9 +62,10 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
     let name = failed.map(|failed| failed.name.clone());
     let email = failed.map(|failed| failed.email.clone());
     let problem = failed.map(|failed| failed.problem);
-    let price = failed
-        .and_then(|failed| failed.price.clone())
-        .or_else(|| price_param(cx));
+    let handoff = failed
+        .and_then(|failed| failed.handoff.clone())
+        .or_else(|| handoff_param(cx));
+    keep_handoff_alive(cx, handoff.as_ref()).await?;
     let sent_to = match flash {
         Some(_) => take_link_sent_to(cx).await?,
         None => None,
@@ -72,7 +75,7 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
         TokenPurpose::EmailVerification.lifetime_text()
     );
     let register_href = href!(register_page).resolve(cx);
-    let login_href = with_price(&href!(login_page).resolve(cx), price.as_deref());
+    let login_href = with_handoff(&href!(login_page).resolve(cx), handoff.as_ref());
 
     Ok(view! {
         <section class="l-contain l-skinny">
@@ -91,7 +94,7 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
                 register_form(
                     name: name.as_deref(),
                     email: email.as_deref(),
-                    price: price.as_deref(),
+                    handoff: handoff.as_ref(),
                     problem: problem
                 )
                 switch_link(
@@ -120,7 +123,10 @@ pub async fn register_submit(cx: &Cx, Form(form): Form<RegisterForm>) -> Result<
         email: form.email,
         time_zone: Some(form.time_zone).filter(|zone| !zone.is_empty()),
         price: Some(form.price).filter(|price| !price.is_empty()),
+        authorize: Some(form.authorize).filter(|request| !request.is_empty()),
     };
+    let handoff = Handoff::chosen(input.price.as_deref(), input.authorize.as_deref());
+    keep_handoff_alive(cx, handoff.as_ref()).await?;
     match register(&env(cx), &input).await? {
         Ok(()) => {
             let session = session(cx)?;
@@ -133,7 +139,7 @@ pub async fn register_submit(cx: &Cx, Form(form): Form<RegisterForm>) -> Result<
             RegisterFailed {
                 name: input.name,
                 email: input.email,
-                price: input.price,
+                handoff,
                 problem,
             },
         )),
@@ -161,7 +167,7 @@ async fn register_form(
     cx: &Cx,
     name: Option<&str>,
     email: Option<&str>,
-    price: Option<&str>,
+    handoff: Option<&Handoff>,
     problem: Option<RegisterProblem>,
 ) -> Result<impl View> {
     let is_submitting = signal(cx, || false);
@@ -198,8 +204,8 @@ async fn register_form(
             )
             honeypot_field()
             <input type="hidden" name="time_zone" data-detect-time-zone="">
-            if let Some(price) = price {
-                <input type="hidden" name=(PRICE_PARAM) value=(price)>
+            if let Some(handoff) = handoff {
+                <input type="hidden" name=(handoff.param()) value=(handoff.value())>
             }
             <p class="p-auth__newsletters">
                 "We'll send you our newsletter and product updates. You can turn them off any time in Settings."

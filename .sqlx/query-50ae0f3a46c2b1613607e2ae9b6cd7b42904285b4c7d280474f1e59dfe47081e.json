@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH used AS (DELETE FROM oauth_requests WHERE code_hash = $1 AND status = 'approved' RETURNING connection_id, client_id, redirect_uri, code_challenge, acted_at) SELECT used.connection_id AS \"connection_id!\", c.client_id, used.redirect_uri, used.code_challenge, used.acted_at FROM used JOIN oauth_clients c ON c.id = used.client_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "connection_id!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "client_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "redirect_uri",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "code_challenge",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "acted_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "50ae0f3a46c2b1613607e2ae9b6cd7b42904285b4c7d280474f1e59dfe47081e"
+}

@@ -16,6 +16,7 @@ use crate::auth::queries::{
     query_get_valid_user_token_payload,
 };
 use crate::env::Env;
+use crate::oauth::lifecycle::disconnect_all_for_user;
 use crate::secret::hash_secret;
 use crate::user::events::{AccountEventKind, EventSource, record_event};
 use crate::user::model::User;
@@ -151,7 +152,8 @@ async fn reset_password(
         return Ok(None);
     };
     let revoked = revoke_access(user_id, &mut *tx).await?;
-    let detail = json!({ "api_tokens_revoked": revoked });
+    let apps = disconnect_all_for_user(user_id, &mut *tx).await?;
+    let detail = json!({ "api_tokens_revoked": revoked, "apps_disconnected": apps });
     let source = EventSource::browser(user_id);
     record_event(
         env,

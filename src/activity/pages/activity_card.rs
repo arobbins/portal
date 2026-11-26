@@ -28,6 +28,7 @@ impl ActivityRow {
         parts.extend(item.ip.clone());
         let tags = item
             .by
+            .as_deref()
             .map(|by| PropertyTag::new(by, Tone::Neutral))
             .into_iter()
             .collect();

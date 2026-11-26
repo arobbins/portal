@@ -236,13 +236,15 @@ async fn store_checkout(
         };
         query_insert_checkout_request(caller.owner_id(), key, &request, &mut *tx).await?;
     }
-    if let Some(token) = token {
-        let detail = json!({
+    if token.is_some() || caller.app().is_some() {
+        let mut detail = json!({
             "plan": price.plan_key,
             "plan_name": price.plan_name,
             "price": price.price_id,
-            "token": token,
         });
+        if let Some(token) = token {
+            detail["token"] = json!(token);
+        }
         let kind = AccountEventKind::Billing(BillingEventKind::CheckoutStarted);
         record_event(env, &EventSource::of(caller), kind, detail, &mut *tx).await?;
     }

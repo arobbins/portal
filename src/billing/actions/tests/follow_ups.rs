@@ -78,6 +78,7 @@ async fn an_admin_deletion_cancels_the_subscription_too(db: PgPool) {
 
 fn signing_up(email: &str, price: Option<&str>) -> Register {
     Register {
+        authorize: None,
         price: price.map(str::to_string),
         name: "Chooser".to_string(),
         email: email.to_string(),
@@ -133,9 +134,9 @@ async fn opening_sign_in_with_a_price_remembers_only_a_real_one(db: PgPool) {
         .get(&format!("{LOGIN_PATH}?price=price_%2F..%2Fx"))
         .await;
 
-    let chosen = chooser.session_value("chosen_price").await.unwrap();
-    assert_eq!(chosen["price"], "price_pro");
-    assert!(prober.session_value("chosen_price").await.is_none());
+    let chosen = chooser.session_value("after_sign_in").await.unwrap();
+    assert_eq!(chosen["handoff"]["Checkout"], "price_pro");
+    assert!(prober.session_value("after_sign_in").await.is_none());
 }
 
 #[sqlx::test]

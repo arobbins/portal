@@ -5,8 +5,8 @@ use serde_json::json;
 use super::{EMAIL_FIELD, INVALID_EMAIL};
 use crate::action::{ActionProblem, Outcome, ProblemSpec, TooManyAttempts, fail};
 use crate::auth::emails::account_exists_email;
+use crate::auth::handoff::Handoff;
 use crate::auth::links::send_verification_link_for;
-use crate::billing::catalog::is_price_id;
 use crate::env::Env;
 use crate::jobs::enqueue;
 use crate::mail::SendEmail;
@@ -38,6 +38,11 @@ pub struct Register {
         description = "A Stripe price id chosen on the Pricing page; after setting a password the new account goes straight on to Checkout for it."
     )]
     pub price: Option<String>,
+    #[serde(default)]
+    #[schemars(
+        description = "An app's pending sign-in request (oar_…); after setting a password the new account goes on to approve it."
+    )]
+    pub authorize: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,9 +92,16 @@ pub async fn register(env: &Env<'_>, input: &Register) -> Outcome<(), RegisterPr
     }
 
     match query_get_user_by_email(&email, env.db()).await? {
-        Some(user) => remind_existing_user(env, &user, chosen_price(input)).await?,
+        Some(user) => remind_existing_user(env, &user, handoff_payload(input).as_deref()).await?,
         None => {
-            start_new_account(env, name, &email, known_zone(input), chosen_price(input)).await?
+            start_new_account(
+                env,
+                name,
+                &email,
+                known_zone(input),
+                handoff_payload(input).as_deref(),
+            )
+            .await?
         }
     }
     Ok(Ok(()))
@@ -104,8 +116,9 @@ fn valid_details(input: &Register) -> Result<(&str, String), RegisterProblem> {
     Ok((name, email))
 }
 
-fn chosen_price(input: &Register) -> Option<&str> {
-    input.price.as_deref().filter(|price| is_price_id(price))
+fn handoff_payload(input: &Register) -> Option<String> {
+    Handoff::chosen(input.price.as_deref(), input.authorize.as_deref())
+        .map(|handoff| handoff.value().to_string())
 }
 
 fn known_zone(input: &Register) -> Option<Zone> {

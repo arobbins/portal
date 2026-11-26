@@ -142,7 +142,7 @@ impl AccountPage {
             Self::Invoices => &[AccountSection::Invoices],
             Self::Notifications => &[AccountSection::Notifications, AccountSection::Newsletters],
             Self::TimeZone => &[AccountSection::TimeZone],
-            Self::Developer => &[AccountSection::ApiTokens],
+            Self::Developer => &[AccountSection::ApiTokens, AccountSection::ConnectedApps],
         }
     }
 }
@@ -161,13 +161,14 @@ pub enum AccountSection {
     Newsletters,
     TimeZone,
     ApiTokens,
+    ConnectedApps,
     ExportData,
     DeleteAccount,
 }
 
 impl AccountSection {
     #[cfg(test)]
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 15] = [
         Self::Password,
         Self::Passkeys,
         Self::TwoFactor,
@@ -180,6 +181,7 @@ impl AccountSection {
         Self::Newsletters,
         Self::TimeZone,
         Self::ApiTokens,
+        Self::ConnectedApps,
         Self::ExportData,
         Self::DeleteAccount,
     ];
@@ -205,6 +207,7 @@ impl AccountSection {
             Self::Newsletters => "newsletters",
             Self::TimeZone => "time-zone",
             Self::ApiTokens => "api-tokens",
+            Self::ConnectedApps => "connected-apps",
             Self::ExportData => "export-data",
             Self::DeleteAccount => "delete-account",
         }
@@ -224,6 +227,7 @@ impl AccountSection {
             Self::Newsletters => "Newsletters",
             Self::TimeZone => "Time zone",
             Self::ApiTokens => "API tokens",
+            Self::ConnectedApps => "Connected apps",
             Self::ExportData => "Export data",
             Self::DeleteAccount => "Delete account",
         }

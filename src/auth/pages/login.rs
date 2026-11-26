@@ -15,11 +15,11 @@ use super::switch_link::switch_link;
 use crate::action::{ActionProblem, page_status};
 use crate::app::page_title;
 use crate::auth::actions::{EMAIL_FIELD, SignIn, SignInProblem, sign_in_with_password};
+use crate::auth::handoff::{handoff_param, remember_handoff, with_handoff};
 use crate::auth::pages::register::register_page;
 use crate::auth::pages::reset_password::reset_password_page;
 use crate::auth::password::PASSWORD_FIELD;
 use crate::auth::session::{redirect_signed_in_users, sign_in};
-use crate::billing::pages::handoff::{price_param, remember_chosen_price, with_price};
 use crate::components::button::{ButtonType, ButtonVariant, button};
 use crate::components::form::{
     Autocomplete, FormVariant, InputType, LabelLink, form, form_actions, form_error, form_field,
@@ -46,8 +46,9 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
     redirect_signed_in_users(cx)?;
     let session = session(cx)?;
     end_second_factor(&session).await?;
-    let price = price_param(cx);
-    remember_chosen_price(&session, price.as_deref(), env(cx).now()).await?;
+    let handoff = handoff_param(cx);
+    let register_href = with_handoff(&href!(register_page).resolve(cx), handoff.as_ref());
+    remember_handoff(cx, &session, handoff).await?;
 
     let flash = take_flash(cx, FLASHES).await?;
     let toast = flash_toast(cx, flash);
@@ -57,7 +58,6 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
     let is_submitting = signal(cx, || false);
     let invalid_credentials = problem == Some(SignInProblem::InvalidCredentials);
     let reset_href = href!(reset_password_page).resolve(cx);
-    let register_href = with_price(&href!(register_page).resolve(cx), price.as_deref());
 
     Ok(view! {
         <section class="l-contain l-skinny">

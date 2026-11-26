@@ -66,7 +66,7 @@ pub fn tools() -> Vec<Tool> {
         tool::<GetNewslettersAction>(),
         tool::<UpdateNewslettersAction>(),
         tool::<SendFeedbackAction>(),
-        tool::<ListPlansAction>(),
+        public_tool::<ListPlansAction>(),
         tool::<GetBillingAction>(),
         tool::<StartCheckoutAction>(),
     ]
@@ -88,10 +88,13 @@ pub enum ToolOutcome {
 
 type ToolFuture<'a> = Pin<Box<dyn Future<Output = Result<ToolOutcome>> + Send + 'a>>;
 
+type PublicRun = for<'a> fn(&'a Env<'a>, Value) -> ToolFuture<'a>;
+
 pub struct Tool {
     pub endpoint: Endpoint,
     pub permission: Permission,
     pub run: for<'a> fn(&'a Env<'a>, &'a Caller, Value) -> ToolFuture<'a>,
+    pub run_public: Option<PublicRun>,
 }
 
 impl Tool {
@@ -105,6 +108,38 @@ fn tool<A: ApiAction>() -> Tool {
         endpoint: endpoint::<A>(),
         permission: A::PERMISSION,
         run: run_tool::<A>,
+        run_public: None,
+    }
+}
+
+fn public_tool<A: PublicApiAction>() -> Tool {
+    Tool {
+        run_public: Some(run_public_tool::<A>),
+        ..tool::<A>()
+    }
+}
+
+fn run_public_tool<'a, A: PublicApiAction>(env: &'a Env<'a>, arguments: Value) -> ToolFuture<'a> {
+    Box::pin(async move {
+        let input: A::Input = match serde_json::from_value(arguments) {
+            Ok(input) => input,
+            Err(e) => return Ok(ToolOutcome::InvalidArguments(e.to_string())),
+        };
+        Ok(tool_outcome(
+            A::run_public(env, &input)
+                .await?
+                .map_err(ActionError::Problem),
+        ))
+    })
+}
+
+fn tool_outcome<T: Serialize, P: ActionProblem>(outcome: Result<T, ActionError<P>>) -> ToolOutcome {
+    match outcome {
+        Ok(output) => ToolOutcome::Success(to_value(&output)),
+        Err(error) => {
+            let (_, _, Json(body)) = action_failed(error);
+            ToolOutcome::Failed(body)
+        }
     }
 }
 
@@ -118,13 +153,7 @@ fn run_tool<'a, A: ApiAction>(
             Ok(input) => input,
             Err(e) => return Ok(ToolOutcome::InvalidArguments(e.to_string())),
         };
-        Ok(match A::run(env, caller, &input).await? {
-            Ok(output) => ToolOutcome::Success(to_value(&output)),
-            Err(error) => {
-                let (_, _, Json(body)) = action_failed(error);
-                ToolOutcome::Failed(body)
-            }
-        })
+        Ok(tool_outcome(A::run(env, caller, &input).await?))
     })
 }
 
