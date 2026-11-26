@@ -1,6 +1,10 @@
 use sqlx::PgExecutor;
 use time::OffsetDateTime;
 
+mod checkout_requests;
+
+pub use checkout_requests::*;
+
 use super::subscription::{Subscription, SubscriptionState, SubscriptionStatus};
 
 pub async fn query_get_customer_id(
@@ -203,6 +207,22 @@ pub async fn query_record_stripe_event(
     Ok(result.rows_affected() == 1)
 }
 
+pub async fn query_record_duplicate_subscription(
+    stripe_subscription_id: &str,
+    user_id: i32,
+    db: impl PgExecutor<'_>,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        "INSERT INTO duplicate_subscriptions (stripe_subscription_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+        stripe_subscription_id,
+        user_id,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(result.rows_affected() == 1)
+}
+
 pub async fn query_delete_old_stripe_events(
     cutoff: OffsetDateTime,
     db: impl PgExecutor<'_>,
@@ -210,59 +230,6 @@ pub async fn query_delete_old_stripe_events(
     let result = sqlx::query!("DELETE FROM stripe_events WHERE received_at < $1", cutoff)
         .execute(db)
         .await?;
-
-    Ok(result.rows_affected())
-}
-
-pub struct CheckoutRequest {
-    pub price_id: String,
-    pub checkout_url: String,
-}
-
-pub async fn query_get_checkout_request(
-    user_id: i32,
-    idempotency_key: &str,
-    db: impl PgExecutor<'_>,
-) -> Result<Option<CheckoutRequest>, sqlx::Error> {
-    sqlx::query_as!(
-        CheckoutRequest,
-        "SELECT price_id, checkout_url FROM checkout_requests WHERE user_id = $1 AND idempotency_key = $2",
-        user_id,
-        idempotency_key,
-    )
-    .fetch_optional(db)
-    .await
-}
-
-pub async fn query_insert_checkout_request(
-    user_id: i32,
-    idempotency_key: &str,
-    request: &CheckoutRequest,
-    db: impl PgExecutor<'_>,
-) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        "INSERT INTO checkout_requests (user_id, idempotency_key, price_id, checkout_url) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
-        user_id,
-        idempotency_key,
-        request.price_id,
-        request.checkout_url,
-    )
-    .execute(db)
-    .await?;
-
-    Ok(())
-}
-
-pub async fn query_delete_old_checkout_requests(
-    cutoff: OffsetDateTime,
-    db: impl PgExecutor<'_>,
-) -> Result<u64, sqlx::Error> {
-    let result = sqlx::query!(
-        "DELETE FROM checkout_requests WHERE created_at < $1",
-        cutoff
-    )
-    .execute(db)
-    .await?;
 
     Ok(result.rows_affected())
 }

@@ -79,6 +79,10 @@
   }
 }
 
+.a-button--link {
+  width: fit-content;
+}
+
 .a-button--sm {
   font-size: var(--text-sm);
 }

@@ -5,6 +5,7 @@ use crate::jobs::{Job, JobError};
 use crate::stripe::{Request, Stripe};
 
 const RETRY_FOR_DAYS_OF_ATTEMPTS: i32 = 100;
+const ALREADY_REFUNDED: &str = "charge_already_refunded";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CancelStripeSubscription {
@@ -43,6 +44,10 @@ async fn refund_latest_invoice(stripe: &Stripe, subscription: &str) -> Result<()
         .map_err(JobError::new)?;
     let invoice = &invoices["data"][0];
     if invoice["amount_paid"].as_i64().unwrap_or(0) <= 0 {
+        tracing::warn!(
+            subscription,
+            "duplicate subscription cancelled with nothing paid to refund yet"
+        );
         return Ok(());
     }
     let paid_with = [
@@ -60,11 +65,11 @@ async fn refund_latest_invoice(stripe: &Stripe, subscription: &str) -> Result<()
     let form = [(field, id.as_str())];
     let key = format!("refund-{subscription}");
     let request = Request::post("/v1/refunds", &form).idempotent(Some(&key));
-    stripe
-        .send(request)
-        .await
-        .map(|_| ())
-        .map_err(JobError::new)
+    match stripe.send(request).await {
+        Ok(_) => Ok(()),
+        Err(error) if error.has_code(ALREADY_REFUNDED) => Ok(()),
+        Err(error) => Err(JobError::new(error)),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

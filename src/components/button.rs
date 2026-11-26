@@ -79,6 +79,7 @@ pub async fn button(
     let busy_class = format!("{class} a-button--is-busy");
 
     if let Some(href) = href {
+        let class = format!("{class} a-button--link");
         return Ok(view! { <a class=(class.as_str()) href=(href) (attrs)>(child)</a> }.boxed());
     }
 
