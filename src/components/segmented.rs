@@ -40,9 +40,12 @@ async fn segment_link(cx: &Cx, segment: &Segment, selected: &Signal<String>) -> 
             href=(href.as_str())
             :aria-current=$(if selected.get() == value { Some("page") } else { None })
             @click=$(|e: Event| {
-                e.prevent_default();
-                selected.set(value.clone());
-                raw!("history.replaceState(history.state, '', String(${href}))", ())
+                if e.ctrl_key {} else if e.meta_key {} else if e.shift_key {} else if e.alt_key {} else if e.button
+                    != 0.0 {} else {
+                    e.prevent_default();
+                    selected.set(value.clone());
+                    raw!("history.replaceState(history.state, '', String(${href}))", ())
+                }
             })
         >
             (segment.label.as_str())
