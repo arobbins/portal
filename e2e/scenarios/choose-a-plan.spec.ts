@@ -117,8 +117,12 @@ function expectAccepted(deliveries: Delivery[]) {
 
 async function clickChoosePro(page: Page) {
   await openPricing(page);
-  await expect(page.getByRole("button", { name: "Choose Pro" })).toBeVisible();
-  await page.getByRole("button", { name: "Choose Pro" }).click();
+  const monthlyPro = planRow(page, "Pro")
+    .filter({ hasText: "$12 / month" })
+    .getByRole("button", { name: "Choose Pro" })
+    .first();
+  await expect(monthlyPro).toBeVisible();
+  await monthlyPro.click();
 }
 
 async function choosePro(page: Page) {
@@ -503,7 +507,7 @@ test("S13 a billing:write token starts a Checkout that makes Pro current once pa
   const list = await plans.json();
   expect(list).toMatchObject({ next_cursor: null });
   const offered: Record<string, unknown>[] = list.data;
-  const pro = offered.find((plan) => plan.plan === "pro");
+  const pro = offered.find((plan) => plan.plan === "pro" && plan.interval === "month");
   expect(pro).toMatchObject({ plan_name: "Pro", amount: 1200, currency: "usd", interval: "month" });
 
   const refused = await request.post("/api/v1/billing/checkout", {
@@ -572,7 +576,7 @@ test("S15 anyone can list the plans, but billing needs a token", async ({ reques
 
   expect(plans.status()).toBe(200);
   const offered: Record<string, unknown>[] = (await plans.json()).data;
-  expect(offered.map((plan) => plan.plan).sort()).toEqual(["business", "pro"]);
+  expect([...new Set(offered.map((plan) => plan.plan))].sort()).toEqual(["business", "pro"]);
   expect(offered.find((plan) => plan.plan === "business")).toMatchObject({
     plan_name: "Business",
     amount: 4900,
@@ -617,4 +621,88 @@ test("S17 a visitor who chooses Pro and registers lands in Checkout and can pay"
   await expectCheckoutForPro(other, email);
   await payAndConfirm(other, email);
   await other.context().close();
+});
+
+const YEARLY = "/pricing?billing=yearly";
+const SELECTED = /^(page|true)$/;
+
+function billingPeriod(page: Page) {
+  return main(page).getByRole("group", { name: "Billing period" });
+}
+
+function periodOption(page: Page, name: "Monthly" | "Yearly") {
+  return billingPeriod(page).getByRole("link", { name: new RegExp(`^${name}\\b`) });
+}
+
+async function expectSelected(page: Page, name: "Monthly" | "Yearly") {
+  const other = name === "Monthly" ? "Yearly" : "Monthly";
+  await expect(periodOption(page, name)).toHaveAttribute("aria-current", SELECTED);
+  await expect(periodOption(page, other)).not.toHaveAttribute("aria-current", SELECTED);
+}
+
+function onYearly(): RegExp {
+  return new RegExp(`${escapeRegExp(YEARLY)}$`);
+}
+
+test("S18 picking Yearly shows yearly prices and Choose Pro checks out the yearly price", async ({
+  page,
+}, testInfo) => {
+  await openPricing(page);
+  await expect(billingPeriod(page)).toBeVisible();
+  await expect(billingPeriod(page).getByRole("link")).toHaveText([/^Monthly/, /^Yearly/]);
+  await expect(periodOption(page, "Monthly")).toHaveAttribute("href", onPath(PRICING));
+  await expect(periodOption(page, "Yearly")).toHaveAttribute("href", onYearly());
+  await expectSelected(page, "Monthly");
+  await expect(planRow(page, "Pro").filter({ hasText: "$12 / month" }).first()).toBeVisible();
+  await expect(main(page).getByText("$120 / year")).toBeHidden();
+  await expect(chooseButtons(page)).toHaveText(["Choose Pro", "Choose Business"]);
+  await page.evaluate(() => {
+    (window as unknown as { stayedOnPage: boolean }).stayedOnPage = true;
+  });
+
+  await periodOption(page, "Yearly").click();
+
+  await expect(page).toHaveURL(onYearly());
+  await expectSelected(page, "Yearly");
+  expect(
+    await page.evaluate(() => (window as unknown as { stayedOnPage?: boolean }).stayedOnPage),
+    "Yearly switched without a reload",
+  ).toBe(true);
+  await expect(billingPeriod(page).getByText("Save 16%")).toBeVisible();
+  await expect(planRow(page, "Free").filter({ hasText: "$0" }).first()).toBeVisible();
+  await expect(planRow(page, "Pro").filter({ hasText: "$120 / year" }).first()).toBeVisible();
+  await expect(main(page).getByText("$12 / month")).toBeHidden();
+  await expect(
+    planRow(page, "Business").filter({ hasText: "$49 / month" }).first(),
+  ).toBeVisible();
+  await expect(chooseButtons(page)).toHaveText(["Choose Pro", "Choose Business"]);
+
+  const email = await createAccount(page, testInfo, "Plan Yearly");
+  await openPricing(page);
+  await periodOption(page, "Yearly").click();
+  await expect(page).toHaveURL(onYearly());
+  await expect(planRow(page, "Pro").filter({ hasText: "$120 / year" }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Choose Pro" }).click();
+
+  await expectCheckoutForPro(page, email);
+  await expect(page.getByText("$120 / year")).toBeVisible();
+  const checkouts = (await stripe.requests(email)).filter(
+    (request) => request.method === "POST" && request.path === "/v1/checkout/sessions",
+  );
+  expect(checkouts.map((request) => request.body["line_items[0][price]"])).toEqual([
+    "price_pro_yearly",
+  ]);
+});
+
+test("S19 without JavaScript following Yearly loads the yearly prices", async ({ browser }) => {
+  const page = await (await browser.newContext({ javaScriptEnabled: false })).newPage();
+  await openPricing(page);
+  await expect(periodOption(page, "Yearly")).toBeVisible();
+
+  await periodOption(page, "Yearly").click();
+
+  await expect(page).toHaveURL(onYearly());
+  await expectSelected(page, "Yearly");
+  await expect(planRow(page, "Pro").filter({ hasText: "$120 / year" }).first()).toBeVisible();
+  await page.context().close();
 });

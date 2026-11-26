@@ -21,6 +21,7 @@ const PRICES: Json[] = [
   price("price_business_monthly", "prod_business", 4900),
   price("price_addon_monthly", "prod_addon", 500),
   price("price_pro_monthly", "prod_pro", 1200),
+  price("price_pro_yearly", "prod_pro", 12000, "year"),
 ];
 
 const customers = new Map<string, Json>();
@@ -36,7 +37,7 @@ function product(id: string, name: string, metadata: Fields, defaultPrice: strin
   return { id, object: "product", active: true, name, metadata, default_price: defaultPrice };
 }
 
-function price(id: string, productId: string, amount: number): Json {
+function price(id: string, productId: string, amount: number, interval: "month" | "year" = "month"): Json {
   return {
     id,
     object: "price",
@@ -44,9 +45,13 @@ function price(id: string, productId: string, amount: number): Json {
     currency: "usd",
     unit_amount: amount,
     type: "recurring",
-    recurring: { interval: "month", interval_count: 1 },
+    recurring: { interval, interval_count: 1 },
     product: productId,
   };
+}
+
+function intervalOf(found: Json): string {
+  return (found.recurring as Json).interval as string;
 }
 
 function newId(prefix: string): string {
@@ -62,9 +67,10 @@ function eventTime(): number {
   return clock;
 }
 
-function oneMonthAtNoon(): number {
+function oneIntervalAtNoon(interval: string): number {
   const date = new Date();
-  date.setUTCMonth(date.getUTCMonth() + 1);
+  if (interval === "year") date.setUTCFullYear(date.getUTCFullYear() + 1);
+  else date.setUTCMonth(date.getUTCMonth() + 1);
   date.setUTCHours(12, 0, 0, 0);
   return Math.floor(date.getTime() / 1000);
 }
@@ -269,11 +275,12 @@ function pay(session: Json) {
     session.customer = customerId;
   }
   const start = now();
-  const periodEnd = oneMonthAtNoon();
+  const chosen = priceWithProduct(session.price as string, false)!;
+  const periodEnd = oneIntervalAtNoon(intervalOf(chosen));
   const item = {
     id: newId("si"),
     object: "subscription_item",
-    price: priceWithProduct(session.price as string, false),
+    price: chosen,
     quantity: 1,
     current_period_start: start,
     current_period_end: periodEnd,
@@ -448,7 +455,7 @@ async function hostedPage(req: IncomingMessage, res: ServerResponse, path: strin
     }
     const chosen = priceWithProduct(session.price as string, true)!;
     const name = (chosen.product as Json).name as string;
-    const amount = `$${(chosen.unit_amount as number) / 100} / month`;
+    const amount = `$${(chosen.unit_amount as number) / 100} / ${intervalOf(chosen)}`;
     return html(
       res,
       `Subscribe to ${name}`,

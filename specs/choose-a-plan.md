@@ -26,12 +26,23 @@ Stripe, and lets AI agents discover plans and start a Checkout for their user.
   also carries the plans as machine-readable price data for agents and search engines:
   schema.org `Product` JSON-LD per paid plan, with an `Offer` per price (`price` "12.00",
   `priceCurrency` "USD").
-- R4 Each paid price has a button **Choose <plan name>** (e.g. "Choose Pro"), shown to
+- R4 Each paid price shown has a button **Choose <plan name>** (e.g. "Choose Pro"), shown to
   signed-out visitors and to accounts on Free. For a signed-in account it goes to Stripe
   Checkout for that price. The Stripe customer is created on first use with the account's
   email and is reused afterwards. Checkout uses Stripe's automatic payment methods (no
   fixed list), so Link, Stripe's one-click wallet that AI agents such as Meta's Muse and
   Grok Bot pay with, and other wallets appear when they're enabled in the Stripe Dashboard.
+- R19 Pricing shows one billing period at a time, picked with a segmented control
+  above the plans (group "Billing period"): **Monthly** (first, the default) and
+  **Yearly**. Each option is a link (`/pricing`, `/pricing?billing=yearly`; any other
+  value shows Monthly; the picked one has `aria-current="page"`), so it works without
+  JavaScript; with JavaScript it switches without a reload and updates the address
+  (`/pricing` for Monthly), signed in or out. Each paid plan shows its price for the
+  picked period and the Choose button for that price; a plan without one shows its
+  monthly price, or else its first. Free shows "$0" in both. The control appears only
+  when at least one plan has both a monthly and a yearly price. Yearly carries
+  "Save N%" inside its link: the smallest saving among plans with both (1 − yearly ÷ (12 × monthly)),
+  rounded down, shown only when it's at least 1%. The JSON-LD still lists every price.
 - R5 For a signed-out visitor, Choose is a link to Sign in, which links to Register.
   The chosen price is remembered (it travels with the registration link, so it works even
   if the link is opened in another browser): signing in goes straight on to Checkout for it, and
@@ -219,8 +230,17 @@ until the user adds a card in the portal (R9); no special handling.
 - S17 Given a signed-out visitor without an account, when they click "Choose Pro",
   follow Register, open the emailed link and set a password, then they land in Checkout
   for Pro, and paying makes Pro current. (covers R5)
+- S18 Given Pro has $12 / month and $120 / year and Business only $49 / month, when a
+  visitor opens Pricing, then Monthly is selected and Pro shows "$12 / month"; when they
+  pick Yearly, then the address is `/pricing?billing=yearly`, Yearly shows "Save 16%",
+  Pro shows "$120 / year" and Business still "$49 / month"; a Free account that clicks
+  "Choose Pro" there lands in Checkout for the yearly price. (covers R4, R19)
+- S19 Given JavaScript is off, when a visitor follows Yearly, then the page loads at
+  `/pricing?billing=yearly` with Pro at "$120 / year". (covers R19)
 
 ## Changes
+- 2026-11-26: approved R19.
+- 2026-11-26: Monthly | Yearly control on Pricing (R19), one price per plan at a time.
 - 2026-11-26: the duplicate-subscription refund (R17) and email sync (R18) moved from
   open questions into rules, as decided; admin deletion named in R11.
 - 2026-11-25: approved.
