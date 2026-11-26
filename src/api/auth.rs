@@ -210,15 +210,39 @@ mod tests {
     }
 
     async fn check(raw: &str, db: &PgPool) -> std::result::Result<Caller, ApiAuthProblem> {
+        check_for(raw, TokenAudience::Api, time::OffsetDateTime::now_utc(), db).await
+    }
+
+    async fn check_for(
+        raw: &str,
+        audience: TokenAudience,
+        now: time::OffsetDateTime,
+        db: &PgPool,
+    ) -> std::result::Result<Caller, ApiAuthProblem> {
         let header = HeaderValue::from_str(&format!("Bearer {raw}")).unwrap();
-        check_bearer(
-            Some(&header),
-            TokenAudience::Api,
-            db,
-            time::OffsetDateTime::now_utc(),
-        )
-        .await
-        .unwrap()
+        check_bearer(Some(&header), audience, db, now)
+            .await
+            .unwrap()
+    }
+
+    #[sqlx::test]
+    async fn a_sign_in_token_works_only_on_mcp(db: PgPool) {
+        let app = crate::env::App::for_tests(db.clone());
+        let user = active_user("audience@example.test", &db).await;
+        let (_, tokens) =
+            crate::oauth::testing::connect_test_app(&app, &user, &[ApiScope::ProfileRead]).await;
+        let now = app.clock.now();
+
+        assert_eq!(
+            check_for(&tokens.access_token, TokenAudience::Api, now, &db)
+                .await
+                .err(),
+            Some(ApiAuthProblem::InvalidToken)
+        );
+        let caller = check_for(&tokens.access_token, TokenAudience::Mcp, now, &db)
+            .await
+            .unwrap();
+        assert!(matches!(caller.via, Channel::App(_)));
     }
 
     #[test]

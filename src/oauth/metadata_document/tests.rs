@@ -121,10 +121,16 @@ fn private_and_reserved_addresses_are_not_public() {
         "fc00::1",
         "fe80::1",
         "::ffff:127.0.0.1",
+        "64:ff9b::7f00:1",
+        "64:ff9b::5db8:d822",
+        "2002:7f00:1::1",
+        "2002:5db8:d822::1",
+        "::127.0.0.1",
+        "::93.184.216.34",
     ] {
         assert!(!is_public(private.parse().unwrap()), "{private}");
     }
-    for public in ["93.184.216.34", "2606:4700::1111"] {
+    for public in ["93.184.216.34", "2606:4700::1111", "64:ff9c::1", "2003::1"] {
         assert!(is_public(public.parse().unwrap()), "{public}");
     }
 }

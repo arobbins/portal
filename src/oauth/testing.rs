@@ -111,3 +111,10 @@ pub async fn connect_test_app(
         .unwrap();
     (client_id, tokens)
 }
+
+pub async fn app_still_works(app: &App, tokens: &TokenResponse) -> bool {
+    crate::oauth::lifecycle::app_caller(&tokens.access_token, app.clock.now(), &app.db)
+        .await
+        .unwrap()
+        .is_some()
+}

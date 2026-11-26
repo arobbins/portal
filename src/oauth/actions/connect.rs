@@ -153,14 +153,15 @@ async fn record_connected(
     granted: &[ApiScope],
     tx: &mut PgConnection,
 ) -> topcoat::Result<()> {
-    let label = app_label(&request.client_name, &return_host(&request.redirect_uri));
+    let host = return_host(&request.redirect_uri);
+    let label = app_label(&request.client_name, &host);
     let scopes: Vec<&str> = granted.iter().map(|scope| scope.as_str()).collect();
     let detail = json!({ "connection": connection.public_id, "name": label, "scopes": scopes });
     let kind = AccountEventKind::AppConnected;
     record_event(env, &EventSource::of(caller), kind, detail, &mut *tx).await?;
     let user = &caller.user;
     if env.limits().allow_email_to(&user.email).await? {
-        let email = app_connected_email(env, &user.email, &request.client_name, &label, granted);
+        let email = app_connected_email(env, &user.email, &request.client_name, &host, granted);
         enqueue(&SendEmail(email), &mut *tx).await?;
     }
     Ok(())

@@ -2,7 +2,7 @@ use topcoat::{
     Result,
     context::Cx,
     router::href,
-    runtime::signal,
+    runtime::{Event, signal},
     view::{View, attributes, component, view},
 };
 
@@ -20,6 +20,7 @@ use crate::layout::page_heading::page_heading;
 use crate::oauth::actions::ConnectProblem;
 
 const DENY_FORM: &str = "deny-app";
+const WRITE_SUFFIX: &str = ":write";
 
 pub struct Approval {
     pub request: String,
@@ -36,16 +37,6 @@ pub async fn approval_form(
 ) -> Result<impl View> {
     let action = href!(authorize_submit).resolve(cx);
     let is_submitting = signal(cx, || false);
-    let options: Vec<Choice<'_>> = approval
-        .scopes
-        .iter()
-        .map(|scope| Choice {
-            value: scope.as_str(),
-            label: scope.choice_label(),
-        })
-        .collect();
-    let checked: Vec<&str> = approval.scopes.iter().map(|scope| scope.as_str()).collect();
-    let writes = approval.scopes.iter().any(|scope| scope.can_write());
 
     Ok(view! {
         <section class="l-contain l-skinny p-authorize">
@@ -55,20 +46,7 @@ pub async fn approval_form(
                 variant: FormVariant::Page,
                 attrs: attributes! { method="post" action=(action.as_str()) },
                 <input type="hidden" name=(ID_FIELD) value=(approval.request.as_str())>
-                if options.is_empty() {
-                    <p>"It isn't asking to read or change anything in your account."</p>
-                } else {
-                    checkbox_group(
-                        legend: "Allow it to",
-                        id: "scopes",
-                        name: SCOPE_FIELD,
-                        options: &options,
-                        checked: &checked
-                    )
-                }
-                if writes {
-                    reauth_field(id: "current-password", suggest_passkey: false)
-                }
+                scope_fields(scopes: &approval.scopes)
                 if let Some(problem) = problem {
                     form_error((problem.message()))
                 }
@@ -95,6 +73,55 @@ pub async fn approval_form(
 }
 
 #[component]
+async fn scope_fields(cx: &Cx, scopes: &[ApiScope]) -> Result<impl View> {
+    let options: Vec<Choice<'_>> = scopes
+        .iter()
+        .map(|scope| Choice {
+            value: scope.as_str(),
+            label: scope.choice_label(),
+        })
+        .collect();
+    let checked: Vec<&str> = scopes.iter().map(|scope| scope.as_str()).collect();
+    let writes = scopes.iter().filter(|scope| scope.can_write()).count();
+    let ticked_writes = signal(cx, || writes);
+
+    Ok(view! {
+        if options.is_empty() {
+            <p>"It isn't asking to read or change anything in your account."</p>
+        } else {
+            <div
+                @change=$(|e: Event| {
+                    if e.target.value.ends_with(WRITE_SUFFIX) {
+                        if e.target.checked {
+                            ticked_writes.set(ticked_writes.get() + 1);
+                        } else {
+                            ticked_writes.set(ticked_writes.get() - 1);
+                        }
+                    }
+                })
+            >
+                checkbox_group(
+                    legend: "Allow it to",
+                    id: "scopes",
+                    name: SCOPE_FIELD,
+                    options: &options,
+                    checked: &checked
+                )
+            </div>
+        }
+        if writes > 0 {
+            <fieldset
+                class="p-authorize__reauth"
+                :hidden=$(ticked_writes.get() == 0)
+                :disabled=$(ticked_writes.get() == 0)
+            >
+                reauth_field(id: "current-password", suggest_passkey: false)
+            </fieldset>
+        }
+    })
+}
+
+#[component]
 async fn app_identity(cx: &Cx, approval: &Approval) -> Result<impl View> {
     let heading = format!("Connect {}", approval.name);
 
@@ -112,4 +139,20 @@ async fn app_identity(cx: &Cx, approval: &Approval) -> Result<impl View> {
             "Only allow apps you trust. It can use your account within what you allow until you disconnect it on the Developer tab."
         </p>
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_live_password_toggle_knows_which_scopes_write() {
+        for scope in ApiScope::ALL {
+            assert_eq!(
+                scope.as_str().ends_with(WRITE_SUFFIX),
+                scope.can_write(),
+                "{scope:?}"
+            );
+        }
+    }
 }

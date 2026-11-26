@@ -76,6 +76,28 @@ async fn a_code_works_once_with_the_right_verifier_and_resource(db: PgPool) {
 }
 
 #[sqlx::test]
+async fn a_code_needs_the_same_redirect_uri_it_was_issued_for(db: PgPool) {
+    let app = App::for_tests(db.clone());
+    let env = app.env(None);
+    let user = active_user("redirect@example.test", &db).await;
+    let client = test_client(&db).await;
+
+    for redirect_uri in [None, Some("https://claude.ai/elsewhere".to_string())] {
+        let request = start_request(&env, &client, "profile:read").await;
+        let code = approve(&env, &user, &request, &[ApiScope::ProfileRead]).await;
+        let exchange = TokenRequest {
+            redirect_uri: redirect_uri.clone(),
+            ..code_exchange(&env, &client, &code)
+        };
+        assert_eq!(
+            issue_tokens(&env, &exchange).await.unwrap().err(),
+            Some(TokenProblem::InvalidGrant),
+            "{redirect_uri:?}"
+        );
+    }
+}
+
+#[sqlx::test]
 async fn codes_expire_after_ten_minutes(db: PgPool) {
     let app = App::for_tests(db.clone());
     let env = app.env(None);
