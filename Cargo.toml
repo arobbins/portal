@@ -22,7 +22,7 @@ tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 tower = { version = "0.5.3", features = ["util"] }
 tower-http = { version = "0.6.11", features = ["trace", "normalize-path", "fs", "set-header", "request-id", "util"] }
-sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres", "macros", "time", "uuid", "json"] }
+sqlx = { version = "0.9.1", features = ["runtime-tokio", "postgres", "macros", "time", "uuid", "json"] }
 dotenvy = "0.15.7"
 argon2 = "0.5.3"
 password-hash = "0.5.0"
