@@ -11,6 +11,7 @@ mod modal_forms;
 mod navigation;
 mod notices;
 mod property_list;
+mod segmented;
 mod special_fields;
 mod tables;
 mod text;
@@ -98,6 +99,7 @@ pub async fn styleguide_page(cx: &Cx) -> Result<impl View> {
                 labels::labels_section()
                 icons::icons_section()
                 theme_switcher::theme_switcher_section()
+                segmented::segmented_section()
                 buttons::buttons_section()
                 toggles::toggles_section()
                 modal::modal_section()

@@ -4,6 +4,7 @@ use serde::Serialize;
 use super::{Unavailable, too_many_attempts};
 use crate::action::{ActionProblem, Outcome, ProblemSpec, fail};
 use crate::billing::catalog::{PaidPrice, load_catalog};
+use crate::billing::period::BillingPeriod;
 use crate::env::Env;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
@@ -25,6 +26,8 @@ pub struct PlanPrice {
     pub label: String,
     #[serde(skip)]
     pub decimal_amount: String,
+    #[serde(skip)]
+    pub period: Option<BillingPeriod>,
 }
 
 impl PlanPrice {
@@ -38,6 +41,7 @@ impl PlanPrice {
             interval: price.interval.clone(),
             label: price.label(),
             decimal_amount: price.decimal_amount(),
+            period: BillingPeriod::of_interval(&price.interval, price.interval_count),
         }
     }
 }

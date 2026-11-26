@@ -29,3 +29,9 @@
 .p-pricing__choose {
   margin: 0;
 }
+
+.p-pricing__periods {
+  display: flex;
+  justify-content: center;
+  margin: var(--space-6) 0 0;
+}
