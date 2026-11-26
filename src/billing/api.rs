@@ -52,6 +52,7 @@ impl ApiAction for ListPlansAction {
                 interval: "month".to_string(),
                 label: String::new(),
                 decimal_amount: String::new(),
+                period: None,
             }],
             next_cursor: None,
         }

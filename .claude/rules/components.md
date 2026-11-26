@@ -29,7 +29,9 @@ paths:
   above fields; pass `for_id` to tie it to a control, which `form_label`
   and fieldset legends already do),
   `menu` (popover, opened by any button with `popovertarget`), `tabs` + `tab`
-  (link tabs), `table` (columns are `Column` consts built with
+  (link tabs), `segmented` (a group of link `Segment`s, the picked one
+  `aria-current="page"`; with JS a click sets the `selected` signal and
+  `history.replaceState`s its href instead of loading), `table` (columns are `Column` consts built with
   `.sortable(key)` / `.number()` / `.date()` / `.wide_only()` /
   `.truncated()` / `.grow()` (takes the spare width: long text); the component renders the header from them, rows use
   `table_row` + `table_row_heading` for the row's main cell (give it

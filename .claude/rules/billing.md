@@ -28,6 +28,11 @@ paths:
   live subscription per account (partial unique index, customer row locked
   `FOR UPDATE`); a second is cancelled and refunded by a job, once per Stripe
   subscription id (`duplicate_subscriptions`); `charge_already_refunded` counts as done.
+- Pricing shows one `BillingPeriod` (`period.rs`; `?billing=yearly`) at a
+  time: `pages/plan_offers.rs` groups prices per plan, picks each plan's
+  price for a period and the smallest yearly saving (integer cents);
+  `pages/pricing_periods.rs` renders the `segmented` control and hides the
+  other period's price with `:hidden` bound to one signal.
 - Only a token's or a connected app's Checkout records an event (`checkout_started`).
 - Stripe calls never run inside a transaction. Deleting an account
   enqueues `CancelStripeSubscription` in the deletion's transaction; an

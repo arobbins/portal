@@ -19,6 +19,7 @@
 @import "./components/toaster.css";
 @import "./components/modal.css";
 @import "./components/theme-switcher.css";
+@import "./components/segmented.css";
 @import "./components/avatar.css";
 @import "./components/badge.css";
 @import "./components/card.css";

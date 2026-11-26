@@ -4,15 +4,18 @@ use topcoat::{
     context::Cx,
     metadata::Metadata,
     router::page,
-    view::{NodeViewParts, PartsWriter, View, component, view},
+    runtime::signal,
+    view::{Child, NodeViewParts, PartsWriter, View, component, view},
 };
 
-use super::plan_actions::{choose_button, manage_billing_button};
+use super::plan_actions::manage_billing_button;
+use super::plan_offers::{offers_both_periods, plan_offers};
+use super::pricing_periods::{offer_prices, period_switch, picked_period};
 use super::routes::take_billing_problem;
 use crate::action::browser_caller;
 use crate::app::page_title;
 use crate::billing::actions::{
-    Billing, BillingPage, BillingStatus, PlanPrice, UNAVAILABLE, get_billing, list_plans,
+    Billing, BillingPage, PlanPrice, UNAVAILABLE, get_billing, list_plans,
 };
 use crate::billing::catalog::{FREE_PLAN_KEY, FREE_PLAN_NAME, money};
 use crate::components::card::{card, card_body, card_header};
@@ -50,16 +53,10 @@ pub async fn pricing_page(cx: &Cx) -> Result<impl View> {
         .map(|spec| spec.message)
         .or(unavailable.then_some(UNAVAILABLE));
     let products = json_ld(&plans);
-    let free = PlanPrice {
-        plan: FREE_PLAN_KEY.to_string(),
-        plan_name: FREE_PLAN_NAME.to_string(),
-        price: String::new(),
-        amount: 0,
-        currency: "usd".to_string(),
-        interval: String::new(),
-        label: money(0, "usd"),
-        decimal_amount: String::new(),
-    };
+    let offers = plan_offers(&plans);
+    let picked = picked_period(cx);
+    let period = signal(cx, || picked.as_str().to_string());
+    let free_label = money(0, "usd");
 
     Ok(view! {
         <section class="l-contain p-pricing">
@@ -70,11 +67,28 @@ pub async fn pricing_page(cx: &Cx) -> Result<impl View> {
             if let Some(message) = error {
                 <div role="alert">notice(tone: Tone::Error, (message))</div>
             }
+            if offers_both_periods(&offers) {
+                period_switch(offers: &offers, period: &period)
+            }
             <ul class="p-pricing__plans" role="list">
-                plan_row(price: &free, billing: billing.as_ref())
-                #[key(price.price.as_str())]
-                for price in &plans {
-                    plan_row(price: price, billing: billing.as_ref())
+                plan_row(
+                    name: FREE_PLAN_NAME,
+                    key: FREE_PLAN_KEY,
+                    billing: billing.as_ref(),
+                    <p class="p-pricing__price">(free_label.as_str())</p>
+                )
+                #[key(offer.plan().plan.as_str())]
+                for offer in &offers {
+                    plan_row(
+                        name: &offer.plan().plan_name,
+                        key: &offer.plan().plan,
+                        billing: billing.as_ref(),
+                        offer_prices(
+                            offer: offer,
+                            period: &period,
+                            billing: billing.as_ref()
+                        )
+                    )
                 }
             </ul>
             for product in products {
@@ -85,26 +99,24 @@ pub async fn pricing_page(cx: &Cx) -> Result<impl View> {
 }
 
 #[component]
-async fn plan_row(cx: &Cx, price: &PlanPrice, billing: Option<&Billing>) -> Result<impl View> {
-    let current_key = billing.map_or("", |billing| billing.plan.as_str());
-    let is_current = current_key == price.plan;
+async fn plan_row(
+    cx: &Cx,
+    name: &str,
+    key: &str,
+    billing: Option<&Billing>,
+    #[default] child: Child<'_>,
+) -> Result<impl View> {
+    let is_current = billing.is_some_and(|billing| billing.plan == key);
     let status = is_current.then_some((CURRENT_PLAN, Tone::Success));
-    let is_free = price.plan == FREE_PLAN_KEY;
-    let can_choose =
-        !is_free && billing.is_none_or(|billing| billing.status == BillingStatus::Free);
-    let manages = is_current && !is_free;
-    let signed_in = billing.is_some();
+    let manages = is_current && key != FREE_PLAN_KEY;
 
     Ok(view! {
         <li class="p-pricing__plan">
             " "
             card(
-                card_header(title: &price.plan_name, status: status)
+                card_header(title: name, status: status)
                 card_body(
-                    <p class="p-pricing__price">(price.label.as_str())</p>
-                    if can_choose {
-                        choose_button(price: price, signed_in: signed_in)
-                    }
+                    (child)
                     if manages {
                         manage_billing_button(from: BillingPage::Pricing)
                     }

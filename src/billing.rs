@@ -3,6 +3,7 @@ pub mod api;
 pub mod catalog;
 pub mod jobs;
 pub mod pages;
+pub mod period;
 mod queries;
 pub mod subscription;
 #[cfg(test)]
