@@ -405,8 +405,10 @@ test("S6 disconnecting an app ends its tokens and shows in recent activity", asy
   const entries = page.locator("#activity").getByRole("listitem");
   const connected = `Connected ${client.name} (${RETURN_HOST})`;
   const disconnected = `Disconnected ${client.name} (${RETURN_HOST})`;
-  await expect(entries.filter({ hasText: connected })).toHaveCount(1);
-  await expect(entries.filter({ hasText: disconnected })).toHaveCount(1);
+  const startsWith = (phrase: string) =>
+    new RegExp(`^\\s*${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
+  await expect(entries.filter({ hasText: startsWith(connected) })).toHaveCount(1);
+  await expect(entries.filter({ hasText: startsWith(disconnected) })).toHaveCount(1);
   const texts = await entries.allTextContents();
   const connectedAt = texts.findIndex((text) => text.includes(connected) && !text.includes(disconnected));
   const disconnectedAt = texts.findIndex((text) => text.includes(disconnected));
