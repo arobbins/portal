@@ -28,7 +28,7 @@ argon2 = "0.5.3"
 password-hash = "0.5.0"
 rand = "0.8.5"
 serde = { version = "1.0", features = ["derive"] }
-tower-sessions = "0.14"
+tower-sessions = "0.15"
 tower-sessions-sqlx-store = { version = "0.15.0", features = ["postgres"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 sha2 = "0.10"
