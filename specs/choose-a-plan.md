@@ -66,8 +66,8 @@ Stripe, and lets AI agents discover plans and start a Checkout for their user.
   activity**: "Subscribed to Pro", "Changed plan to Business", "Cancelled Pro (ends Dec
   25, 2026)", "Payment failed for Pro", "Pro ended, back on Free", and "Checkout for Pro
   started by token <name>" when a token starts one.
-- R11 Deleting an account with a subscription cancels it at Stripe immediately with no
-  refund. The delete warning adds "Your <plan name> subscription is cancelled now, with
+- R11 Deleting an account with a subscription, by its owner or by an admin, cancels it
+  at Stripe immediately with no refund. The delete warning adds "Your <plan name> subscription is cancelled now, with
   no refund." Deletion doesn't wait for Stripe's confirming event; if Stripe can't be
   reached, deletion still completes and the cancellation is retried until it succeeds
   (server-tested).
@@ -104,6 +104,13 @@ Stripe, and lets AI agents discover plans and start a Checkout for their user.
   `customers` with a test key); they can't change billing in the app.
 - R16 Choose, Manage billing and the sign-in hand-off work without JavaScript (plain
   links and form posts that redirect).
+- R17 If a second subscription arrives for an account that already has a live one (two
+  Checkouts completed at once), the second is cancelled at Stripe and its payment fully
+  refunded, once, and Recent activity (also shown to admins) records "Second Pro
+  subscription cancelled and refunded". A refund Stripe reports as already made counts as
+  done; when there's nothing paid to refund yet, that is logged for the server
+  (server-tested).
+- R18 Changing the account's email updates the Stripe customer's email (server-tested).
 
 ## Placement
 - **Pricing** (`/pricing`): a public page linked as "Pricing" from the site header
@@ -141,8 +148,8 @@ Stripe, and lets AI agents discover plans and start a Checkout for their user.
 
 ## Not in this version
 Buying without an account; teams or seats paying; trials; coupons; usage-based prices;
-app-sent billing emails (Stripe sends receipts and failed-payment emails); prorated or
-automatic refunds; feature gating by plan; billing in the data export; plan switching
+app-sent billing emails (Stripe sends receipts and failed-payment emails); prorated
+refunds and refunds other than R17; feature gating by plan; billing in the data export; plan switching
 inside the app; tax settings (configured in Stripe); Stripe's agent payment tools
 (Shared Payment Tokens, the Agentic Commerce Suite catalog, the Universal Commerce
 Protocol), which don't yet support Stripe subscriptions or are in preview. Agent wallets
@@ -150,9 +157,6 @@ pay with single-use cards, so such a subscription becomes Past due at its first 
 until the user adds a card in the portal (R9); no special handling.
 
 ## Open questions
-- Two Checkouts completed at once (two tabs): the second subscription is cancelled
-  at Stripe immediately with a full refund and logged for the admin, unless changed.
-- Email change: the Stripe customer's email is updated to the new address, unless changed.
 - Admin disables an account: its subscription is left as is, unless changed.
 - Link in subscription-mode Checkout is confirmed in Stripe's sandbox before launch; if
   it isn't offered there, cards and wallets still work.
@@ -217,6 +221,8 @@ until the user adds a card in the portal (R9); no special handling.
   for Pro, and paying makes Pro current. (covers R5)
 
 ## Changes
+- 2026-11-26: the duplicate-subscription refund (R17) and email sync (R18) moved from
+  open questions into rules, as decided; admin deletion named in R11.
 - 2026-11-25: approved.
 - 2026-11-25: public Pricing page; signed-out visitors sign in or register first and go
   straight on to Checkout; Plan and payment shows the current plan with See plans; public
