@@ -31,9 +31,10 @@ AREAS = {
     "src/rate_limit": ["login-limits"],
     "src/preferences/": ["settings", "notifications"],
     "src/two_factor/": ["two-factor", "auth", "reset-password"],
+    "src/oauth/": ["connected-apps"],
     "src/time_zone": ["settings", "devices", "admin"],
     "assets/css/": ["styleguide", "components", "mobile", "theme", "state-machines"],
-    "assets/js/passkeys": ["passkeys", "passkey-setup", "change-email", "delete-account"],
+    "assets/js/passkeys": ["passkeys", "passkey-setup", "change-email", "delete-account", "connected-apps"],
 }
 EVERYTHING = ("src/web", "src/server", "src/app", "src/env", "src/action", "src/main",
               "migrations/", "Cargo", "build.rs", "e2e/support/", "e2e/playwright", "assets/js/")

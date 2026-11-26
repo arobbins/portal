@@ -334,7 +334,7 @@ document.addEventListener(
   (event) => {
     const form = event.target;
     const box = form.querySelector?.("[data-reauth]");
-    if (!box || !usesPasskey(box)) return;
+    if (!box || !usesPasskey(box) || box.closest("fieldset:disabled")) return;
     if (form.dataset.reauthConfirmed) {
       delete form.dataset.reauthConfirmed;
       return;

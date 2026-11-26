@@ -171,3 +171,6 @@ async fn revoke_access(user_id: i32, tx: &mut PgConnection) -> Result<u64, sqlx:
     query_delete_user_tokens(user_id, TokenPurpose::EmailChange, &mut *tx).await?;
     revoke_all_for_user(user_id, &mut *tx).await
 }
+
+#[cfg(test)]
+mod tests;

@@ -5,6 +5,7 @@ use crate::action::{ActionError, Denied};
 use crate::api::scope::ApiScope;
 use crate::devices::lifecycle::{SignInMethod, end_device, keep_device, load_device, start_device};
 use crate::env::App;
+use crate::oauth::testing::{app_still_works, connect_test_app};
 use crate::user::testing::active_user;
 
 const CHROME: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -159,6 +160,33 @@ async fn signing_out_other_devices_keeps_this_one_and_bumps_the_session_version(
     .await
     .unwrap();
     assert_eq!(detail, json!({ "devices": 2, "apps_disconnected": 0 }));
+}
+
+#[sqlx::test]
+async fn signing_out_other_devices_disconnects_every_app(db: PgPool) {
+    let user = active_user("apps-out@example.test", &db).await;
+    let app = App::for_tests(db.clone());
+    let env = app.env(None);
+    let here = start_device(&env, &user, CHROME, SignInMethod::Password)
+        .await
+        .unwrap();
+    let (_, tokens) = connect_test_app(&app, &user, &[ApiScope::ProfileRead]).await;
+    assert!(app_still_works(&app, &tokens).await);
+
+    sign_out_other_devices(&env, &Caller::browser(user.clone()), &here)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert!(!app_still_works(&app, &tokens).await);
+    let detail = sqlx::query_scalar!(
+        "SELECT detail FROM account_events WHERE user_id = $1 AND kind = 'other_devices_signed_out'",
+        user.id
+    )
+    .fetch_one(&db)
+    .await
+    .unwrap();
+    assert_eq!(detail, json!({ "devices": 0, "apps_disconnected": 1 }));
 }
 
 #[sqlx::test]

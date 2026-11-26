@@ -117,10 +117,7 @@ async fn exchange_code(
         return fail(TokenProblem::InvalidGrant);
     };
     let valid = issued.client_id == client_id
-        && input
-            .redirect_uri
-            .as_deref()
-            .is_none_or(|uri| uri == issued.redirect_uri)
+        && input.redirect_uri.as_deref() == Some(issued.redirect_uri.as_str())
         && env.now() - issued.acted_at < CODE_LIFETIME
         && challenge_of(verifier) == issued.code_challenge;
     if !valid {

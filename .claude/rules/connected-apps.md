@@ -14,7 +14,8 @@ paths:
   `/.well-known/oauth-authorization-server` (`oauth/routes.rs`), Dynamic
   Client Registration (`POST /oauth/register`, public clients only, `cli_…`
   ids; unknown metadata is ignored as RFC 7591 requires) or an `https`
-  Client ID Metadata Document (`metadata_document.rs`: public hosts only,
+  Client ID Metadata Document (`metadata_document.rs`: public hosts only
+  (no NAT64, 6to4 or IPv4-compatible v6), no proxy,
   the checked address pinned for the fetch, 5 s, 5 KB, no redirects,
   cached an hour in `oauth_clients.fetched_at`). Unapproved clients are
   deleted by cleanup after 24 hours.
@@ -30,13 +31,15 @@ paths:
 - Approving (`connect_app`, `Permission::ManageConnectedApps`, browser
   only) grants only requested, ticked, non-admin scopes
   (`offered_by_sign_in`), asks `check_reauth` when a granted scope
-  `can_write`, upserts one `oauth_connections` row per user and client
+  `can_write` (the screen shows the field only while a ticked scope ends
+  in `:write`, in a fieldset disabled otherwise), upserts one `oauth_connections` row per user and client
   (max 50), stores the code's hash on the request, records `app_connected`
   and emails the account. Deny (`deny_app`) deletes the request and
   returns `access_denied`; Deny is its own form so the passkey re-auth
   script never intercepts it.
 - Secrets (`secrets.rs`): `wsc_` codes (10 min, single use: consumed with
-  `DELETE … RETURNING` before any check), `wsa_` access tokens (1 hour),
+  `DELETE … RETURNING` before any check; the exchange must repeat the
+  stored `redirect_uri`), `wsa_` access tokens (1 hour),
   `wsr_` refresh tokens (30 idle days), all checksummed like `wsk_` and
   stored only as SHA-256 hashes in `oauth_tokens`. A refresh replaces both;
   a replaced refresh token used again ends the connection

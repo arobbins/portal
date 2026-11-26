@@ -10,6 +10,7 @@ use crate::auth::actions::{SignIn, SignInProblem, sign_in_with_password};
 use crate::devices::lifecycle::{SignInMethod, load_device, start_device};
 use crate::env::App;
 use crate::listing::SortDirection;
+use crate::oauth::testing::{app_still_works, connect_test_app};
 use crate::user::queries::query_get_user_by_public_id;
 use crate::user::queries::{NewUser, query_get_user_by_id, query_insert_user};
 use crate::user::testing::{TEST_PASSWORD, active_user};
@@ -279,12 +280,15 @@ async fn signing_a_user_out_ends_every_device(db: PgPool) {
     let phone = start_device(&env, &user, "", SignInMethod::Passkey)
         .await
         .unwrap();
+    let (_, tokens) = connect_test_app(&app, &user, &[ApiScope::ProfileRead]).await;
+    assert!(app_still_works(&app, &tokens).await);
 
     sign_out_user(&env, &admin, &target(&user))
         .await
         .unwrap()
         .unwrap();
 
+    assert!(!app_still_works(&app, &tokens).await);
     assert!(load_device(&app, user.id, &laptop).await.unwrap().is_none());
     assert!(load_device(&app, user.id, &phone).await.unwrap().is_none());
     let overview = get_user(&env, &admin, &target(&user))
