@@ -16,7 +16,7 @@ paths:
   Import components by module path: `components::button::{button, ButtonSize}`
   (`#[component]` generates a module named after the function; a
   multi-file component such as `form` re-exports its parts with `pub use`). Available: `button` (Primary /
-  Secondary / Danger; pass `href` to render it as a link, which ignores
+  Secondary / Danger; pass `href` to render it as a link, sized to its content, which ignores
   `busy`, `disabled` and `button_type`), `form` controls (incl. `code_field`; `form_field` / `form_input` take
   `max_length`; `form_field(hide_label: true)` keeps the label for screen
   readers only, for a search box with a placeholder; modal forms use `DialogForm` + `dialog_input`,

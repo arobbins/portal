@@ -108,8 +108,8 @@ Stripe, and lets AI agents discover plans and start a Checkout for their user.
   Checkouts completed at once), the second is cancelled at Stripe and its payment fully
   refunded, once, and Recent activity (also shown to admins) records "Second Pro
   subscription cancelled and refunded". A refund Stripe reports as already made counts as
-  done; when there's nothing paid to refund yet, that is logged for the server
-  (server-tested).
+  done; when there's nothing paid to refund yet, it's cancelled without a refund and a
+  warning is logged for the server (server-tested, except the log line).
 - R18 Changing the account's email updates the Stripe customer's email (server-tested).
 
 ## Placement
