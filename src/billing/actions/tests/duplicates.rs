@@ -4,7 +4,7 @@ use super::*;
 use crate::billing::actions::sync::Applied;
 use crate::billing::jobs::CancelStripeSubscription;
 use crate::billing::testing::FakeStripe;
-use crate::jobs::{Handler, Worker};
+use crate::jobs::{Handler, Job, Worker};
 
 const T: i64 = 1_800_000_000;
 
@@ -96,4 +96,89 @@ async fn the_database_refuses_a_second_live_subscription(db: PgPool) {
 
     assert!(insert("sub_1").await.is_ok());
     assert!(insert("sub_2").await.is_err());
+}
+
+async fn cancel_jobs(db: &PgPool) -> i64 {
+    sqlx::query_scalar!(
+        r#"SELECT count(*) AS "count!" FROM jobs WHERE kind = 'cancel_stripe_subscription'"#
+    )
+    .fetch_one(db)
+    .await
+    .unwrap()
+}
+
+#[sqlx::test]
+async fn later_events_for_the_same_duplicate_refund_it_once(db: PgPool) {
+    let stripe = FakeStripe::start().await;
+    let app = stripe.app(&db);
+    let user = customer("again@example.test", CUSTOMER, &db).await;
+    deliver(&app, &created("sub_1", "evt_1", T)).await;
+    deliver(&app, &created("sub_2", "evt_2", T + 1)).await;
+    let updated = subscription_for(
+        CUSTOMER,
+        "sub_2",
+        "customer.subscription.updated",
+        "evt_3",
+        T + 2,
+        "active",
+        false,
+    );
+
+    let again = deliver(&app, &updated).await;
+
+    assert_eq!(again, WebhookReply::Accepted(Applied::Duplicate));
+    assert_eq!(cancel_jobs(&db).await, 1);
+    assert_eq!(
+        activity_of(&app, &user).await,
+        [
+            "Second Pro subscription cancelled and refunded",
+            "Subscribed to Pro"
+        ]
+    );
+}
+
+fn refund_of(sub: &str) -> CancelStripeSubscription {
+    CancelStripeSubscription {
+        subscription: sub.to_string(),
+        refund: true,
+    }
+}
+
+#[sqlx::test]
+async fn a_refund_stripe_already_made_counts_as_done(db: PgPool) {
+    let stripe = FakeStripe::start().await;
+    let app = stripe.app(&db);
+    stripe.reject_refunds_with("charge_already_refunded");
+
+    let outcome = refund_of("sub_2").run(&app).await;
+
+    assert!(outcome.is_ok(), "{outcome:?}");
+    assert_eq!(stripe.seen_at("POST", "/v1/refunds").len(), 1);
+}
+
+#[sqlx::test]
+async fn another_refund_rejection_is_retried(db: PgPool) {
+    let stripe = FakeStripe::start().await;
+    let app = stripe.app(&db);
+    stripe.reject_refunds_with("charge_disputed");
+
+    assert!(refund_of("sub_2").run(&app).await.is_err());
+}
+
+#[sqlx::test]
+async fn nothing_paid_yet_cancels_without_a_refund(db: PgPool) {
+    let stripe = FakeStripe::start().await;
+    let app = stripe.app(&db);
+    for invoices in [
+        json!([]),
+        json!([{ "id": "in_free", "amount_paid": 0, "payment_intent": null }]),
+    ] {
+        stripe.set_invoices(invoices);
+
+        let outcome = refund_of("sub_2").run(&app).await;
+
+        assert!(outcome.is_ok(), "{outcome:?}");
+    }
+    assert_eq!(stripe.seen_at("DELETE", "/v1/subscriptions/sub_2").len(), 2);
+    assert!(stripe.seen_at("POST", "/v1/refunds").is_empty());
 }

@@ -2,6 +2,10 @@
   padding-block: var(--space-8);
 }
 
+.p-pricing__tagline {
+  text-align: center;
+}
+
 .p-pricing__plans {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));

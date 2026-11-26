@@ -64,7 +64,7 @@ pub async fn pricing_page(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         <section class="l-contain p-pricing">
             page_heading(text: "Pricing")
-            <p class="a-lead">
+            <p class="a-lead p-pricing__tagline">
                 "Start free. Move to a paid plan when you need more, and cancel any time."
             </p>
             if let Some(message) = error {

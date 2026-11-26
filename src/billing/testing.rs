@@ -39,6 +39,8 @@ struct Fake {
     customers: AtomicUsize,
     failing_deletes: AtomicUsize,
     subscriptions: Mutex<HashMap<String, Value>>,
+    invoices: Mutex<Option<Value>>,
+    refund_rejection: Mutex<Option<String>>,
 }
 
 pub struct FakeStripe {
@@ -102,6 +104,14 @@ impl FakeStripe {
             .insert(id.to_string(), object);
     }
 
+    pub fn set_invoices(&self, data: Value) {
+        *self.fake.invoices.lock().unwrap() = Some(data);
+    }
+
+    pub fn reject_refunds_with(&self, code: &str) {
+        *self.fake.refund_rejection.lock().unwrap() = Some(code.to_string());
+    }
+
     pub fn fail_next_deletes(&self, count: usize) {
         self.fake.failing_deletes.store(count, Ordering::SeqCst);
     }
@@ -157,13 +167,22 @@ async fn respond(
                 Json(json!({ "id": format!("cs_{n}"), "url": url })),
             )
         }
-        ("GET", "/v1/invoices") => (
-            StatusCode::OK,
-            Json(json!({ "object": "list", "data": [
-                { "id": "in_fake", "amount_paid": 1200, "payment_intent": "pi_fake" }
-            ] })),
-        ),
-        ("POST", "/v1/refunds") => (StatusCode::OK, Json(json!({ "id": "re_fake" }))),
+        ("GET", "/v1/invoices") => {
+            let data = fake.invoices.lock().unwrap().clone().unwrap_or_else(
+                || json!([{ "id": "in_fake", "amount_paid": 1200, "payment_intent": "pi_fake" }]),
+            );
+            (
+                StatusCode::OK,
+                Json(json!({ "object": "list", "data": data })),
+            )
+        }
+        ("POST", "/v1/refunds") => match fake.refund_rejection.lock().unwrap().clone() {
+            Some(code) => (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": { "code": code, "message": "Refused" } })),
+            ),
+            None => (StatusCode::OK, Json(json!({ "id": "re_fake" }))),
+        },
         ("GET", _) if path.starts_with("/v1/subscriptions/") => {
             let id = path.trim_start_matches("/v1/subscriptions/");
             match fake.subscriptions.lock().unwrap().get(id) {

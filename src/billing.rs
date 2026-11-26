@@ -3,7 +3,7 @@ pub mod api;
 pub mod catalog;
 pub mod jobs;
 pub mod pages;
-pub(crate) mod queries;
+mod queries;
 pub mod subscription;
 #[cfg(test)]
 pub mod testing;

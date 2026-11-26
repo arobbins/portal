@@ -18,12 +18,20 @@ pub const DEFAULT_API_BASE: &str = "https://api.stripe.com";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StripeError {
     Unreachable(String),
-    Rejected { status: u16, message: String },
+    Rejected {
+        status: u16,
+        code: Option<String>,
+        message: String,
+    },
 }
 
 impl StripeError {
     pub fn is_not_found(&self) -> bool {
         matches!(self, Self::Rejected { status: 404, .. })
+    }
+
+    pub fn has_code(&self, wanted: &str) -> bool {
+        matches!(self, Self::Rejected { code: Some(code), .. } if code == wanted)
     }
 }
 
@@ -31,7 +39,9 @@ impl std::fmt::Display for StripeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unreachable(reason) => write!(f, "Stripe can't be reached: {reason}"),
-            Self::Rejected { status, message } => {
+            Self::Rejected {
+                status, message, ..
+            } => {
                 write!(f, "Stripe refused the request ({status}): {message}")
             }
         }
@@ -176,8 +186,10 @@ async fn read_response(response: reqwest::Response) -> Result<Value, StripeError
         .as_str()
         .unwrap_or("no message")
         .to_string();
+    let code = body["error"]["code"].as_str().map(str::to_string);
     Err(StripeError::Rejected {
         status: status.as_u16(),
+        code,
         message,
     })
 }

@@ -5,8 +5,8 @@ use time::OffsetDateTime;
 use crate::billing::jobs::CancelStripeSubscription;
 use crate::billing::queries::{
     query_get_current_subscription, query_insert_subscription, query_lock_customer,
-    query_lock_subscription, query_record_stripe_event, query_update_subscription,
-    query_update_subscription_status,
+    query_lock_subscription, query_record_duplicate_subscription, query_record_stripe_event,
+    query_update_subscription, query_update_subscription_status,
 };
 use crate::billing::subscription::{Subscription, SubscriptionState, SubscriptionStatus};
 use crate::billing::webhook::Change;
@@ -90,21 +90,34 @@ async fn start_subscription(
         .await?
         .is_some()
     {
-        tracing::warn!(user_id, subscription = %state.stripe_subscription_id, "second subscription for one account: cancelling and refunding it at Stripe");
-        let job = CancelStripeSubscription {
-            subscription: state.stripe_subscription_id.clone(),
-            refund: true,
-        };
-        enqueue(&job, &mut *tx).await?;
-        let kind = AccountEventKind::Billing(BillingEventKind::DuplicateRefunded);
-        log(env, user_id, kind, state, &mut *tx).await?;
-        return Ok(Applied::Duplicate);
+        return refund_duplicate(env, user_id, state, tx).await;
     }
     query_insert_subscription(user_id, state, at, &mut *tx).await?;
     for kind in transitions(None, state) {
         log(env, user_id, kind, state, &mut *tx).await?;
     }
     Ok(Applied::Changed)
+}
+
+async fn refund_duplicate(
+    env: &Env<'_>,
+    user_id: i32,
+    state: &SubscriptionState,
+    tx: &mut PgConnection,
+) -> topcoat::Result<Applied> {
+    let subscription = &state.stripe_subscription_id;
+    if !query_record_duplicate_subscription(subscription, user_id, &mut *tx).await? {
+        return Ok(Applied::Duplicate);
+    }
+    tracing::warn!(user_id, subscription = %subscription, "second subscription for one account: cancelling and refunding it at Stripe");
+    let job = CancelStripeSubscription {
+        subscription: subscription.clone(),
+        refund: true,
+    };
+    enqueue(&job, &mut *tx).await?;
+    let kind = AccountEventKind::Billing(BillingEventKind::DuplicateRefunded);
+    log(env, user_id, kind, state, &mut *tx).await?;
+    Ok(Applied::Duplicate)
 }
 
 fn refusal(before: &Subscription, at: OffsetDateTime) -> Option<Applied> {

@@ -41,6 +41,10 @@ pub const LEFT_OUT: &[LeftOut] = &[
         table: "checkout_requests",
         why: "Links to Stripe Checkout pages started for your account, kept for a day so a repeated request gets the same link.",
     },
+    LeftOut {
+        table: "duplicate_subscriptions",
+        why: "Stripe ids of any second subscription that was cancelled and refunded, so it's refunded only once. Your Recent activity lists each one.",
+    },
 ];
 
 pub async fn collect(env: &Env<'_>, user: &User) -> Result<Vec<Dataset>, sqlx::Error> {
