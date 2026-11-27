@@ -15,9 +15,8 @@ gets its own port, `…_<worktree>_test` database and 25% of the cores (main
 75%; `support/environment.ts`), so parallel agents never collide or overload
 the machine; override with `E2E_PORT` / `TEST_DATABASE_URL` / `E2E_WORKERS`.
 
-Run Playwright plainly (`npx playwright test … --reporter=line`): rtk is
-configured to leave it unfiltered, because its filter once reported
-`PASS (0) FAIL (0)` when the test server failed to start. Use the `check` skill
+Run Playwright plainly (`npx playwright test … --reporter=line`): rtk
+leaves it unfiltered (its filter once hid a server that failed to start). Use the `check` skill
 for the full suite and the `verify` skill for one spec.
 
 - Import `test`/`expect` from `e2e/support/test.ts`: any console error or
@@ -32,7 +31,7 @@ for the full suite and the `verify` skill for one spec.
   (`waitForEmails`, `expectNoEmails`, `verificationLink`, `resetLink`),
   `support/users.ts` (seeded users — keep in sync with `src/seed.rs`),
   `support/console.ts` (`grantAdmin`, runs `webserver admin grant`),
-  `support/state-machines.ts` (browser state machines for the report; see
+  `support/totp.ts` (`totp`, `turnOnTwoFactor`), `support/state-machines.ts` (browser state machines for the report; see
   `.claude/state-machines.md`).
   Tests that change data use their own `uniqueEmail` user, never the seeded
   ones. New accounts land on the passkey prompt; `createAccount` answers
@@ -49,20 +48,20 @@ for the full suite and the `verify` skill for one spec.
   a seeded one.
 - Popovers and menus must not move while opening (fade, don't slide): a
   moving target makes Playwright press outside it, which light-dismisses it.
-- To find a flake, stress the suite: `npx playwright test --repeat-each=2
-  --workers=16`, then read the failing test's `trace.zip` network and action
-  logs.
+- Find a flake with `--repeat-each=2 --workers=16`, then read the failing
+  test's `trace.zip`.
 - Find elements by role/label/text
   (`getByRole("button", { name: "Show toast" })`), not CSS classes; assert
   visible behavior. One spec file per feature. Scoping to a settings card
   by its `id` (`page.locator("#passkeys")`, `#api-tokens`) is fine: card ids
   are stable anchors the account nav links to.
-- The full recipe is the `new-e2e-test` skill; run a single spec quickly
-  with the `verify` skill.
-- Screenshots: `npm run screenshot` (`screenshot.config.ts`, spec in
-  `screenshots/`, settings via `SHOT_*` env vars, documented in the `verify`
-  skill). It's a separate config, so `npm test` and `./check.sh` never run
-  it; output goes to the gitignored `e2e/.screenshots`.
-- Layout checks measure against `document.body`, never `innerWidth` or
-  `clientWidth`: CI's classic scrollbars plus `scrollbar-gutter: stable`
-  make those 15px wider than the laid-out page.
+- The full recipe is the `new-e2e-test` skill.
+- Screenshots: `npm run screenshot` (`screenshot.config.ts`, `SHOT_*` env
+  vars in the `verify` skill); a separate config `npm test` never runs,
+  output in the gitignored `e2e/.screenshots`.
+- `accessibility.spec.ts` runs axe (Chromium) on every page and its dialogs
+  and menus, light and dark, at 390 and 1280px: `serious`/`critical` fail,
+  `minor`/`moderate` are listed in its output and `accessibility.json`
+  attachment. Add new pages to it (it may find dialogs by id).
+- Layout checks measure `document.body`, never `innerWidth`/`clientWidth`:
+  CI's scrollbars plus `scrollbar-gutter: stable` make those 15px wider.

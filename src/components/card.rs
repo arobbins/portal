@@ -16,17 +16,29 @@ pub async fn card(
     Ok(view! { <section class="a-card" id=(id)>(child)</section> })
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum CardHeadingLevel {
+    #[default]
+    H2,
+    H3,
+}
+
 #[component]
 pub async fn card_header(
     cx: &Cx,
     title: &str,
+    #[default] level: CardHeadingLevel,
     #[default] status: Option<(&str, Tone)>,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {
         <header class="a-card__header">
             <div class="a-card__heading">
-                <h3 class="a-card__title">(title)</h3>
+                if level == CardHeadingLevel::H2 {
+                    <h2 class="a-card__title">(title)</h2>
+                } else {
+                    <h3 class="a-card__title">(title)</h3>
+                }
                 if let Some((label, tone)) = status {
                     " "
                     badge(tone: tone, (label))

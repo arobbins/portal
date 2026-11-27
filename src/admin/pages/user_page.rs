@@ -16,7 +16,7 @@ use crate::action::ActionProblem;
 use crate::activity::pages::activity_card::activity_list;
 use crate::admin::actions::{TargetUser, UserOverview, get_user};
 use crate::app::page_title;
-use crate::components::card::{card, card_body, card_header};
+use crate::components::card::{CardHeadingLevel, card, card_body, card_header};
 use crate::components::notice::notice;
 use crate::components::property_list::{PropertyTag, property, property_list};
 use crate::components::tone::Tone;
@@ -61,7 +61,7 @@ pub async fn admin_user_page(cx: &Cx) -> Result<impl View> {
             billing_card(overview: &overview)
             user_actions_card(user: &overview.user, is_self: is_self)
             card(
-                card_header(title: "Recent activity")
+                card_header(title: "Recent activity", level: CardHeadingLevel::H3)
                 card_body(activity_list(activity: &overview.activity))
             )
             flash_toasts(toast: &toast, flashes: FLASHES)
@@ -85,7 +85,7 @@ async fn account_card(cx: &Cx, overview: &UserOverview) -> Result<impl View> {
 
     Ok(view! {
         card(
-            card_header(title: "Account")
+            card_header(title: "Account", level: CardHeadingLevel::H3)
             card_body(
                 property_list(
                     property(name: "Email", description: Some(user.email.as_str()))
@@ -111,7 +111,7 @@ async fn billing_card(cx: &Cx, overview: &UserOverview) -> Result<impl View> {
 
     Ok(view! {
         card(
-            card_header(title: "Billing")
+            card_header(title: "Billing", level: CardHeadingLevel::H3)
             card_body(
                 <p>(plan.as_str())</p>
                 " "
@@ -137,7 +137,7 @@ async fn billing_card(cx: &Cx, overview: &UserOverview) -> Result<impl View> {
 async fn newsletters_card(cx: &Cx, overview: &UserOverview) -> Result<impl View> {
     Ok(view! {
         card(
-            card_header(title: "Newsletters")
+            card_header(title: "Newsletters", level: CardHeadingLevel::H3)
             card_body(
                 property_list(
                     #[key(newsletter.as_str())]

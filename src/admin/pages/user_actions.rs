@@ -11,7 +11,7 @@ use super::user_routes::{
 };
 use crate::action::ID_FIELD;
 use crate::components::button::{ButtonSize, ButtonVariant, button};
-use crate::components::card::{card, card_body, card_header};
+use crate::components::card::{CardHeadingLevel, card, card_body, card_header};
 use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::property_list::{property, property_list};
 use crate::user::model::{AccountStatus, Role, User};
@@ -95,7 +95,7 @@ pub async fn user_actions_card(cx: &Cx, user: &User, is_self: bool) -> Result<im
 
     Ok(view! {
         card(
-            card_header(title: "Actions")
+            card_header(title: "Actions", level: CardHeadingLevel::H3)
             card_body(
                 if locked {
                     <p>(reason)</p>
