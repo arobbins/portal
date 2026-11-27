@@ -1,15 +1,15 @@
 pub const BILLING_PARAM: &str = "billing";
 
+const MONTHS_IN_A_YEAR: i64 = 12;
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum BillingPeriod {
-    #[default]
     Monthly,
+    #[default]
     Yearly,
 }
 
 impl BillingPeriod {
-    pub const ALL: [Self; 2] = [Self::Monthly, Self::Yearly];
-
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Monthly => "monthly",
@@ -17,17 +17,10 @@ impl BillingPeriod {
         }
     }
 
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Monthly => "Monthly",
-            Self::Yearly => "Yearly",
-        }
-    }
-
     pub fn from_param(value: Option<&str>) -> Self {
         match value {
-            Some(value) if value == Self::Yearly.as_str() => Self::Yearly,
-            _ => Self::Monthly,
+            Some(value) if value == Self::Monthly.as_str() => Self::Monthly,
+            _ => Self::Yearly,
         }
     }
 
@@ -41,16 +34,14 @@ impl BillingPeriod {
 
     pub fn query(self) -> Option<String> {
         match self {
-            Self::Monthly => None,
-            Self::Yearly => Some(format!("{BILLING_PARAM}={}", self.as_str())),
+            Self::Yearly => None,
+            Self::Monthly => Some(format!("{BILLING_PARAM}={}", self.as_str())),
         }
     }
 }
 
-pub fn yearly_saving_percent(monthly: i64, yearly: i64) -> Option<i64> {
-    let twelve_months = monthly.checked_mul(12).filter(|total| *total > 0)?;
-    let saved = twelve_months - yearly;
-    (saved > 0).then(|| saved * 100 / twelve_months)
+pub fn yearly_per_month(yearly: i64) -> i64 {
+    (yearly + MONTHS_IN_A_YEAR / 2) / MONTHS_IN_A_YEAR
 }
 
 #[cfg(test)]
@@ -58,24 +49,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_yearly_picks_the_yearly_period() {
-        assert_eq!(
-            BillingPeriod::from_param(Some("yearly")),
-            BillingPeriod::Yearly
-        );
+    fn only_monthly_picks_the_monthly_period() {
         assert_eq!(
             BillingPeriod::from_param(Some("monthly")),
             BillingPeriod::Monthly
         );
         assert_eq!(
-            BillingPeriod::from_param(Some("YEARLY")),
-            BillingPeriod::Monthly
+            BillingPeriod::from_param(Some("yearly")),
+            BillingPeriod::Yearly
+        );
+        assert_eq!(
+            BillingPeriod::from_param(Some("MONTHLY")),
+            BillingPeriod::Yearly
         );
         assert_eq!(
             BillingPeriod::from_param(Some("weekly")),
-            BillingPeriod::Monthly
+            BillingPeriod::Yearly
         );
-        assert_eq!(BillingPeriod::from_param(None), BillingPeriod::Monthly);
+        assert_eq!(BillingPeriod::from_param(None), BillingPeriod::Yearly);
     }
 
     #[test]
@@ -93,26 +84,21 @@ mod tests {
     }
 
     #[test]
-    fn monthly_is_the_bare_address() {
-        assert_eq!(BillingPeriod::Monthly.query(), None);
+    fn yearly_is_the_bare_address() {
+        assert_eq!(BillingPeriod::Yearly.query(), None);
         assert_eq!(
-            BillingPeriod::Yearly.query().as_deref(),
-            Some("billing=yearly")
+            BillingPeriod::Monthly.query().as_deref(),
+            Some("billing=monthly")
         );
     }
 
     #[test]
-    fn savings_round_down() {
-        assert_eq!(yearly_saving_percent(1200, 12000), Some(16));
-        assert_eq!(yearly_saving_percent(1000, 10000), Some(16));
-        assert_eq!(yearly_saving_percent(1000, 9600), Some(20));
-        assert_eq!(yearly_saving_percent(1000, 11999), Some(0));
-    }
-
-    #[test]
-    fn no_saving_when_yearly_costs_the_same_or_more() {
-        assert_eq!(yearly_saving_percent(1000, 12000), None);
-        assert_eq!(yearly_saving_percent(1000, 13000), None);
-        assert_eq!(yearly_saving_percent(0, 0), None);
+    fn a_yearly_price_per_month_rounds_half_up_to_the_cent() {
+        assert_eq!(yearly_per_month(12000), 1000);
+        assert_eq!(yearly_per_month(10000), 833);
+        assert_eq!(yearly_per_month(5000), 417);
+        assert_eq!(yearly_per_month(6), 1);
+        assert_eq!(yearly_per_month(5), 0);
+        assert_eq!(yearly_per_month(0), 0);
     }
 }

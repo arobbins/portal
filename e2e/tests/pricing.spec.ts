@@ -1,27 +1,69 @@
-import { expect, test } from "../support/test";
+import { expect, test, type Page } from "../support/test";
 
 const modifier = process.platform === "darwin" ? "Meta" : "Control";
 
-test("a modifier-click on Yearly opens it in a new tab and leaves this one on Monthly", async ({
-  page,
-  context,
-}) => {
-  await page.goto("/pricing");
-  const periods = page.getByRole("group", { name: "Billing period" });
-  const monthly = periods.getByRole("link", { name: "Monthly" });
-  const yearly = periods.getByRole("link", { name: /Yearly/ });
-  await expect(monthly).toHaveAttribute("aria-current", "page");
+function proCard(page: Page) {
+  return page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("heading", { name: "Pro", exact: true }) });
+}
 
-  const opened = context.waitForEvent("page");
-  await yearly.click({ modifiers: [modifier] });
-  const tab = await opened;
-  await tab.waitForLoadState();
+function proPrice(page: Page) {
+  return proCard(page).getByText(/^\$[\d.]+ \/ month$/);
+}
 
-  await expect(tab).toHaveURL(/\/pricing\?billing=yearly$/);
-  await expect(
-    tab.getByRole("group", { name: "Billing period" }).getByRole("link", { name: /Yearly/ }),
-  ).toHaveAttribute("aria-current", "page");
+test("any billing value but monthly opens Pricing with Billed yearly on", async ({ page }) => {
+  await page.goto("/pricing?billing=weekly");
+
+  await expect(proCard(page).getByRole("switch", { name: "Billed yearly" })).toBeChecked();
+  await expect(proPrice(page)).toHaveText("$10 / month");
+});
+
+test("turning Billed yearly back on returns the address to /pricing", async ({ page }) => {
+  await page.goto("/pricing?billing=monthly");
+  const billedYearly = proCard(page).getByRole("switch", { name: "Billed yearly" });
+  await expect(billedYearly).not.toBeChecked();
+  await expect(proPrice(page)).toHaveText("$12 / month");
+
+  await billedYearly.click();
+
+  await expect(billedYearly).toBeChecked();
+  await expect(proPrice(page)).toHaveText("$10 / month");
   await expect(page).toHaveURL(/\/pricing$/);
-  await expect(monthly).toHaveAttribute("aria-current", "page");
-  await expect(yearly).not.toHaveAttribute("aria-current", "page");
+});
+
+test("the price animates when it changes, but not for reduced motion", async ({ page }) => {
+  await page.goto("/pricing");
+  const billedYearly = proCard(page).getByRole("switch", { name: "Billed yearly" });
+  await expect(proPrice(page)).toHaveCSS("animation-name", "none");
+
+  await billedYearly.click();
+  await expect(proPrice(page)).toHaveText("$12 / month");
+  await expect(proPrice(page)).not.toHaveCSS("animation-name", "none");
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await billedYearly.click();
+  await expect(proPrice(page)).toHaveText("$10 / month");
+  await expect(proPrice(page)).toHaveCSS("animation-name", "none");
+});
+
+test.describe("without JavaScript", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("a modifier-click on Show monthly prices opens it in a new tab", async ({ page, context }) => {
+    await page.goto("/pricing");
+    await expect(proCard(page).getByRole("switch")).toBeHidden();
+    const showMonthly = proCard(page).getByRole("link", { name: "Show monthly prices" });
+
+    const opened = context.waitForEvent("page");
+    await showMonthly.click({ modifiers: [modifier] });
+    const tab = await opened;
+    await tab.waitForLoadState();
+
+    await expect(tab).toHaveURL(/\/pricing\?billing=monthly$/);
+    await expect(proPrice(tab)).toHaveText("$12 / month");
+    await expect(proCard(tab).getByRole("link", { name: "Show yearly prices" })).toBeVisible();
+    await expect(page).toHaveURL(/\/pricing$/);
+    await expect(proPrice(page)).toHaveText("$10 / month");
+  });
 });

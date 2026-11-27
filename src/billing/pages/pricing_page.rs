@@ -9,8 +9,8 @@ use topcoat::{
 };
 
 use super::plan_actions::manage_billing_button;
-use super::plan_offers::{offers_both_periods, plan_offers};
-use super::pricing_periods::{offer_prices, period_switch, picked_period};
+use super::plan_offers::plan_offers;
+use super::pricing_periods::{offer_prices, picked_period};
 use super::routes::take_billing_problem;
 use crate::action::browser_caller;
 use crate::app::page_title;
@@ -18,6 +18,7 @@ use crate::billing::actions::{
     Billing, BillingPage, PlanPrice, UNAVAILABLE, get_billing, list_plans,
 };
 use crate::billing::catalog::{FREE_PLAN_KEY, FREE_PLAN_NAME, money};
+use crate::billing::period::BillingPeriod;
 use crate::components::card::{card, card_body, card_header};
 use crate::components::notice::notice;
 use crate::components::tone::Tone;
@@ -55,7 +56,8 @@ pub async fn pricing_page(cx: &Cx) -> Result<impl View> {
     let products = json_ld(&plans);
     let offers = plan_offers(&plans);
     let picked = picked_period(cx);
-    let period = signal(cx, || picked.as_str().to_string());
+    let yearly = signal(cx, || picked == BillingPeriod::Yearly);
+    let flipped = signal(cx, || false);
     let free_label = money(0, "usd");
 
     Ok(view! {
@@ -66,9 +68,6 @@ pub async fn pricing_page(cx: &Cx) -> Result<impl View> {
             </p>
             if let Some(message) = error {
                 <div role="alert">notice(tone: Tone::Error, (message))</div>
-            }
-            if offers_both_periods(&offers) {
-                period_switch(offers: &offers, period: &period)
             }
             <ul class="p-pricing__plans" role="list">
                 plan_row(
@@ -85,7 +84,9 @@ pub async fn pricing_page(cx: &Cx) -> Result<impl View> {
                         billing: billing.as_ref(),
                         offer_prices(
                             offer: offer,
-                            period: &period,
+                            picked: picked,
+                            yearly: &yearly,
+                            flipped: &flipped,
                             billing: billing.as_ref()
                         )
                     )
