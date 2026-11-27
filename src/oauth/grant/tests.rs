@@ -312,6 +312,28 @@ async fn reconnecting_revokes_every_earlier_token_and_keeps_the_connection(db: P
     );
 }
 
+#[sqlx::test]
+async fn reconnecting_revokes_an_earlier_approvals_unused_code(db: PgPool) {
+    let app = App::for_tests(db.clone());
+    let env = app.env(None);
+    let user = active_user("unused-code@example.test", &db).await;
+    let client = test_client(&db).await;
+    let request = start_request(&env, &client, "profile:read").await;
+    let earlier = approve(&env, &user, &request, &[ApiScope::ProfileRead]).await;
+
+    let current = connect_again(&app, &user, &client).await;
+
+    assert_eq!(
+        issue_tokens(&env, &code_exchange(&env, &client, &earlier))
+            .await
+            .unwrap()
+            .err(),
+        Some(TokenProblem::InvalidGrant)
+    );
+    assert!(app_still_works(&app, &current).await);
+    assert_eq!(connections(&db).await, 1);
+}
+
 async fn block_new_refresh_tokens(db: &PgPool) {
     sqlx::query!(
         "ALTER TABLE oauth_tokens ADD CONSTRAINT test_no_new_refresh CHECK (kind <> 'refresh' OR replaced_at IS NOT NULL) NOT VALID"

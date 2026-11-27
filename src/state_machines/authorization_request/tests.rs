@@ -103,6 +103,7 @@ impl Owner {
                 self.code = param_of(self.answer.as_deref(), "code");
                 self.code.is_some()
             }
+            E::ApproveAnotherRequest => self.approve_another().await,
             E::Deny => {
                 self.answer(&deny_form(&self.request_id())).await;
                 param_of(self.answer.as_deref(), "error").as_deref() == Some("access_denied")
@@ -143,6 +144,17 @@ impl Owner {
         let unchanged = self.stored_requests().await == before;
         self.refused_cleanly = Some(status == StatusCode::TOO_MANY_REQUESTS && unchanged);
         status == StatusCode::SEE_OTHER
+    }
+
+    async fn approve_another(&mut self) -> bool {
+        let path = start_path(&self.app, &self.client_id, SCOPES);
+        let started = self.browser.get(&path).await;
+        let Some(request) = param_of(location(&started).as_deref(), "request") else {
+            return false;
+        };
+        let form = approve_form(&request, SCOPES, TEST_PASSWORD);
+        let approved = self.browser.post(OAUTH_AUTHORIZE_PATH, &form).await;
+        param_of(location(&approved).as_deref(), "code").is_some()
     }
 
     async fn stored_requests(&self) -> i64 {
@@ -207,6 +219,10 @@ impl Owner {
         }
         if matches!(event, E::Approve | E::Deny) && accepted && !self.answered_with_state() {
             broken.push(ANSWERS_GO_BACK_TO_THE_APP);
+        }
+        let approved_again = event == E::ApproveAnotherRequest && from == S::Approved;
+        if approved_again && self.exchange().await {
+            broken.push(APPROVING_AGAIN_REVOKES_UNUSED_CODES);
         }
         if event == E::StartTooOften && self.refused_cleanly != Some(true) {
             broken.push(OVER_THE_LIMIT_STORES_NOTHING);

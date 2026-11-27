@@ -15,6 +15,7 @@ pub enum RequestEvent {
     StartTooOften,
     ReturnsAfterEightMinutes,
     Approve,
+    ApproveAnotherRequest,
     Deny,
     ExchangeCode,
     WaitElevenMinutes,
@@ -34,6 +35,7 @@ pub const AUTHORIZATION_REQUEST: Machine<RequestState, RequestEvent> = Machine {
         E::StartTooOften,
         E::ReturnsAfterEightMinutes,
         E::Approve,
+        E::ApproveAnotherRequest,
         E::Deny,
         E::ExchangeCode,
         E::WaitElevenMinutes,
@@ -49,6 +51,7 @@ pub const AUTHORIZATION_REQUEST: Machine<RequestState, RequestEvent> = Machine {
         ANSWERS_GO_BACK_TO_THE_APP,
         CODE_ONCE_AND_HASHED,
         OVER_THE_LIMIT_STORES_NOTHING,
+        APPROVING_AGAIN_REVOKES_UNUSED_CODES,
     ],
     writers: &[
         writer(
@@ -64,7 +67,12 @@ pub const AUTHORIZATION_REQUEST: Machine<RequestState, RequestEvent> = Machine {
         writer(
             "src/oauth/actions/connect.rs:connect_app",
             "query_approve_request",
-            &[E::Approve],
+            &[E::Approve, E::ApproveAnotherRequest],
+        ),
+        writer(
+            "src/oauth/actions/connect.rs:store_connection",
+            "query_delete_approved_requests",
+            &[E::ApproveAnotherRequest],
         ),
         writer(
             "src/oauth/actions/connect.rs:deny_app",
@@ -89,6 +97,7 @@ pub const KEPT_ALIVE: &str =
 pub const ANSWERS_GO_BACK_TO_THE_APP: &str =
     "Approving sends the app back a code and its state; denying sends it back access_denied.";
 pub const OVER_THE_LIMIT_STORES_NOTHING: &str = "Starting more than 30 times an hour from one address gets the 429 \"Too many sign-in requests\" page and stores no request.";
+pub const APPROVING_AGAIN_REVOKES_UNUSED_CODES: &str = "Approving another request from the same app deletes an earlier approved request, so its unused code gets invalid_grant.";
 pub const CODE_ONCE_AND_HASHED: &str =
     "The code is stored only as a hash, works once, and only within 10 minutes of approval.";
 
@@ -109,9 +118,9 @@ pub fn expect(from: RequestState, event: RequestEvent) -> Expect<RequestState> {
     match (from, event) {
         (S::New, E::Start) => Moves(S::Pending),
         (S::Pending, E::Approve) => Moves(S::Approved),
-        (S::Pending, E::Deny) | (S::Approved, E::ExchangeCode) | (S::Dead, E::Cleanup) => {
-            Moves(S::Gone)
-        }
+        (S::Pending, E::Deny)
+        | (S::Approved, E::ExchangeCode | E::ApproveAnotherRequest)
+        | (S::Dead, E::Cleanup) => Moves(S::Gone),
         (S::Pending | S::Approved, E::WaitElevenMinutes) => Moves(S::Dead),
         _ => Refused,
     }
@@ -146,6 +155,7 @@ impl Labeled for RequestEvent {
             E::StartTooOften => "start_too_often",
             E::ReturnsAfterEightMinutes => "returns_after_eight_minutes",
             E::Approve => "approve",
+            E::ApproveAnotherRequest => "approve_another_request",
             E::Deny => "deny",
             E::ExchangeCode => "exchange_code",
             E::WaitElevenMinutes => "wait_eleven_minutes",
@@ -159,6 +169,7 @@ impl Labeled for RequestEvent {
             E::StartTooOften => "The app opens /oauth/authorize a 31st time within an hour",
             E::ReturnsAfterEightMinutes => "Owner reopens the approval screen 8 minutes later",
             E::Approve => "Owner approves",
+            E::ApproveAnotherRequest => "Owner approves a newer request from the same app",
             E::Deny => "Owner denies",
             E::ExchangeCode => "The app exchanges the code",
             E::WaitElevenMinutes => "11 idle minutes pass",

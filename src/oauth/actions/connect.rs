@@ -12,8 +12,8 @@ use crate::oauth::authorize::{error_redirect, issuer, live_request, requested_sc
 use crate::oauth::emails::app_connected_email;
 use crate::oauth::queries::{
     NewConnection, RequestRow, StoredConnection, query_approve_request,
-    query_delete_connection_tokens, query_delete_pending_request, query_record_client_approval,
-    query_upsert_connection,
+    query_delete_approved_requests, query_delete_connection_tokens, query_delete_pending_request,
+    query_record_client_approval, query_upsert_connection,
 };
 use crate::oauth::redirect::{return_host, with_params};
 use crate::oauth::secrets::SecretKind;
@@ -146,6 +146,7 @@ async fn store_connection(
     let stored = query_upsert_connection(&row, &mut *tx).await?;
     if let Some(connection) = &stored {
         query_delete_connection_tokens(connection.id, &mut *tx).await?;
+        query_delete_approved_requests(connection.id, &mut *tx).await?;
     }
     Ok(stored)
 }

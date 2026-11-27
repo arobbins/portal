@@ -43,8 +43,8 @@ paths:
   stored `redirect_uri`), `wsa_` access tokens (1 hour),
   `wsr_` refresh tokens (30 idle days), all checksummed like `wsk_` and
   stored only as SHA-256 hashes in `oauth_tokens`. Each exchange or refresh
-  is one transaction. Approving again deletes the connection's tokens. A
-  refresh replaces both (refused, unchanged, while the account is disabled);
+  is one transaction. Approving again deletes the connection's tokens and
+  unused codes. A refresh replaces both (refused, unchanged, while the account is disabled);
   a replaced refresh token used again ends the connection
   (`end_connection`, `app_disconnected` with channel `app`). `/oauth/revoke`
   (either token, own client only) ends it too. The token endpoint allows 60
