@@ -8,6 +8,7 @@ use topcoat::{
 
 use super::routes::{open_portal_submit, start_checkout_submit};
 use crate::auth::handoff::PRICE_PARAM;
+use crate::auth::pages::register::register_page;
 use crate::billing::actions::{BillingPage, PRICE_FIELD};
 use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
 use crate::components::form::form;
@@ -46,6 +47,13 @@ pub async fn choose_button(
             </form>
         }
     })
+}
+
+#[component]
+pub async fn choose_free_link(cx: &Cx) -> Result<impl View> {
+    let register_href = href!(register_page).resolve(cx);
+
+    Ok(view! { button(href: Some(register_href.as_str()), "Choose Free") })
 }
 
 #[component]

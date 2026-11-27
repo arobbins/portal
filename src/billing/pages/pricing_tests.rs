@@ -132,3 +132,13 @@ async fn the_json_ld_keeps_every_price_at_its_real_amount(db: PgPool) {
         assert!(html.contains(amount), "{amount}");
     }
 }
+
+#[sqlx::test]
+async fn a_signed_out_visitor_can_choose_free_with_a_plain_link_to_register(db: PgPool) {
+    let stripe = with_yearly_pro().await;
+    let html = pricing_html(db, &stripe, "/pricing").await;
+
+    assert_eq!(html.matches(">Choose Free</a>").count(), 1);
+    assert!(html.contains("href=\"/register\""));
+    assert!(!html.contains("Current plan"));
+}
