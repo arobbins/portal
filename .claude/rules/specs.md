@@ -30,7 +30,9 @@ paths:
   `spec-builder` builds an approved spec as a subagent in its own git
   worktree and can't read or edit scenarios or edit specs
   (`.claude/hooks/agent-boundary.sh`); `convention-reviewer` checks its
-  branch against the spec. The main session doesn't build specs. When the
+  branch against the spec. The main session doesn't build specs, except
+  small display or wording changes to an approved spec (`new-spec`, After
+  approval), which it makes on `main` and checks with `check --changed`. When the
   scenarios, the full `check` and the review are green, it merges the branch
   locally with `--no-ff` (revert with `git revert -m 1`). It pushes only
   `main`, and only as a fast-forward, so builder worktrees start current.

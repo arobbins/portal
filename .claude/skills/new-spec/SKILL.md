@@ -145,6 +145,16 @@ Options: build with them (recommended), or change some (the user says which).
 
 ## After approval
 
+**Small change** (wording or display of an approved spec: labels, formats, layout of
+something already built; no new rule, state, limit, channel or security impact): the
+interview, spec edit, scenarios and approval stay the same, but skip the builder and
+reviewer. The main session makes the change on `main` itself, test first, with the
+matching skills, runs `verify` and `check --changed` plus the spec's scenarios, then
+reports with screenshots and commits only when asked. If it grows past that, stop and
+use the full steps below.
+
+**Full build** (everything else):
+
 All in this window; give the user a one-line milestone as each step finishes.
 
 1. Worktrees start from `origin/main`, not the local branch. Fast-forward `main` to the

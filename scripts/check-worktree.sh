@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-worktree="${1:?usage: scripts/check-worktree.sh <worktree path> [check-summary args]}"
+worktree="$(cd "${1:?usage: scripts/check-worktree.sh <worktree path> [check-summary args]}" && pwd)"
 shift
 cd "$worktree/e2e"
 url=$(node --experimental-strip-types --no-warnings -e 'import("./support/environment.ts").then(m => process.stdout.write(m.testDatabaseUrl())).catch(() => process.exit(1))') || url=""
