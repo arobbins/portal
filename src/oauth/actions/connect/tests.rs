@@ -153,9 +153,10 @@ async fn an_account_has_at_most_fifty_connections(db: PgPool) {
     let user = active_user("many@example.test", &db).await;
     let caller = Caller::browser(user.clone());
 
-    for _ in 0..MAX_CONNECTIONS_PER_USER {
+    for index in 0..MAX_CONNECTIONS_PER_USER {
         let client = test_client(&db).await;
-        let request = start_request(&env, &client, "profile:read").await;
+        let from = app.env(Some([198, 51, 100, index as u8].into()));
+        let request = start_request(&from, &client, "profile:read").await;
         approve(&env, &user, &request, &[ApiScope::ProfileRead]).await;
     }
     let client = test_client(&db).await;

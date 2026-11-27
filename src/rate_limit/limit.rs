@@ -1,9 +1,9 @@
 use super::{
-    API_CALLS_PER_MINUTE, BAD_API_TOKEN_WINDOW_MINUTES, BAD_API_TOKENS_PER_WINDOW,
-    BILLING_SESSIONS_PER_ACCOUNT_PER_HOUR, CLIENT_REGISTRATIONS_PER_IP_PER_HOUR,
-    EXPORTS_PER_ACCOUNT_PER_HOUR, FEEDBACK_PER_ACCOUNT_PER_DAY, FEEDBACK_PER_TOKEN_PER_HOUR,
-    PLAN_LISTS_PER_IP_PER_MINUTE, RELAXED_SCALE, RateLimitMode,
-    TOKEN_REQUESTS_PER_CLIENT_PER_MINUTE,
+    API_CALLS_PER_MINUTE, AUTHORIZATION_STARTS_PER_IP_PER_HOUR, BAD_API_TOKEN_WINDOW_MINUTES,
+    BAD_API_TOKENS_PER_WINDOW, BILLING_SESSIONS_PER_ACCOUNT_PER_HOUR,
+    CLIENT_REGISTRATIONS_PER_IP_PER_HOUR, EXPORTS_PER_ACCOUNT_PER_HOUR,
+    FEEDBACK_PER_ACCOUNT_PER_DAY, FEEDBACK_PER_TOKEN_PER_HOUR, PLAN_LISTS_PER_IP_PER_MINUTE,
+    RELAXED_SCALE, RateLimitMode, TOKEN_REQUESTS_PER_CLIENT_PER_MINUTE,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24,6 +24,7 @@ pub(super) enum Limit {
     PlanListsByIp,
     ApiCallsByApp,
     ClientRegistrationsByIp,
+    AuthorizationStartsByIp,
     TokenRequestsByClient,
 }
 
@@ -46,6 +47,7 @@ impl Limit {
             Self::PlanListsByIp => "plan_lists_by_ip",
             Self::ApiCallsByApp => "api_calls_by_app",
             Self::ClientRegistrationsByIp => "client_registrations_by_ip",
+            Self::AuthorizationStartsByIp => "authorization_starts_by_ip",
             Self::TokenRequestsByClient => "token_requests_by_client",
         }
     }
@@ -66,7 +68,8 @@ impl Limit {
             | Self::FeedbackByToken
             | Self::ExportsByAccount
             | Self::BillingSessionsByAccount
-            | Self::ClientRegistrationsByIp => 60,
+            | Self::ClientRegistrationsByIp
+            | Self::AuthorizationStartsByIp => 60,
             Self::FeedbackByAccount => 24 * 60,
         };
         (minutes * 60) as f64
@@ -89,6 +92,7 @@ impl Limit {
             Self::PlanListsByIp => PLAN_LISTS_PER_IP_PER_MINUTE,
             Self::ApiCallsByApp => API_CALLS_PER_MINUTE,
             Self::ClientRegistrationsByIp => CLIENT_REGISTRATIONS_PER_IP_PER_HOUR,
+            Self::AuthorizationStartsByIp => AUTHORIZATION_STARTS_PER_IP_PER_HOUR,
             Self::TokenRequestsByClient => TOKEN_REQUESTS_PER_CLIENT_PER_MINUTE,
         };
         let scales = !matches!(

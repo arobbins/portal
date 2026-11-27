@@ -15,7 +15,7 @@ use crate::oauth::queries::{
 };
 use crate::oauth::secrets::{REQUEST_IDLE_LIMIT, SecretKind};
 use crate::user::events::{AccountEventKind, EventSource, record_event};
-use crate::user::model::AccountStatus;
+use crate::user::model::{AccountStatus, User};
 use crate::user::queries::query_get_user_by_id;
 
 const UNAPPROVED_CLIENT_LIFETIME: time::Duration = time::Duration::hours(24);
@@ -35,12 +35,9 @@ pub async fn app_caller(
     let Some(grant) = query_get_access_grant(&hash, now, db).await? else {
         return Ok(None);
     };
-    let Some(user) = query_get_user_by_id(grant.user_id, db).await? else {
+    let Some(user) = active_owner(grant.user_id, db).await? else {
         return Ok(None);
     };
-    if !matches!(user.status(), AccountStatus::Active { .. }) {
-        return Ok(None);
-    }
     let scopes = parse_scopes(&grant.scopes)
         .into_iter()
         .filter(|scope| scope.available_to(&user) && scope.offered_by_sign_in())
@@ -51,6 +48,14 @@ pub async fn app_caller(
         label: app_label(&grant.name, &grant.return_host),
     };
     Ok(Some(Caller::connected_app(Arc::new(user), app)))
+}
+
+pub async fn active_owner(
+    user_id: i32,
+    db: impl PgExecutor<'_>,
+) -> Result<Option<User>, sqlx::Error> {
+    let user = query_get_user_by_id(user_id, db).await?;
+    Ok(user.filter(|user| matches!(user.status(), AccountStatus::Active { .. })))
 }
 
 pub async fn record_app_use(

@@ -44,6 +44,24 @@ async fn the_approval_screen_is_never_cached_or_framed(db: PgPool) {
 }
 
 #[sqlx::test]
+async fn starting_authorization_too_often_shows_a_429_page(db: PgPool) {
+    let app = test_app_with(db);
+    let path = "/oauth/authorize?client_id=cli_unknown";
+    for _ in 0..crate::rate_limit::AUTHORIZATION_STARTS_PER_IP_PER_HOUR {
+        let (status, _, _) = send(&app, get(path)).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+    }
+
+    let response = app.clone().oneshot(get(path)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let page = String::from_utf8_lossy(&bytes);
+    assert!(page.contains("Too many sign-in requests"), "{page}");
+    assert!(page.contains("Try again later."), "{page}");
+    assert!(!page.contains("Can&#39;t connect this app") && !page.contains("Can't connect"));
+}
+
+#[sqlx::test]
 async fn both_metadata_documents_use_the_standard_fields(db: PgPool) {
     let app = test_app_with(db);
 

@@ -53,11 +53,14 @@ pub const CONNECTION: Machine<ConnectionState, ConnectionEvent> = Machine {
     rules: &[
         APP_GETS_IN_ONLY_WHILE_CONNECTED,
         REFRESH_REPLACES_THE_ACCESS_TOKEN,
+        RECONNECTING_REVOKES_EARLIER_TOKENS,
+        A_DISABLED_OWNERS_APP_CANT_REFRESH,
         CHANGES_ARE_RECORDED,
         ONLY_HASHES_ARE_STORED,
     ],
     writers: &[
         writer(CONNECT, "query_upsert_connection", &[E::Connect]),
+        writer(CONNECT, "query_delete_connection_tokens", &[E::Connect]),
         writer(STORE, "query_insert_token", &[E::Connect, E::Refresh]),
         writer(
             STORE,
@@ -110,6 +113,9 @@ const END: &str = "src/oauth/grant.rs:end_connection";
 pub const APP_GETS_IN_ONLY_WHILE_CONNECTED: &str = "The app's newest access token gets in only while the connection is live and the owner enabled.";
 pub const REFRESH_REPLACES_THE_ACCESS_TOKEN: &str =
     "A refresh replaces both tokens: the old access token stops working at once.";
+pub const RECONNECTING_REVOKES_EARLIER_TOKENS: &str = "Connecting again revokes every earlier token: the old access token is refused and the old refresh token gets invalid_grant like an unknown one, leaving the connection.";
+pub const A_DISABLED_OWNERS_APP_CANT_REFRESH: &str =
+    "While the owner is disabled a refresh gets invalid_grant and changes nothing.";
 pub const CHANGES_ARE_RECORDED: &str = "Connecting records app_connected and emails the owner; the owner, the app's revoke or a reused refresh token record app_disconnected; account-wide sign-outs record their own event instead.";
 pub const ONLY_HASHES_ARE_STORED: &str = "Only hashes of the access and refresh tokens are stored.";
 

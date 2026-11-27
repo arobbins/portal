@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use sqlx::PgPool;
 use time::{Duration, OffsetDateTime};
 
@@ -6,9 +8,11 @@ use crate::api::scope::ApiScope;
 use crate::env::{App, Clock};
 use crate::oauth::lifecycle::app_caller;
 use crate::oauth::testing::{
-    approve, code_exchange, connect_test_app, refresh_request, start_request, test_client,
+    app_still_works, approve, code_exchange, connect_test_app, refresh_request, start_request,
+    test_client,
 };
 use crate::rate_limit::TOKEN_REQUESTS_PER_CLIENT_PER_MINUTE;
+use crate::user::model::User;
 use crate::user::testing::active_user;
 
 fn at(app: &App, moment: OffsetDateTime) -> App {
@@ -257,4 +261,165 @@ fn pkce_uses_s256_base64url_without_padding() {
         challenge_of("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"),
         "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
     );
+}
+
+async fn connect_again(app: &App, user: &Arc<User>, client: &str) -> TokenResponse {
+    let env = app.env(None);
+    let request = start_request(&env, client, "profile:read profile:write").await;
+    let scopes = [ApiScope::ProfileRead, ApiScope::ProfileWrite];
+    let code = approve(&env, user, &request, &scopes).await;
+    issue_tokens(&env, &code_exchange(&env, client, &code))
+        .await
+        .unwrap()
+        .unwrap()
+}
+
+async fn refresh_with(app: &App, client: &str, token: &str) -> Option<TokenProblem> {
+    let env = app.env(None);
+    issue_tokens(&env, &refresh_request(&env, client, token))
+        .await
+        .unwrap()
+        .err()
+}
+
+#[sqlx::test]
+async fn reconnecting_revokes_every_earlier_token_and_keeps_the_connection(db: PgPool) {
+    let app = App::for_tests(db.clone());
+    let env = app.env(None);
+    let user = active_user("again@example.test", &db).await;
+    let (client, first) = connect_test_app(&app, &user, &[ApiScope::ProfileRead]).await;
+    let refreshed = issue_tokens(&env, &refresh_request(&env, &client, &first.refresh_token))
+        .await
+        .unwrap()
+        .unwrap();
+
+    let current = connect_again(&app, &user, &client).await;
+
+    assert!(!app_still_works(&app, &first).await);
+    assert!(!app_still_works(&app, &refreshed).await);
+    for earlier in [&first.refresh_token, &refreshed.refresh_token] {
+        assert_eq!(
+            refresh_with(&app, &client, earlier).await,
+            Some(TokenProblem::InvalidGrant)
+        );
+    }
+    assert_eq!(connections(&db).await, 1);
+    assert!(app_still_works(&app, &current).await);
+    assert_eq!(current.scope, "profile:read profile:write");
+    assert_eq!(
+        refresh_with(&app, &client, &current.refresh_token).await,
+        None
+    );
+}
+
+#[sqlx::test]
+async fn reconnecting_revokes_an_earlier_approvals_unused_code(db: PgPool) {
+    let app = App::for_tests(db.clone());
+    let env = app.env(None);
+    let user = active_user("unused-code@example.test", &db).await;
+    let client = test_client(&db).await;
+    let request = start_request(&env, &client, "profile:read").await;
+    let earlier = approve(&env, &user, &request, &[ApiScope::ProfileRead]).await;
+
+    let current = connect_again(&app, &user, &client).await;
+
+    assert_eq!(
+        issue_tokens(&env, &code_exchange(&env, &client, &earlier))
+            .await
+            .unwrap()
+            .err(),
+        Some(TokenProblem::InvalidGrant)
+    );
+    assert!(app_still_works(&app, &current).await);
+    assert_eq!(connections(&db).await, 1);
+}
+
+async fn block_new_refresh_tokens(db: &PgPool) {
+    sqlx::query!(
+        "ALTER TABLE oauth_tokens ADD CONSTRAINT test_no_new_refresh CHECK (kind <> 'refresh' OR replaced_at IS NOT NULL) NOT VALID"
+    )
+    .execute(db)
+    .await
+    .unwrap();
+}
+
+async fn allow_new_refresh_tokens(db: &PgPool) {
+    sqlx::query!("ALTER TABLE oauth_tokens DROP CONSTRAINT test_no_new_refresh")
+        .execute(db)
+        .await
+        .unwrap();
+}
+
+#[sqlx::test]
+async fn a_code_exchange_that_fails_part_way_changes_nothing(db: PgPool) {
+    let app = App::for_tests(db.clone());
+    let env = app.env(None);
+    let user = active_user("atomic-code@example.test", &db).await;
+    let client = test_client(&db).await;
+    let request = start_request(&env, &client, "profile:read").await;
+    let code = approve(&env, &user, &request, &[ApiScope::ProfileRead]).await;
+
+    block_new_refresh_tokens(&db).await;
+    let failed = issue_tokens(&env, &code_exchange(&env, &client, &code)).await;
+    assert!(failed.is_err());
+    allow_new_refresh_tokens(&db).await;
+
+    let tokens = issue_tokens(&env, &code_exchange(&env, &client, &code))
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(app_still_works(&app, &tokens).await);
+}
+
+#[sqlx::test]
+async fn a_refresh_that_fails_part_way_changes_nothing(db: PgPool) {
+    let app = App::for_tests(db.clone());
+    let env = app.env(None);
+    let user = active_user("atomic-refresh@example.test", &db).await;
+    let (client, tokens) = connect_test_app(&app, &user, &[ApiScope::ProfileRead]).await;
+
+    block_new_refresh_tokens(&db).await;
+    let failed = issue_tokens(&env, &refresh_request(&env, &client, &tokens.refresh_token)).await;
+    assert!(failed.is_err());
+    allow_new_refresh_tokens(&db).await;
+
+    assert!(app_still_works(&app, &tokens).await);
+    assert_eq!(
+        refresh_with(&app, &client, &tokens.refresh_token).await,
+        None
+    );
+    assert_eq!(connections(&db).await, 1);
+}
+
+async fn set_disabled(db: &PgPool, user: &User, disabled: bool) {
+    sqlx::query!(
+        "UPDATE users SET disabled_at = CASE WHEN $2 THEN now() END WHERE id = $1",
+        user.id,
+        disabled,
+    )
+    .execute(db)
+    .await
+    .unwrap();
+}
+
+#[sqlx::test]
+async fn refreshing_while_disabled_is_refused_and_keeps_the_connection(db: PgPool) {
+    let app = App::for_tests(db.clone());
+    let user = active_user("paused-refresh@example.test", &db).await;
+    let (client, tokens) = connect_test_app(&app, &user, &[ApiScope::ProfileRead]).await;
+
+    set_disabled(&db, &user, true).await;
+    assert_eq!(
+        refresh_with(&app, &client, &tokens.refresh_token).await,
+        Some(TokenProblem::InvalidGrant)
+    );
+    assert_eq!(connections(&db).await, 1);
+
+    set_disabled(&db, &user, false).await;
+    assert!(app_still_works(&app, &tokens).await);
+    assert_eq!(
+        refresh_with(&app, &client, &tokens.refresh_token).await,
+        None
+    );
+    assert_eq!(connections(&db).await, 1);
 }

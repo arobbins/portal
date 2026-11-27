@@ -21,6 +21,7 @@ pub struct AppGrant {
 pub struct RefreshRow {
     pub id: i32,
     pub connection_id: i32,
+    pub user_id: i32,
     pub client_id: String,
     pub replaced_at: Option<OffsetDateTime>,
     pub expires_at: OffsetDateTime,
@@ -69,7 +70,7 @@ pub async fn query_get_refresh_token(
 ) -> Result<Option<RefreshRow>, sqlx::Error> {
     sqlx::query_as!(
         RefreshRow,
-        "SELECT t.id, t.connection_id, c.client_id, t.replaced_at, t.expires_at FROM oauth_tokens t JOIN oauth_connections o ON o.id = t.connection_id JOIN oauth_clients c ON c.id = o.client_id WHERE t.token_hash = $1 AND t.kind = 'refresh'",
+        "SELECT t.id, t.connection_id, o.user_id, c.client_id, t.replaced_at, t.expires_at FROM oauth_tokens t JOIN oauth_connections o ON o.id = t.connection_id JOIN oauth_clients c ON c.id = o.client_id WHERE t.token_hash = $1 AND t.kind = 'refresh'",
         token_hash,
     )
     .fetch_optional(db)
@@ -97,6 +98,19 @@ pub async fn query_delete_access_tokens(
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
         "DELETE FROM oauth_tokens WHERE connection_id = $1 AND kind = 'access'",
+        connection_id,
+    )
+    .execute(db)
+    .await?;
+    Ok(())
+}
+
+pub async fn query_delete_connection_tokens(
+    connection_id: i32,
+    db: impl PgExecutor<'_>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "DELETE FROM oauth_tokens WHERE connection_id = $1",
         connection_id,
     )
     .execute(db)

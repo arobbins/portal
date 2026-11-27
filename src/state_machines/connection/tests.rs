@@ -118,7 +118,7 @@ impl Linked {
         let steps: &[ConnectionEvent] = match from {
             S::None => &[],
             S::Connected => &[E::Connect],
-            S::Suspended => &[E::Connect, E::AdminDisables],
+            S::Suspended => &[E::Connect, E::Refresh, E::AdminDisables],
             S::Disconnected => &[E::Connect, E::OwnerDisconnects],
         };
         for &step in steps {
@@ -281,7 +281,7 @@ impl Linked {
     }
 
     async fn broken_rules(
-        &self,
+        &mut self,
         from: ConnectionState,
         event: ConnectionEvent,
         actual: ConnectionState,
@@ -296,6 +296,14 @@ impl Linked {
         if refreshed && self.gets_in(old.as_ref()).await {
             broken.push(REFRESH_REPLACES_THE_ACCESS_TOKEN);
         }
+        let reconnected = event == E::Connect && from == S::Connected;
+        if reconnected && !self.earlier_tokens_are_unknown(old.as_ref()).await {
+            broken.push(RECONNECTING_REVOKES_EARLIER_TOKENS);
+        }
+        let paused = event == E::Refresh && from == S::Suspended;
+        if paused && !same_tokens(self.tokens.as_ref(), old.as_ref()) {
+            broken.push(A_DISABLED_OWNERS_APP_CANT_REFRESH);
+        }
         if event != E::AccountDeleted && !recorded_as_declared(from, event, actual, &before, &after)
         {
             broken.push(CHANGES_ARE_RECORDED);
@@ -304,6 +312,16 @@ impl Linked {
             broken.push(ONLY_HASHES_ARE_STORED);
         }
         broken
+    }
+
+    async fn earlier_tokens_are_unknown(&mut self, old: Option<&Tokens>) -> bool {
+        let Some(old) = old else {
+            return false;
+        };
+        let form = refresh_form(&self.app, &self.client_id, &old.refresh);
+        let response = self.browser.post(TOKEN_PATH, &form).await;
+        let refused = json_of(response).await["error"] == "invalid_grant";
+        refused && !self.gets_in(Some(old)).await && self.public_id().await.is_some()
     }
 
     async fn stored_raw(&self) -> bool {
@@ -320,6 +338,14 @@ impl Linked {
         .await
         .unwrap();
         found > 0
+    }
+}
+
+fn same_tokens(now: Option<&Tokens>, before: Option<&Tokens>) -> bool {
+    match (now, before) {
+        (Some(now), Some(before)) => now.access == before.access && now.refresh == before.refresh,
+        (None, None) => true,
+        _ => false,
     }
 }
 

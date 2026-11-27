@@ -103,6 +103,19 @@ pub async fn query_approve_request(
     Ok(result.rows_affected() == 1)
 }
 
+pub async fn query_delete_approved_requests(
+    connection_id: i32,
+    db: impl PgExecutor<'_>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "DELETE FROM oauth_requests WHERE connection_id = $1 AND status = 'approved'",
+        connection_id
+    )
+    .execute(db)
+    .await?;
+    Ok(())
+}
+
 pub async fn query_delete_pending_request(
     id: i32,
     db: impl PgExecutor<'_>,

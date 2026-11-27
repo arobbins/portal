@@ -4,6 +4,7 @@ use time::{Duration, OffsetDateTime};
 use super::*;
 use crate::env::{App, Clock};
 use crate::oauth::testing::{REDIRECT_URI, authorize_params, start_request, test_client};
+use crate::rate_limit::AUTHORIZATION_STARTS_PER_IP_PER_HOUR;
 
 fn returned_error(started: Started) -> String {
     let Started::ReturnError(url) = started else {
@@ -84,6 +85,36 @@ async fn pkce_s256_and_this_resource_are_required(db: PgPool) {
         "unsupported_response_type"
     );
     assert!(matches!(start(valid).await, Started::Request(_)));
+}
+
+async fn stored_requests(db: &PgPool) -> i64 {
+    sqlx::query_scalar!(r#"SELECT count(*) AS "count!" FROM oauth_requests"#)
+        .fetch_one(db)
+        .await
+        .unwrap()
+}
+
+#[sqlx::test]
+async fn starting_authorization_is_limited_per_ip_and_stores_nothing_over_it(db: PgPool) {
+    let app = App::for_tests(db.clone());
+    let env = app.env(Some("203.0.113.40".parse().unwrap()));
+    let client = test_client(&db).await;
+    let params = authorize_params(&env, &client, "profile:read");
+
+    for _ in 0..AUTHORIZATION_STARTS_PER_IP_PER_HOUR {
+        let started = start_authorization(&env, &params).await.unwrap();
+        assert!(matches!(started, Started::Request(_)));
+    }
+    let before = stored_requests(&db).await;
+    assert_eq!(
+        start_authorization(&env, &params).await.unwrap(),
+        Started::Refused(CantConnect::TooManyRequests)
+    );
+    assert_eq!(stored_requests(&db).await, before);
+    let elsewhere = app.env(Some("203.0.113.41".parse().unwrap()));
+    let started = start_authorization(&elsewhere, &params).await.unwrap();
+    assert!(matches!(started, Started::Request(_)));
+    assert_eq!(AUTHORIZATION_STARTS_PER_IP_PER_HOUR, 30);
 }
 
 #[sqlx::test]

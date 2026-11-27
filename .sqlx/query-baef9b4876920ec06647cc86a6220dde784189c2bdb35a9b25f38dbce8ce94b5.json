@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT t.id, t.connection_id, c.client_id, t.replaced_at, t.expires_at FROM oauth_tokens t JOIN oauth_connections o ON o.id = t.connection_id JOIN oauth_clients c ON c.id = o.client_id WHERE t.token_hash = $1 AND t.kind = 'refresh'",
+  "query": "SELECT t.id, t.connection_id, o.user_id, c.client_id, t.replaced_at, t.expires_at FROM oauth_tokens t JOIN oauth_connections o ON o.id = t.connection_id JOIN oauth_clients c ON c.id = o.client_id WHERE t.token_hash = $1 AND t.kind = 'refresh'",
   "describe": {
     "columns": [
       {
@@ -15,16 +15,21 @@
       },
       {
         "ordinal": 2,
+        "name": "user_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
         "name": "client_id",
         "type_info": "Text"
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "replaced_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "expires_at",
         "type_info": "Timestamptz"
       }
@@ -38,9 +43,10 @@
       false,
       false,
       false,
+      false,
       true,
       false
     ]
   },
-  "hash": "eb2b3653333b13de376c76d79f9e1f3f4ce3801b2032b5b7743fa114afb987ad"
+  "hash": "baef9b4876920ec06647cc86a6220dde784189c2bdb35a9b25f38dbce8ce94b5"
 }

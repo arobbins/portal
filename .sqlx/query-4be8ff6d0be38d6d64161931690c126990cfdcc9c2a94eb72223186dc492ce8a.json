@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM oauth_requests WHERE connection_id = $1 AND status = 'approved'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4be8ff6d0be38d6d64161931690c126990cfdcc9c2a94eb72223186dc492ce8a"
+}

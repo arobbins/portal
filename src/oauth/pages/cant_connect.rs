@@ -9,6 +9,13 @@ use crate::layout::page_heading::page_heading;
 use crate::oauth::authorize::CantConnect;
 
 impl CantConnect {
+    pub fn heading(self) -> &'static str {
+        match self {
+            Self::TooManyRequests => "Too many sign-in requests",
+            _ => "Can't connect this app",
+        }
+    }
+
     pub fn explanation(self) -> &'static str {
         match self {
             Self::UnregisteredRedirect => {
@@ -20,6 +27,14 @@ impl CantConnect {
             Self::Expired => {
                 "This request has expired or was already answered. Go back to the app and connect again."
             }
+            Self::TooManyRequests => "Try again later.",
+        }
+    }
+
+    pub fn status(self) -> StatusCode {
+        match self {
+            Self::TooManyRequests => StatusCode::TOO_MANY_REQUESTS,
+            _ => StatusCode::BAD_REQUEST,
         }
     }
 }
@@ -27,9 +42,9 @@ impl CantConnect {
 #[component]
 pub async fn cant_connect(cx: &Cx, reason: CantConnect) -> Result<impl View> {
     Ok(view! {
-        (StatusCode::BAD_REQUEST)
+        (reason.status())
         <section class="l-contain l-skinny">
-            page_heading(text: "Can't connect this app")
+            page_heading(text: reason.heading())
             <p class="a-lead">(reason.explanation())</p>
         </section>
     })

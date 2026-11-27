@@ -19,7 +19,8 @@ paths:
   the checked address pinned for the fetch, 5 s, 5 KB, no redirects,
   cached an hour in `oauth_clients.fetched_at`). Unapproved clients are
   deleted by cleanup after 24 hours.
-- `/oauth/authorize` validates the client and exact redirect URI first
+- `/oauth/authorize` (30 starts per hour per IP, else the 429 "Too many
+  sign-in requests" page) validates the client and exact redirect URI first
   (else the 400 "Can't connect this app" page, never a redirect), then
   `response_type=code`, PKCE `S256` and `resource` = `app.url("/mcp")`
   (else an error redirect), stores an `oauth_requests` row (`oar_…`) and
@@ -41,7 +42,9 @@ paths:
   `DELETE … RETURNING` before any check; the exchange must repeat the
   stored `redirect_uri`), `wsa_` access tokens (1 hour),
   `wsr_` refresh tokens (30 idle days), all checksummed like `wsk_` and
-  stored only as SHA-256 hashes in `oauth_tokens`. A refresh replaces both;
+  stored only as SHA-256 hashes in `oauth_tokens`. Each exchange or refresh
+  is one transaction. Approving again deletes the connection's tokens and
+  unused codes. A refresh replaces both (refused, unchanged, while the account is disabled);
   a replaced refresh token used again ends the connection
   (`end_connection`, `app_disconnected` with channel `app`). `/oauth/revoke`
   (either token, own client only) ends it too. The token endpoint allows 60
