@@ -11,9 +11,9 @@ paths:
 rebuild or re-bundle under a test run), runs `webserver seed` against
 `<dev DATABASE_URL>_test`, and uses the file mailer (`e2e/.mail`, cleared
 each run), so it never touches the dev server or dev data. A git worktree
-gets its own port and `…_<worktree>_test` database
-(`support/environment.ts`), so parallel agents never collide; override with
-`E2E_PORT` / `TEST_DATABASE_URL`.
+gets its own port, `…_<worktree>_test` database and 25% of the cores (main
+75%; `support/environment.ts`), so parallel agents never collide or overload
+the machine; override with `E2E_PORT` / `TEST_DATABASE_URL` / `E2E_WORKERS`.
 
 Run Playwright plainly (`npx playwright test … --reporter=line`): rtk is
 configured to leave it unfiltered, because its filter once reported

@@ -21,6 +21,11 @@ export function worktreeSlug(): string | null {
     .replace(/^_+|_+$/g, "");
 }
 
+export function localWorkers(): string {
+  if (process.env.E2E_WORKERS) return process.env.E2E_WORKERS;
+  return worktreeSlug() ? "25%" : "75%";
+}
+
 export function e2ePort(): number {
   if (process.env.E2E_PORT) return Number(process.env.E2E_PORT);
   const slug = worktreeSlug();

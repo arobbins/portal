@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { e2ePort, testDatabaseUrl } from "./support/environment";
+import { e2ePort, localWorkers, testDatabaseUrl } from "./support/environment";
 import { MAIL_DIR } from "./support/mail";
 import { approvedScenarios } from "./support/specs";
 import {
@@ -17,7 +17,7 @@ export default defineConfig({
   testDir: ".",
   testMatch: ["tests/**/*.spec.ts", ...approvedScenarios()],
   fullyParallel: true,
-  workers: process.env.CI ? undefined : "75%",
+  workers: process.env.CI ? undefined : localWorkers(),
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: [["list"], ["html", { open: "never" }]],
