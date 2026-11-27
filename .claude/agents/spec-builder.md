@@ -19,6 +19,8 @@ you start with none of the conversation that produced them: the spec is your who
 
 - Read `CLAUDE.md`, `.claude/rules/specs.md` and the spec. Check its frontmatter says
   `status: approved`; if not, stop and say so.
+- Set up the fresh worktree first: `(cd e2e && npm rebuild) && topcoat asset bundle`
+  (its `node_modules` has no `.bin` links, and `cargo test` needs the bundle).
 - The scenarios (`e2e/scenarios/<capability>.spec.ts`) are a holdout: you can't read
   them (a hook blocks it), only run them: `cd e2e && npx playwright test
   scenarios/<capability>.spec.ts --project=chromium --reporter=line`. Build from the

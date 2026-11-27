@@ -157,12 +157,18 @@ All in this window; give the user a one-line milestone as each step finishes.
    amendment (back to `status: draft`, a Changes line), hand over and wait again.
 3. Spawn a fresh `convention-reviewer` to check the branch (`git diff <base>...<branch>`)
    against the spec rule by rule, including the builder's server tests. Meanwhile, run
-   the full `check` (all browsers) in the builder's worktree. Must-fix findings or a red
-   check go back to the builder (`SendMessage`); then review and check again.
+   the full `check` (all browsers) in the builder's worktree with
+   `scripts/check-worktree.sh <worktree>`: it points `DATABASE_URL` at the worktree's own
+   test database (creating and migrating it first), so a new migration needn't touch the
+   dev database before the merge.
+   Must-fix findings or a red check go back to the builder (`SendMessage`); then review
+   and check again.
 4. Merge when everything is green: scenarios and full `check` pass and the review has no
    must-fix. The user authorised this. Merge locally into their current branch with
    `git merge --no-ff <branch> -m "Merge <capability>"` (one merge commit, so
-   `git revert -m 1 <sha>` backs it out), then remove the worktree and branch. If the branch isn't based on the current
+   `git revert -m 1 <sha>` backs it out), then remove the worktree (`git worktree
+   unlock` first if it's locked) and branch, and run `sqlx migrate run` if it added a
+   migration. If the branch isn't based on the current
    HEAD, rerun `check` on the merged result and revert if it's red. Never push.
    Should-fix findings become a follow-up the user decides on; they don't block.
 5. Take screenshots from the main checkout (`cd e2e && npm run screenshot`) and report:
