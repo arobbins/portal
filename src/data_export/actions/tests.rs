@@ -76,6 +76,7 @@ async fn a_confirmed_export_is_recorded_and_emailed(db: PgPool) {
         "returns_to, scopes",
         "billing.csv",
         "renews_on, ends_on, stripe_customer_id",
+        "every date and time is in UTC (ISO 8601, e.g. 2026-11-18T14:03:00Z), except billing.csv's renews_on and ends_on, which are days (e.g. 2026-12-24) in your account's time zone",
     ] {
         assert!(readme.contains(explained), "{explained}");
     }
