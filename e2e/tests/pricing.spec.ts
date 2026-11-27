@@ -55,10 +55,12 @@ test.describe("without JavaScript", () => {
     await expect(proCard(page).getByRole("switch")).toBeHidden();
     const showMonthly = proCard(page).getByRole("link", { name: "Show monthly prices" });
 
-    const opened = context.waitForEvent("page");
-    await showMonthly.click({ modifiers: [modifier] });
-    const tab = await opened;
-    await tab.waitForLoadState();
+    await expect(showMonthly).toBeVisible();
+    const [tab] = await Promise.all([
+      context.waitForEvent("page"),
+      showMonthly.click({ modifiers: [modifier] }),
+    ]);
+    await tab.waitForLoadState("load");
 
     await expect(tab).toHaveURL(/\/pricing\?billing=monthly$/);
     await expect(proPrice(tab)).toHaveText("$12 / month");

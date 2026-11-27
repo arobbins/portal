@@ -1,6 +1,7 @@
 use topcoat::{
     Result,
     context::Cx,
+    runtime::Expr,
     view::{Attributes, View, component, view},
 };
 
@@ -11,7 +12,9 @@ pub async fn toggle(
     id: &str,
     name: &str,
     #[default] description: Option<&str>,
-    #[default] checked: bool,
+    #[into]
+    #[default(false.into())]
+    checked: Expr<bool>,
     #[default] disabled: bool,
     #[default] attrs: Attributes,
 ) -> Result<impl View> {
@@ -29,7 +32,7 @@ pub async fn toggle(
                 role="switch"
                 id=(id)
                 name=(name)
-                checked=(checked)
+                :checked=$(checked)
                 disabled=(disabled)
                 (attrs)
             >

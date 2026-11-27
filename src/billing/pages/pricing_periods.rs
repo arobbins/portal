@@ -154,23 +154,21 @@ async fn billed_yearly_switch(
                 label: BILLED_YEARLY,
                 id: &id,
                 name: BILLING_PARAM,
-                checked: picked == BillingPeriod::Yearly,
+                checked: $(is_yearly.get()),
                 attrs: attributes! {
-                    :checked=$(is_yearly.get())
-                    @change=$(|_e: Event| {
+                    @change=$(|e: Event| {
+                        let on = e.current_target.checked;
                         flipped.set(true);
-                        is_yearly.set(!is_yearly.get());
-                        if is_yearly.get() {
-                            raw!(
-                                "history.replaceState(history.state, '', String(${yearly_href}))",
-                                (),
-                            )
+                        is_yearly.set(on);
+                        let _address = if on {
+                            yearly_href.clone()
                         } else {
-                            raw!(
-                                "history.replaceState(history.state, '', String(${monthly_href}))",
-                                (),
-                            )
-                        }
+                            monthly_href.clone()
+                        };
+                        raw!(
+                            "history.replaceState(history.state, '', String(${_address}))",
+                            (),
+                        )
                     })
                 }
             )

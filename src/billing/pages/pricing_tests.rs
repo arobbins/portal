@@ -40,25 +40,23 @@ fn shows(html: &str, price: &str) -> bool {
 }
 
 fn switch_is_on(html: &str) -> bool {
-    let Some(input) = html
+    let input = html
         .split("<input")
         .find(|input| input.contains("role=\"switch\""))
-    else {
-        return false;
-    };
+        .expect("a switch");
     let mut quoted = false;
-    let mut outside_quotes = String::new();
-    for character in input.chars() {
-        match character {
-            '"' => quoted = !quoted,
-            '>' if !quoted => break,
-            _ if !quoted => outside_quotes.push(character),
-            _ => {}
-        }
-    }
-    outside_quotes
-        .split_whitespace()
-        .any(|attribute| attribute == "checked" || attribute == "checked=")
+    let end = input
+        .char_indices()
+        .find(|(_, character)| {
+            quoted ^= *character == '"';
+            *character == '>' && !quoted
+        })
+        .map(|(index, _)| index)
+        .expect("a closed tag");
+    let tag = &input[..end];
+    let checked = tag.matches(" checked=\"\"").count();
+    assert!(checked <= 1, "one checked attribute: {tag}");
+    checked == 1
 }
 
 #[sqlx::test]
