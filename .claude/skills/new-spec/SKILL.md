@@ -177,7 +177,9 @@ All in this window; give the user a one-line milestone as each step finishes.
    must-fix. The user authorised this. Merge locally into their current branch with
    `git merge --no-ff <branch> -m "Merge <capability>"` (one merge commit, so
    `git revert -m 1 <sha>` backs it out), then remove the worktree (`git worktree
-   unlock` first if it's locked) and branch, and run `sqlx migrate run` if it added a
+   unlock` first if it's locked; if it refuses because of leftover files, look at them
+   first, never `--force` blindly: uncommitted `.sqlx/` files go back to the builder) and
+   branch, and run `sqlx migrate run` if it added a
    migration. If the branch isn't based on the current
    HEAD, rerun `check` on the merged result and revert if it's red. Never push.
    Should-fix findings become a follow-up the user decides on; they don't block.

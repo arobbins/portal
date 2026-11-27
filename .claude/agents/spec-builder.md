@@ -19,8 +19,9 @@ you start with none of the conversation that produced them: the spec is your who
 
 - Read `CLAUDE.md`, `.claude/rules/specs.md` and the spec. Check its frontmatter says
   `status: approved`; if not, stop and say so.
-- Set up the fresh worktree first: `(cd e2e && npm rebuild) && topcoat asset bundle &&
-  CARGO_TARGET_DIR=target/e2e cargo build` (its `node_modules` has no `.bin` links,
+- Set up the fresh worktree first, one command per call (the worktree guard refuses
+  chained commands): `npm rebuild --prefix e2e`, `topcoat asset bundle`,
+  `CARGO_TARGET_DIR=target/e2e cargo build` (its `node_modules` has no `.bin` links,
   `cargo test` needs the bundle, and a cold e2e build outlasts Playwright's
   server timeout).
 - The scenarios (`e2e/scenarios/<capability>.spec.ts`) are a holdout: you can't read
@@ -38,7 +39,8 @@ you start with none of the conversation that produced them: the spec is your who
   file, or the spec is ambiguous or missed something), don't decide it yourself: build
   everything else and report the conflict precisely, with what you'd propose.
 - You run in your own git worktree. When those pass, commit everything in one commit
-  on your worktree's branch (`Build <capability> spec`), and report the branch name. Never
+  on your worktree's branch (`Build <capability> spec`), including new `.sqlx/` files
+  (CI builds offline; `git status` must be clean afterwards), and report the branch name. Never
   commit anywhere else, and never merge.
 
 ## Report
