@@ -52,6 +52,12 @@ Stripe, and lets AI agents discover plans and start a Checkout for their user.
   registering does too once they've followed the emailed link and set a password
   (before the passkey prompt). The choice lasts as long as the registration link is
   valid, and nothing is bought until they pay in Checkout.
+- R20 For a signed-out visitor, the Free plan has a **Choose Free** link (styled like
+  the Choose buttons) to Register (`/register`). It carries no price: registering goes
+  as usual, and once they've followed the emailed link and set a password they see the
+  passkey prompt and then their account (`/account`), with nothing bought and no
+  Checkout. Signed-in accounts never see it (Free shows "Current plan" when it's theirs,
+  and nothing when they're on a paid plan). Works without JavaScript.
 - R6 Returning from Checkout after paying shows the notice "Payment received. Your plan
   will update in a moment." until Stripe confirms; returning after cancelling shows
   "Checkout cancelled. You haven't been charged." Both returns land on the Plan and
@@ -242,8 +248,16 @@ until the user adds a card in the portal (R9); no special handling.
 - S19 Given JavaScript is off, when a visitor opens Pricing and follows "Show monthly
   prices", then the page loads at `/pricing?billing=monthly` with Pro at "$12 / month"
   and a "Show yearly prices" link. (covers R19)
+- S20 Given a signed-out visitor, when they click "Choose Free" on Pricing, register,
+  open the emailed link and set a password, then after the passkey prompt ("Not now")
+  they land on `/account`, still on Free, and Stripe received no Checkout request; a
+  signed-in Free account sees "Current plan" on Free and no "Choose Free"; a Pro account
+  sees neither on Free; with JavaScript off, "Choose Free" still reaches `/register`.
+  (covers R20)
 
 ## Changes
+- 2026-11-27: approved R20.
+- 2026-11-26: Choose Free on the Free plan for signed-out visitors (R20).
 - 2026-11-26: approved the reworked R19.
 - 2026-11-26: R19 reworked like Linear: a synced "Billed yearly" switch in each paid plan, on by default, yearly shown per month; no savings note.
 - 2026-11-26: approved R19.

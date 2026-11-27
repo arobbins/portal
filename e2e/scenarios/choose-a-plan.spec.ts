@@ -1,7 +1,14 @@
 import type { Page } from "@playwright/test";
 import { openAdmin } from "../support/admin";
 import { bearer, createToken, createTokenDialog, type Access } from "../support/api";
-import { ACCOUNT_PASSWORD, createAccount, logOut, setPassword, uniqueEmail } from "../support/flows";
+import {
+  ACCOUNT_PASSWORD,
+  createAccount,
+  logOut,
+  setPassword,
+  skipPasskeyPrompt,
+  uniqueEmail,
+} from "../support/flows";
 import { verificationLink, waitForEmails } from "../support/mail";
 import { stripe, stripeStubUrl, type Delivery } from "../support/stripe";
 import { expect, test } from "../support/test";
@@ -702,5 +709,66 @@ test("S19 without JavaScript Show monthly prices loads the monthly prices", asyn
   await expect(planRow(page, "Pro").filter({ hasText: "$12 / month" }).first()).toBeVisible();
   await expect(main(page).getByText("$10 / month")).toBeHidden();
   await expect(main(page).getByRole("link", { name: "Show yearly prices" }).first()).toBeVisible();
+  await page.context().close();
+});
+
+function chooseFree(page: Page) {
+  return main(page).getByRole("link", { name: "Choose Free" });
+}
+
+test("S20 a visitor who chooses Free registers and lands on their account on Free", async ({
+  page,
+}, testInfo) => {
+  const email = uniqueEmail(testInfo, "Plan-Freebie");
+  await openPricing(page);
+  const freeLink = planRow(page, "Free").getByRole("link", { name: "Choose Free" }).first();
+  await expect(freeLink).toBeVisible();
+
+  await freeLink.click();
+
+  await expect(page).toHaveURL(onPath("/register"));
+  await page.getByLabel("Name").fill("Plan Freebie");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Email").press("Enter");
+  await expect(page.getByText("Check your inbox")).toBeVisible();
+  await page.goto(verificationLink((await waitForEmails(email))[0]));
+  await setPassword(page, ACCOUNT_PASSWORD);
+  await skipPasskeyPrompt(page);
+
+  await openPlan(page);
+  await expectOnFree(page);
+  expect(await checkoutPrices(email)).toEqual([]);
+  expect((await stripe.account(email)).subscription).toBeNull();
+
+  await openPricing(page);
+  await expectCurrentOnPricing(page, "Free");
+  await expect(chooseFree(page)).toHaveCount(0);
+});
+
+test("S20 a Pro account sees neither Current plan nor Choose Free on Free", async ({
+  page,
+}, testInfo) => {
+  await openPricing(page);
+  await expect(chooseFree(page).first()).toBeVisible();
+
+  const email = await createAccount(page, testInfo, "Plan Pro Free");
+  await subscribeToPro(page, email);
+
+  await openPricing(page);
+  await expectCurrentOnPricing(page, "Pro");
+  await expect(planRow(page, "Free").filter({ hasText: CURRENT })).toHaveCount(0);
+  await expect(chooseFree(page)).toHaveCount(0);
+});
+
+test("S20 without JavaScript Choose Free reaches Register", async ({ browser }) => {
+  const page = await (await browser.newContext({ javaScriptEnabled: false })).newPage();
+  await openPricing(page);
+  const freeLink = planRow(page, "Free").getByRole("link", { name: "Choose Free" }).first();
+  await expect(freeLink).toBeVisible();
+
+  await freeLink.click();
+
+  await expect(page).toHaveURL(onPath("/register"));
+  await expect(page.getByLabel("Email")).toBeVisible();
   await page.context().close();
 });
