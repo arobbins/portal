@@ -625,14 +625,27 @@ test("S13 connecting twice keeps one connection with the newer scopes; revoking 
 }, testInfo) => {
   await createAccount(page, testInfo, "Repeat Owner");
   const client = await newClient(request);
-  await connect(page, request, client, "profile:read", testInfo);
-  const latest = await connect(page, request, client, "profile:read billing:read", testInfo);
+  const first = await connect(page, request, client, "profile:read", testInfo);
+  const current = await connect(page, request, client, "profile:read billing:read", testInfo);
 
   await openConnectedApps(page);
   const card = connectedApps(page);
   await expect(card).toContainText(client.name);
   await expect(card.getByRole("button", { name: "Disconnect app" })).toHaveCount(1);
   await expect(card).toContainText("Read your billing");
+
+  await expectTokenDead(request, first.access_token);
+  await expectRefreshRefused(request, client, first.refresh_token, testInfo);
+
+  await expectToolWorks(await callTool(request, current.access_token, "get_profile"));
+  const latest = await expectTokens(
+    await refreshTokens(request, {
+      clientId: client.clientId,
+      refreshToken: current.refresh_token,
+      resource: mcpUrl(testInfo),
+    }),
+  );
+  await expectToolWorks(await callTool(request, latest.access_token, "get_profile"));
 
   const revoked = await revokeToken(request, {
     clientId: client.clientId,

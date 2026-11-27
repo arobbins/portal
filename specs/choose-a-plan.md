@@ -130,6 +130,7 @@ Stripe, and lets AI agents discover plans and start a Checkout for their user.
   subscription cancelled and refunded". A refund Stripe reports as already made counts as
   done; when there's nothing paid to refund yet, it's cancelled without a refund and a
   warning is logged for the server (server-tested, except the log line).
+- R21 The data export includes the account's plan (see export-my-data R3).
 - R18 Changing the account's email updates the Stripe customer's email (server-tested).
 
 ## Placement
@@ -169,7 +170,7 @@ Stripe, and lets AI agents discover plans and start a Checkout for their user.
 ## Not in this version
 Buying without an account; teams or seats paying; trials; coupons; usage-based prices;
 app-sent billing emails (Stripe sends receipts and failed-payment emails); prorated
-refunds and refunds other than R17; feature gating by plan; billing in the data export; plan switching
+refunds and refunds other than R17; feature gating by plan; plan switching
 inside the app; tax settings (configured in Stripe); Stripe's agent payment tools
 (Shared Payment Tokens, the Agentic Commerce Suite catalog, the Universal Commerce
 Protocol), which don't yet support Stripe subscriptions or are in preview. Agent wallets
@@ -256,6 +257,8 @@ until the user adds a card in the portal (R9); no special handling.
   (covers R20)
 
 ## Changes
+- 2026-11-27: approved R21.
+- 2026-11-27: billing is in the data export (R21).
 - 2026-11-27: approved the yearly amount display.
 - 2026-11-27: with Billed yearly on, prices show the yearly amount ("$120 / year"), not per month.
 - 2026-11-27: approved R20.

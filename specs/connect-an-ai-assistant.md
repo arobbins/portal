@@ -60,14 +60,18 @@ on. They can see and disconnect connected assistants at any time.
   expired (10 minutes after they last acted on it, or the client's own timeout).
 - R9 Approval issues an access token valid for 1 hour and a refresh token. Each refresh
   replaces both; a refresh token lapses after 30 days unused. Reusing an already-replaced
-  refresh token disconnects the app (both tokens stop working). Tokens are stored hashed,
+  refresh token disconnects the app (both tokens stop working). A code exchange or
+  refresh either issues both new tokens or changes nothing (server-tested). While the
+  account is disabled, refreshing gets `invalid_grant` and the connection stays, so it
+  works again once the account is enabled (server-tested). Tokens are stored hashed,
   never shown on any page, and work only on `/mcp` (never `/api/v1`) with the granted
   scopes (server-tested for expiry).
 - R10 The Developer tab has a **Connected apps** card (`#connected-apps`) listing each
   connection: name, return host, granted scopes (labels), connected date and last used;
   with none, "No apps connected." Each row's **Disconnect app** opens a modal "Disconnect
   app" whose **Disconnect app** button ends it at once. `/oauth/revoke` (200, with either the access or the refresh token) ends it too. Connecting the same client again updates that connection's
-  scopes rather than adding a second. At most 50 connections per account.
+  scopes rather than adding a second, and revokes every token from earlier approvals (using one then is like an unknown
+  token: refused, and the current connection carries on). At most 50 connections per account.
 - R11 Recent activity records "Connected Claude (claude.ai)" and "Disconnected Claude
   (claude.ai)"; actions a connected app takes are recorded as today, naming the app
   ("by Claude (claude.ai)") where a token's name would appear (server-tested).
@@ -91,7 +95,9 @@ on. They can see and disconnect connected assistants at any time.
   the person judges by. Redirects go only to exactly registered URIs.
 - PKCE S256 required; codes single use, 10 minutes; tokens audience-bound to `/mcp`
   through `resource`; refresh tokens rotate with reuse detection (R9).
-- Limits: registration 20 per hour per IP; the token endpoint 60 per minute per client;
+- Limits: starting authorization (`/oauth/authorize`) 30 per hour per IP, over which
+  a 429 page headed "Too many sign-in requests" says "Try again later." and nothing is
+  stored; registration 20 per hour per IP; the token endpoint 60 per minute per client;
   approvals share the failed-sign-in limits; 50 connections per account; codes,
   expiry, Client ID Metadata fetching and caching/framing headers (server-tested; the e2e server relaxes rate limits).
 - Connected apps can never change security settings (password, passkeys, two-factor,
@@ -149,10 +155,14 @@ approvals; social sign-in; device-code flow for assistants without a browser.
   error page is shown and no redirect happens; when it exchanges a code with the wrong
   PKCE verifier or a used code, then it gets `invalid_grant`. (covers R4)
 - S13 Given the same client connects twice, then Connected apps lists one connection
-  with the newer scopes; when the client calls `/oauth/revoke` with its refresh token,
+  with the newer scopes, the first approval's access token gets 401 and its refresh
+  token `invalid_grant`, and the current tokens still work;
+  when the client calls `/oauth/revoke` with its refresh token,
   then that connection ends. (covers R10)
 
 ## Changes
+- 2026-11-27: approved the token and rate-limit changes.
+- 2026-11-27: reconnecting revokes earlier tokens; refresh refused while disabled; token issue atomic; `/oauth/authorize` limited to 30 per hour per IP.
 - 2026-11-26: approved.
 - 2026-11-26: drafted; wording, field names, error pages and scenarios filled in after
   the scenario writer's report.

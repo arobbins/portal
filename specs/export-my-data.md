@@ -30,6 +30,13 @@ before they delete their account, so nobody deletes without the chance to keep a
   - `notifications.csv`: each optional email and whether it is on.
   - `two_factor.csv`: whether two-factor is on and since when.
   - `api_feedback.csv`: feedback the user sent through the API.
+  - `connected_apps.csv` (`name`, `returns_to`, `scopes`, `connected_at`,
+    `last_used_at`): each app connected by approving it; `returns_to` is the bare host
+    (`claude.ai`, `127.0.0.1`), `scopes` the raw scope names separated by spaces.
+  - `billing.csv` (`plan`, `status`, `renews_on`, `ends_on`, `stripe_customer_id`):
+    one row; plan `free`, `pro`, …; status `free`, `active`, `cancelling`, `past_due`;
+    empty cells when there's no value. No card, payment or invoice details: those stay
+    in Stripe. A paid account's values are server-tested.
 - R4. A file is always present, with its header row, even when the user has no rows
   of that kind.
 - R5. CSVs are UTF-8 with a header row. Every date and time is UTC in ISO 8601
@@ -117,6 +124,9 @@ before they delete their account, so nobody deletes without the chance to keep a
   (covers R11)
 - S7. Given JavaScript is off, when the user exports with their password, then the
   ZIP downloads. (covers R12)
+- S9. Given a user with a connected app, when they export, then `connected_apps.csv`
+  holds the app's name, return host and scopes, and `billing.csv` holds `free` as the
+  plan and status. (covers R3, R4)
 - S8. Given a user whose name is `=1+1` and who has an API token named `@SUM(1,2)`,
   when they export, then `profile.csv` holds `'=1+1`, `api_tokens.csv` holds
   `'@SUM(1,2)`, and `README.txt` explains the leading apostrophe. (covers R13)
@@ -125,6 +135,8 @@ before they delete their account, so nobody deletes without the chance to keep a
 
 ## Changes
 
+- 2026-11-27: approved connected apps and billing in the export.
+- 2026-11-27: connected apps and billing added to the export (R3).
 - 2026-11-18: drafted.
 - 2026-11-18: approved and built.
 - 2026-11-18: R13 added: CSV cells never run as spreadsheet formulas (found by

@@ -1,5 +1,7 @@
 import type { Download, Page } from "@playwright/test";
 import { createToken } from "../support/api";
+import { connectApp } from "../support/connected-apps";
+import { parseCsv } from "../support/csv";
 import { ACCOUNT_PASSWORD, createAccount } from "../support/flows";
 import { emailsAbout, waitForEmailAbout } from "../support/mail";
 import {
@@ -20,6 +22,8 @@ const EXPORT_FILES = [
   "notifications.csv",
   "two_factor.csv",
   "api_feedback.csv",
+  "connected_apps.csv",
+  "billing.csv",
 ];
 const DOWNLOADED_EMAIL = "Your account data was downloaded";
 const EXPORTED_ACTIVITY = "Account data exported";
@@ -157,6 +161,36 @@ test("S7 exporting works without JavaScript", async ({ browser }, testInfo) => {
 
   expect([...files.keys()].sort()).toEqual([...EXPORT_FILES].sort());
   await page.context().close();
+});
+
+test("S9 connected apps and billing are in the export", async ({ page, request }, testInfo) => {
+  await createAccount(page, testInfo, "App Keeper");
+  const app = await connectApp(page, request, { scope: "profile:read" });
+
+  await openExport(page);
+  const files = await filesIn(await exportWithPassword(page));
+
+  const connectedFile = files.get("connected_apps.csv");
+  expect(connectedFile, "connected_apps.csv is in the export").toBeDefined();
+  const connected = parseCsv(connectedFile!);
+  expect(connected.header).toEqual(
+    expect.arrayContaining(["name", "returns_to", "scopes", "connected_at", "last_used_at"]),
+  );
+  expect(connected.rows, "one connected app").toHaveLength(1);
+  expect.soft(connected.rows[0].name).toBe(app.name);
+  expect.soft(connected.rows[0].returns_to).toBe("127.0.0.1");
+  expect.soft(connected.rows[0].scopes).toBe("profile:read");
+
+  const billingFile = files.get("billing.csv");
+  expect(billingFile, "billing.csv is in the export").toBeDefined();
+  const billing = parseCsv(billingFile!);
+  expect(billing.header).toEqual(
+    expect.arrayContaining(["plan", "status", "renews_on", "ends_on", "stripe_customer_id"]),
+  );
+  expect(billing.rows, "billing.csv has one row").toHaveLength(1);
+  expect.soft(billing.rows[0].plan).toBe("free");
+  expect.soft(billing.rows[0].status).toBe("free");
+  expect.soft(billing.rows[0].stripe_customer_id).toBe("");
 });
 
 test("S8 no exported cell runs as a spreadsheet formula", async ({ page }, testInfo) => {
