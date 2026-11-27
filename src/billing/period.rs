@@ -1,7 +1,5 @@
 pub const BILLING_PARAM: &str = "billing";
 
-const MONTHS_IN_A_YEAR: i64 = 12;
-
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum BillingPeriod {
     Monthly,
@@ -38,10 +36,6 @@ impl BillingPeriod {
             Self::Monthly => Some(format!("{BILLING_PARAM}={}", self.as_str())),
         }
     }
-}
-
-pub fn yearly_per_month(yearly: i64) -> i64 {
-    (yearly + MONTHS_IN_A_YEAR / 2) / MONTHS_IN_A_YEAR
 }
 
 #[cfg(test)]
@@ -90,15 +84,5 @@ mod tests {
             BillingPeriod::Monthly.query().as_deref(),
             Some("billing=monthly")
         );
-    }
-
-    #[test]
-    fn a_yearly_price_per_month_rounds_half_up_to_the_cent() {
-        assert_eq!(yearly_per_month(12000), 1000);
-        assert_eq!(yearly_per_month(10000), 833);
-        assert_eq!(yearly_per_month(5000), 417);
-        assert_eq!(yearly_per_month(6), 1);
-        assert_eq!(yearly_per_month(5), 0);
-        assert_eq!(yearly_per_month(0), 0);
     }
 }

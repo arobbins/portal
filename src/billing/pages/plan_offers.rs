@@ -1,6 +1,5 @@
 use crate::billing::actions::PlanPrice;
-use crate::billing::catalog::money;
-use crate::billing::period::{BillingPeriod, yearly_per_month};
+use crate::billing::period::BillingPeriod;
 
 pub struct PlanOffer {
     first: PlanPrice,
@@ -39,13 +38,6 @@ impl PlanOffer {
             .iter()
             .find(|price| price.period == Some(period))
     }
-}
-
-pub fn per_month_label(yearly: &PlanPrice) -> String {
-    format!(
-        "{} / month",
-        money(yearly_per_month(yearly.amount), &yearly.currency)
-    )
 }
 
 pub fn plan_offers(prices: &[PlanPrice]) -> Vec<PlanOffer> {
@@ -145,21 +137,5 @@ mod tests {
         let offers = plan_offers(&prices);
 
         assert_eq!(ids(offers[0].prices()), vec!["price_team_quarterly"]);
-    }
-
-    #[test]
-    fn a_yearly_price_is_labelled_per_month_to_the_cent() {
-        assert_eq!(
-            per_month_label(&price("pro", "a", 12000, "year", 1)),
-            "$10 / month"
-        );
-        assert_eq!(
-            per_month_label(&price("pro", "b", 10000, "year", 1)),
-            "$8.33 / month"
-        );
-        assert_eq!(
-            per_month_label(&price("pro", "c", 5000, "year", 1)),
-            "$4.17 / month"
-        );
     }
 }

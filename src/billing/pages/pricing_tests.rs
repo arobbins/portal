@@ -31,6 +31,7 @@ async fn with_yearly_pro() -> FakeStripe {
         price("price_business_monthly", 4900, "Business", "business"),
         price_every("price_pro_yearly", 10000, "Pro", "pro", "year"),
         price_every("price_max_yearly", 50000, "Max", "max", "year"),
+        price_every("price_lite_yearly", 9999, "Lite", "lite", "year"),
     ]));
     stripe
 }
@@ -74,7 +75,7 @@ async fn without_a_plan_on_both_periods_pricing_has_no_switch(db: PgPool) {
 }
 
 #[sqlx::test]
-async fn pricing_opens_on_yearly_per_month_for_any_value_but_monthly(db: PgPool) {
+async fn pricing_opens_on_yearly_amounts_for_any_value_but_monthly(db: PgPool) {
     let stripe = with_yearly_pro().await;
     for path in [
         "/pricing",
@@ -85,8 +86,9 @@ async fn pricing_opens_on_yearly_per_month_for_any_value_but_monthly(db: PgPool)
 
         assert_eq!(html.matches("role=\"switch\"").count(), 1, "{path}");
         assert!(switch_is_on(&html), "{path}");
-        assert!(shows(&html, "$8.33 / month"), "{path}");
+        assert!(shows(&html, "$100 / year"), "{path}");
         assert!(!shows(&html, "$12 / month"), "{path}");
+        assert!(!html.contains("$8.33"), "{path}");
         assert!(html.contains("value=\"price_pro_yearly\""), "{path}");
         assert!(!html.contains("value=\"price_pro_monthly\""), "{path}");
         assert!(
@@ -104,7 +106,7 @@ async fn monthly_pricing_shows_monthly_prices_and_links_back_to_yearly(db: PgPoo
 
     assert!(!switch_is_on(&html));
     assert!(shows(&html, "$12 / month"));
-    assert!(!shows(&html, "$8.33 / month"));
+    assert!(!shows(&html, "$100 / year"));
     assert!(html.contains("value=\"price_pro_monthly\""));
     assert!(!html.contains("value=\"price_pro_yearly\""));
     assert!(html.contains("href=\"/pricing\">Show yearly prices"));
@@ -117,9 +119,13 @@ async fn single_period_plans_show_their_one_price_without_a_switch(db: PgPool) {
         let html = pricing_html(db.clone(), &stripe, path).await;
 
         assert!(html.contains("$49 / month"), "{path}");
-        assert!(html.contains("$41.67 / month"), "{path}");
+        assert!(html.contains(">$500 / year</p>"), "{path}");
+        assert!(html.contains(">$99.99 / year</p>"), "{path}");
+        assert!(!html.contains("$41.67"), "{path}");
         assert!(html.contains("value=\"price_max_yearly\""), "{path}");
-        assert!(html.contains(">Billed yearly</p>"), "{path}");
+        assert!(html.contains("value=\"price_lite_yearly\""), "{path}");
+        assert!(!html.contains(">Billed yearly</p>"), "{path}");
+        assert_eq!(html.matches("role=\"switch\"").count(), 1, "{path}");
     }
 }
 
@@ -128,7 +134,13 @@ async fn the_json_ld_keeps_every_price_at_its_real_amount(db: PgPool) {
     let stripe = with_yearly_pro().await;
     let html = pricing_html(db, &stripe, "/pricing").await;
 
-    for amount in ["\"12.00\"", "\"100.00\"", "\"49.00\"", "\"500.00\""] {
+    for amount in [
+        "\"12.00\"",
+        "\"100.00\"",
+        "\"49.00\"",
+        "\"500.00\"",
+        "\"99.99\"",
+    ] {
         assert!(html.contains(amount), "{amount}");
     }
 }
