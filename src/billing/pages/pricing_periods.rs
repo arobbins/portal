@@ -7,7 +7,7 @@ use topcoat::{
 };
 
 use super::plan_actions::choose_button;
-use super::plan_offers::{OfferPrices, PlanOffer, per_month_label};
+use super::plan_offers::{OfferPrices, PlanOffer};
 use super::pricing_page::pricing_page;
 use crate::billing::actions::{Billing, BillingStatus, PlanPrice};
 use crate::billing::period::{BILLING_PARAM, BillingPeriod};
@@ -52,8 +52,7 @@ pub async fn offer_prices(
             monthly,
             yearly: price,
         } => (Some((monthly, price)), None),
-        OfferPrices::YearlyOnly(price) => (None, Some((per_month_label(price), true, price))),
-        OfferPrices::Single(price) => (None, Some((price.label.clone(), false, price))),
+        OfferPrices::YearlyOnly(price) | OfferPrices::Single(price) => (None, Some(price)),
     };
 
     Ok(view! {
@@ -68,11 +67,8 @@ pub async fn offer_prices(
                     choose: can_choose.then_some(signed_in)
                 )
             }
-            if let Some((label, billed_yearly, price)) = single {
-                <p class=(PRICE_CLASS)>(label.as_str())</p>
-                if billed_yearly {
-                    <p class="p-pricing__billed">(BILLED_YEARLY)</p>
-                }
+            if let Some(price) = single {
+                <p class=(PRICE_CLASS)>(price.label.as_str())</p>
                 if can_choose {
                     choose_button(
                         plan_name: plan_name,
@@ -95,7 +91,7 @@ async fn switched_prices(
     flipped: &Signal<bool>,
     choose: Option<bool>,
 ) -> Result<impl View> {
-    let per_month = per_month_label(yearly);
+    let yearly_label = yearly.label.clone();
     let monthly_label = monthly.label.clone();
     let yearly_price = yearly.price.clone();
     let monthly_price = monthly.price.clone();
@@ -109,7 +105,7 @@ async fn switched_prices(
                 TO_MONTHLY_CLASS
             })
         >
-            $(if is_yearly.get() { per_month.clone() } else { monthly_label.clone() })
+            $(if is_yearly.get() { yearly_label.clone() } else { monthly_label.clone() })
         </p>
         billed_yearly_switch(
             plan: &yearly.plan,

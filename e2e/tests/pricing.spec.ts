@@ -9,14 +9,14 @@ function proCard(page: Page) {
 }
 
 function proPrice(page: Page) {
-  return proCard(page).getByText(/^\$[\d.]+ \/ month$/);
+  return proCard(page).getByText(/^\$[\d.]+ \/ (month|year)$/);
 }
 
 test("any billing value but monthly opens Pricing with Billed yearly on", async ({ page }) => {
   await page.goto("/pricing?billing=weekly");
 
   await expect(proCard(page).getByRole("switch", { name: "Billed yearly" })).toBeChecked();
-  await expect(proPrice(page)).toHaveText("$10 / month");
+  await expect(proPrice(page)).toHaveText("$120 / year");
 });
 
 test("turning Billed yearly back on returns the address to /pricing", async ({ page }) => {
@@ -28,7 +28,7 @@ test("turning Billed yearly back on returns the address to /pricing", async ({ p
   await billedYearly.click();
 
   await expect(billedYearly).toBeChecked();
-  await expect(proPrice(page)).toHaveText("$10 / month");
+  await expect(proPrice(page)).toHaveText("$120 / year");
   await expect(page).toHaveURL(/\/pricing$/);
 });
 
@@ -43,7 +43,7 @@ test("the price animates when it changes, but not for reduced motion", async ({ 
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await billedYearly.click();
-  await expect(proPrice(page)).toHaveText("$10 / month");
+  await expect(proPrice(page)).toHaveText("$120 / year");
   await expect(proPrice(page)).toHaveCSS("animation-name", "none");
 });
 
@@ -66,6 +66,6 @@ test.describe("without JavaScript", () => {
     await expect(proPrice(tab)).toHaveText("$12 / month");
     await expect(proCard(tab).getByRole("link", { name: "Show yearly prices" })).toBeVisible();
     await expect(page).toHaveURL(/\/pricing$/);
-    await expect(proPrice(page)).toHaveText("$10 / month");
+    await expect(proPrice(page)).toHaveText("$120 / year");
   });
 });
