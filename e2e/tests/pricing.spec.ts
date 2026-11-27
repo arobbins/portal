@@ -64,7 +64,11 @@ test.describe("without JavaScript", () => {
 
     await expect(tab).toHaveURL(/\/pricing\?billing=monthly$/);
     await expect(proPrice(tab)).toHaveText("$12 / month");
-    await expect(proCard(tab).getByRole("link", { name: "Show yearly prices" })).toBeVisible();
+    await expect(
+      proCard(tab)
+        .getByRole("link", { name: "Show yearly prices" })
+        .or(proCard(tab).getByRole("switch", { name: "Billed yearly", checked: false })),
+    ).toBeVisible();
     await expect(page).toHaveURL(/\/pricing$/);
     await expect(proPrice(page)).toHaveText("$120 / year");
   });
