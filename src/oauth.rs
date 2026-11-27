@@ -2,6 +2,7 @@ pub mod actions;
 pub mod authorize;
 pub mod client;
 pub mod emails;
+pub mod export;
 pub mod grant;
 pub mod lifecycle;
 mod metadata_document;

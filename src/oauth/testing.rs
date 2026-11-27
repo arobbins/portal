@@ -17,10 +17,14 @@ pub const REDIRECT_URI: &str = "https://claude.ai/api/mcp/auth_callback";
 pub const VERIFIER: &str = "a-test-code-verifier-that-is-long-enough-for-pkce-0123";
 
 pub async fn test_client(db: &PgPool) -> String {
+    named_client("Claude", db).await
+}
+
+pub async fn named_client(name: &str, db: &PgPool) -> String {
     let client_id = PublicIdKind::OAuthClient.generate();
     let client = NewClient {
         client_id: &client_id,
-        name: "Claude",
+        name,
         redirect_uris: &[REDIRECT_URI.to_string()],
         fetched_at: None,
     };
@@ -100,8 +104,17 @@ pub async fn connect_test_app(
     user: &Arc<User>,
     scopes: &[ApiScope],
 ) -> (String, TokenResponse) {
+    connect_named_app(app, user, "Claude", scopes).await
+}
+
+pub async fn connect_named_app(
+    app: &App,
+    user: &Arc<User>,
+    name: &str,
+    scopes: &[ApiScope],
+) -> (String, TokenResponse) {
     let env = app.env(None);
-    let client_id = test_client(&app.db).await;
+    let client_id = named_client(name, &app.db).await;
     let scope: Vec<&str> = scopes.iter().map(|scope| scope.as_str()).collect();
     let request = start_request(&env, &client_id, &scope.join(" ")).await;
     let code = approve(&env, user, &request, scopes).await;

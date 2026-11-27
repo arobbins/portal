@@ -27,6 +27,15 @@ pub enum BillingStatus {
 }
 
 impl BillingStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Free => "free",
+            Self::Active => SubscriptionStatus::Active.as_str(),
+            Self::Cancelling => SubscriptionStatus::Cancelling.as_str(),
+            Self::PastDue => SubscriptionStatus::PastDue.as_str(),
+        }
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Self::Free => "Free",
@@ -72,7 +81,7 @@ pub async fn get_billing(env: &Env<'_>, caller: &Caller) -> ActionResult<Billing
     Ok(Ok(billing))
 }
 
-fn billing_of(current: Option<&Subscription>, zone: &Zone) -> Billing {
+pub(in crate::billing) fn billing_of(current: Option<&Subscription>, zone: &Zone) -> Billing {
     let Some(subscription) = current else {
         return Billing {
             plan: FREE_PLAN_KEY.to_string(),

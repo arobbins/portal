@@ -37,6 +37,8 @@ paths:
   (`flipped` adds the price animation class only after a flip), and one
   Choose button whose hidden price input is `:value`-bound. Without JS a
   `<noscript>` link replaces the switch (`:has()` hides the toggle).
+- `export.rs` gives the data export `billing.csv` from `billing_of` (the
+  API's plan, status and dates) plus the customer id; nothing from Stripe.
 - Only a token's or a connected app's Checkout records an event (`checkout_started`).
 - Stripe calls never run inside a transaction. Deleting an account
   enqueues `CancelStripeSubscription` in the deletion's transaction; an
