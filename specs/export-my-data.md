@@ -40,7 +40,9 @@ before they delete their account, so nobody deletes without the chance to keep a
 - R4. A file is always present, with its header row, even when the user has no rows
   of that kind.
 - R5. CSVs are UTF-8 with a header row. Every date and time is UTC in ISO 8601
-  (`2026-11-18T14:03:00Z`); the README says so.
+  (`2026-11-18T14:03:00Z`), except `billing.csv`'s `renews_on` and `ends_on`, which are
+  days (`2026-12-24`) in the account's time zone, as on the Plan and payment page; the
+  README says so.
 - R6. The export never contains a secret: no password hash, API token or token hash,
   two-factor secret, recovery codes, passkey key material, emailed-link tokens or
   remembered-browser hashes.
@@ -135,6 +137,7 @@ before they delete their account, so nobody deletes without the chance to keep a
 
 ## Changes
 
+- 2026-11-27: R5 names the billing days' time zone (wording; as approved for the API).
 - 2026-11-27: approved connected apps and billing in the export.
 - 2026-11-27: connected apps and billing added to the export (R3).
 - 2026-11-18: drafted.

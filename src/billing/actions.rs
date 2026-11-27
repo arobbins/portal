@@ -7,6 +7,7 @@ mod sync;
 mod webhook;
 
 pub use checkout::{CheckoutLink, CheckoutProblem, PRICE_FIELD, StartCheckout, start_checkout};
+pub(in crate::billing) use overview::billing_of;
 pub use overview::{AdminBilling, Billing, BillingStatus, admin_billing, get_billing};
 pub use plans::{PlanList, PlanPrice, PlansProblem, list_plans};
 pub use portal::{BillingPage, OpenPortal, PortalProblem, open_billing_portal};

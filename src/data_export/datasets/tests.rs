@@ -50,3 +50,19 @@ async fn every_dataset_has_a_header_and_rows_as_wide_as_it(db: PgPool) {
         }
     }
 }
+
+#[sqlx::test]
+async fn no_table_is_both_exported_and_left_out(db: PgPool) {
+    let user = active_user("overlap@example.test", &db).await;
+    let app = App::for_tests(db.clone());
+    let exported: BTreeSet<&str> = collect(&app.env(None), &user)
+        .await
+        .unwrap()
+        .iter()
+        .flat_map(|dataset| dataset.tables.iter().copied())
+        .collect();
+
+    for left_out in LEFT_OUT {
+        assert!(!exported.contains(left_out.table), "{}", left_out.table);
+    }
+}

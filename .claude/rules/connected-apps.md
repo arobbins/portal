@@ -58,8 +58,9 @@ paths:
   `detail.app`, shown as "By Claude (claude.ai)".
 - A password reset, Sign out other devices and an admin's sign out
   everywhere delete every connection; a password change keeps them;
-  deleting the account cascades. `oauth_connections` and `oauth_requests`
-  are in the data export's `LEFT_OUT` until `export-my-data` adds a file.
+  deleting the account cascades. `oauth/export.rs` exports
+  `oauth_connections` as `connected_apps.csv` (no tokens); `oauth_requests`
+  stays in the data export's `LEFT_OUT`.
 - Tests: `oauth/*/tests.rs` (helpers in `oauth/testing.rs`),
   `server/oauth_tests.rs` (headers, metadata, anonymous MCP); e2e helpers
   `e2e/support/oauth.ts` and `loopback.ts`.

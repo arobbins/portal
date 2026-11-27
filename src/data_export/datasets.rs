@@ -1,8 +1,10 @@
 use crate::activity::export::activity_export;
 use crate::api_tokens::export::api_tokens_export;
+use crate::billing::export::billing_export;
 use crate::devices::export::devices_export;
 use crate::env::Env;
 use crate::feedback::export::api_feedback_export;
+use crate::oauth::export::connected_apps_export;
 use crate::passkeys::export::passkeys_export;
 use crate::preferences::export::notifications_export;
 use crate::profile::export::profile_export;
@@ -30,24 +32,12 @@ pub const LEFT_OUT: &[LeftOut] = &[
         why: "Two-factor recovery codes. They're secrets; we only keep a fingerprint of each.",
     },
     LeftOut {
-        table: "billing_customers",
-        why: "Your Stripe customer id. Your billing details, invoices and receipts are kept by Stripe: open Manage billing to see or download them.",
-    },
-    LeftOut {
-        table: "subscriptions",
-        why: "Your plan and its renewal date, as Stripe last told us. Stripe's billing portal (Manage billing) has the full record.",
-    },
-    LeftOut {
         table: "checkout_requests",
         why: "Links to Stripe Checkout pages started for your account, kept for a day so a repeated request gets the same link.",
     },
     LeftOut {
         table: "oauth_requests",
         why: "Requests from apps waiting for you to approve them. They expire within minutes.",
-    },
-    LeftOut {
-        table: "oauth_connections",
-        why: "Apps you connected by signing in, with what each may do. The Connected apps card on the Developer tab lists them; their tokens are secrets and are never stored.",
     },
     LeftOut {
         table: "duplicate_subscriptions",
@@ -65,6 +55,8 @@ pub async fn collect(env: &Env<'_>, user: &User) -> Result<Vec<Dataset>, sqlx::E
         notifications_export(env, user).await?,
         two_factor_export(env, user).await?,
         api_feedback_export(env, user).await?,
+        connected_apps_export(env, user).await?,
+        billing_export(env, user).await?,
     ])
 }
 

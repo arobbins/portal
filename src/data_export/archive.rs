@@ -73,7 +73,7 @@ fn is_plain_number(cell: &str) -> bool {
 
 fn readme(datasets: &[Dataset]) -> String {
     let mut text = format!(
-        "Your {SITE_NAME} data\n\nEach .csv file below opens in any spreadsheet app. They are UTF-8 with a header row, and every date and time is in UTC (ISO 8601, e.g. 2026-11-18T14:03:00Z). A value that starts with =, +, -, @, a tab or a carriage return has an apostrophe (') in front, so spreadsheets show it as text instead of running it as a formula; remove that apostrophe to get the original value.\n"
+        "Your {SITE_NAME} data\n\nEach .csv file below opens in any spreadsheet app. They are UTF-8 with a header row, and every date and time is in UTC (ISO 8601, e.g. 2026-11-18T14:03:00Z), except billing.csv's renews_on and ends_on, which are days (e.g. 2026-12-24) in your account's time zone. A value that starts with =, +, -, @, a tab or a carriage return has an apostrophe (') in front, so spreadsheets show it as text instead of running it as a formula; remove that apostrophe to get the original value.\n"
     );
     for dataset in datasets {
         text.push_str(&format!(

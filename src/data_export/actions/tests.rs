@@ -8,6 +8,7 @@ use crate::api::scope::ApiScope;
 use crate::api_tokens::testing::issue_token;
 use crate::auth::password::CurrentPasswordProblem;
 use crate::env::{App, Clock};
+use crate::oauth::testing::{connect_named_app, connect_test_app};
 use crate::rate_limit::EXPORTS_PER_ACCOUNT_PER_HOUR;
 use crate::user::testing::{TEST_PASSWORD, active_user};
 
@@ -58,13 +59,27 @@ async fn a_confirmed_export_is_recorded_and_emailed(db: PgPool) {
         .unwrap();
 
     let files = files_in(&export.zip);
-    assert_eq!(files.len(), 9);
+    assert_eq!(files.len(), 11);
     let profile = &files
         .iter()
         .find(|(name, _)| name == "profile.csv")
         .unwrap()
         .1;
     assert!(profile.contains("keeper@example.test"));
+    let readme = &files
+        .iter()
+        .find(|(name, _)| name == "README.txt")
+        .unwrap()
+        .1;
+    for explained in [
+        "connected_apps.csv",
+        "returns_to, scopes",
+        "billing.csv",
+        "renews_on, ends_on, stripe_customer_id",
+        "every date and time is in UTC (ISO 8601, e.g. 2026-11-18T14:03:00Z), except billing.csv's renews_on and ends_on, which are days (e.g. 2026-12-24) in your account's time zone",
+    ] {
+        assert!(readme.contains(explained), "{explained}");
+    }
     assert!(
         files
             .iter()
@@ -157,6 +172,12 @@ async fn no_secret_ever_reaches_the_export(db: PgPool) {
     .await
     .unwrap();
     let app = App::for_tests(db.clone());
+    let (_, app_tokens) = connect_test_app(&app, &user, &[ApiScope::ProfileRead]).await;
+    let app_token_hashes = sqlx::query_scalar!("SELECT token_hash FROM oauth_tokens")
+        .fetch_all(&db)
+        .await
+        .unwrap();
+    assert!(!app_token_hashes.is_empty());
     let caller = Caller::browser(user.clone());
 
     let export = export_data(&app.env(None), &caller, &with_password(TEST_PASSWORD), None)
@@ -165,12 +186,18 @@ async fn no_secret_ever_reaches_the_export(db: PgPool) {
         .unwrap();
 
     for (name, contents) in files_in(&export.zip) {
+        let app_secrets = app_token_hashes.iter().map(String::as_str);
         for secret in [
             token.raw.as_str(),
             token_hash.as_str(),
             two_factor_secret,
             "$argon2",
-        ] {
+            app_tokens.access_token.as_str(),
+            app_tokens.refresh_token.as_str(),
+        ]
+        .into_iter()
+        .chain(app_secrets)
+        {
             assert!(!contents.contains(secret), "{name} contains a secret");
         }
     }
@@ -212,4 +239,29 @@ async fn every_file_has_its_header_and_dates_are_utc(db: PgPool) {
         .unwrap()
         .1;
     assert!(profile.contains('Z'), "{profile}");
+}
+
+#[sqlx::test]
+async fn a_connected_app_named_like_a_formula_is_exported_as_text(db: PgPool) {
+    let user = active_user("formula@example.test", &db).await;
+    let app = App::for_tests(db.clone());
+    connect_named_app(&app, &user, "=HYPERLINK(\"x\")", &[ApiScope::ProfileRead]).await;
+    let caller = Caller::browser(user.clone());
+
+    let export = export_data(&app.env(None), &caller, &with_password(TEST_PASSWORD), None)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let files = files_in(&export.zip);
+    let connected = &files
+        .iter()
+        .find(|(name, _)| name == "connected_apps.csv")
+        .unwrap()
+        .1;
+    let row = connected.lines().nth(1).unwrap();
+    assert!(
+        row.starts_with("\"'=HYPERLINK(\"\"x\"\")\",claude.ai,profile:read,"),
+        "{row}"
+    );
 }
