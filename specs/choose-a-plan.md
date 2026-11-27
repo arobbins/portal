@@ -32,17 +32,20 @@ Stripe, and lets AI agents discover plans and start a Checkout for their user.
   email and is reused afterwards. Checkout uses Stripe's automatic payment methods (no
   fixed list), so Link, Stripe's one-click wallet that AI agents such as Meta's Muse and
   Grok Bot pay with, and other wallets appear when they're enabled in the Stripe Dashboard.
-- R19 Pricing shows one billing period at a time, picked with a segmented control
-  above the plans (group "Billing period"): **Monthly** (first, the default) and
-  **Yearly**. Each option is a link (`/pricing`, `/pricing?billing=yearly`; any other
-  value shows Monthly; the picked one has `aria-current="page"`), so it works without
-  JavaScript; with JavaScript it switches without a reload and updates the address
-  (`/pricing` for Monthly), signed in or out. Each paid plan shows its price for the
-  picked period and the Choose button for that price; a plan without one shows its
-  monthly price, or else its first. Free shows "$0" in both. The control appears only
-  when at least one plan has both a monthly and a yearly price. Yearly carries
-  "Save N%" inside its link: the smallest saving among plans with both (1 − yearly ÷ (12 × monthly)),
-  rounded down, shown only when it's at least 1%. The JSON-LD still lists every price.
+- R19 Each paid plan with both a monthly and a yearly price has a switch **Billed
+  yearly** under its price (`role="switch"`), on by default; the switches are synced,
+  so flipping one flips them all and the page never mixes periods. On, each such plan
+  shows its yearly price as a per-month amount (yearly ÷ 12, to the cent: "$10 / month",
+  "$8.33 / month") and its Choose button starts Checkout for the yearly price; off, it
+  shows its monthly price and Choose uses that. The amount changes with a short
+  animation (none when the person prefers reduced motion). A plan with only a monthly
+  price shows it with no switch; one with only a yearly price shows the per-month
+  amount with the text "Billed yearly" and no switch. Free shows "$0". With JavaScript
+  the switch flips without a reload and updates the address (`/pricing` when on,
+  `/pricing?billing=monthly` when off); `/pricing?billing=monthly` opens with the
+  switches off, and any other value with them on. Without JavaScript each switch is
+  replaced by a link "Show monthly prices" or "Show yearly prices" to the other
+  address. No savings note. The JSON-LD still lists every price at its real amount.
 - R5 For a signed-out visitor, Choose is a link to Sign in, which links to Register.
   The chosen price is remembered (it travels with the registration link, so it works even
   if the link is opened in another browser): signing in goes straight on to Checkout for it, and
@@ -231,14 +234,18 @@ until the user adds a card in the portal (R9); no special handling.
   follow Register, open the emailed link and set a password, then they land in Checkout
   for Pro, and paying makes Pro current. (covers R5)
 - S18 Given Pro has $12 / month and $120 / year and Business only $49 / month, when a
-  visitor opens Pricing, then Monthly is selected and Pro shows "$12 / month"; when they
-  pick Yearly, then the address is `/pricing?billing=yearly`, Yearly shows "Save 16%",
-  Pro shows "$120 / year" and Business still "$49 / month"; a Free account that clicks
-  "Choose Pro" there lands in Checkout for the yearly price. (covers R4, R19)
-- S19 Given JavaScript is off, when a visitor follows Yearly, then the page loads at
-  `/pricing?billing=yearly` with Pro at "$120 / year". (covers R19)
+  visitor opens Pricing, then Pro's "Billed yearly" switch is on and Pro shows
+  "$10 / month", and Business shows "$49 / month" with no switch; when they turn the
+  switch off, then Pro shows "$12 / month" and the address is `/pricing?billing=monthly`
+  without a reload; a Free account that clicks "Choose Pro" with the switch on lands in
+  Checkout for the yearly price, and with it off for the monthly price. (covers R4, R19)
+- S19 Given JavaScript is off, when a visitor opens Pricing and follows "Show monthly
+  prices", then the page loads at `/pricing?billing=monthly` with Pro at "$12 / month"
+  and a "Show yearly prices" link. (covers R19)
 
 ## Changes
+- 2026-11-26: approved the reworked R19.
+- 2026-11-26: R19 reworked like Linear: a synced "Billed yearly" switch in each paid plan, on by default, yearly shown per month; no savings note.
 - 2026-11-26: approved R19.
 - 2026-11-26: Monthly | Yearly control on Pricing (R19), one price per plan at a time.
 - 2026-11-26: the duplicate-subscription refund (R17) and email sync (R18) moved from
