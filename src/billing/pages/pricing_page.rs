@@ -8,7 +8,7 @@ use topcoat::{
     view::{Child, NodeViewParts, PartsWriter, View, component, view},
 };
 
-use super::plan_actions::manage_billing_button;
+use super::plan_actions::{choose_free_link, manage_billing_button};
 use super::plan_offers::plan_offers;
 use super::pricing_periods::{offer_prices, picked_period};
 use super::routes::take_billing_problem;
@@ -45,7 +45,9 @@ pub async fn pricing_page(cx: &Cx) -> Result<impl View> {
         Ok(list) => (list.data, false),
         Err(_) => (Vec::new(), true),
     };
-    let billing = match browser_caller(cx) {
+    let caller = browser_caller(cx);
+    let signed_out = caller.is_none();
+    let billing = match caller {
         Some(caller) => get_billing(&env, &caller).await?.ok(),
         None => None,
     };
@@ -75,6 +77,9 @@ pub async fn pricing_page(cx: &Cx) -> Result<impl View> {
                     key: FREE_PLAN_KEY,
                     billing: billing.as_ref(),
                     <p class="p-pricing__price">(free_label.as_str())</p>
+                    if signed_out {
+                        choose_free_link()
+                    }
                 )
                 #[key(offer.plan().plan.as_str())]
                 for offer in &offers {
