@@ -54,7 +54,7 @@ pub async fn code_block(
 
     Ok(view! {
         <div class="a-code-block">
-            <pre class=(pre_class)>
+            <pre class=(pre_class) tabindex="0">
                 <code class="a-code-block__code">
                     #[key(index)]
                     for (index, line) in lines.iter().enumerate() {

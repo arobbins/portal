@@ -1,27 +1,10 @@
 import type { Page } from "@playwright/test";
 import { ACCOUNT_PASSWORD, createAccount, logIn, logOut, setPassword } from "../support/flows";
 import { resetLink, waitForEmailAbout } from "../support/mail";
-import { totp } from "../support/totp";
+import { totp, turnOnTwoFactor } from "../support/totp";
 import { expect, test } from "../support/test";
 
 const THIRTY_SECONDS = 30_000;
-
-async function turnOn(page: Page): Promise<{ secret: string; codes: string[] }> {
-  await page.goto("/account/settings/authentication");
-  const card = page.locator("#two-factor");
-  await card.getByRole("button", { name: "Set up" }).click();
-  const dialog = page.getByRole("dialog", { name: "Set up two-factor authentication" });
-  await expect(dialog.getByRole("img", { name: "QR code for your authenticator app" })).toBeVisible();
-  const secret = await dialog.getByLabel("Or enter this setup key").inputValue();
-  await dialog.getByLabel("Code from the app").fill(totp(secret));
-  await dialog.getByLabel("Current password").fill(ACCOUNT_PASSWORD);
-  await dialog.getByLabel("Current password").press("Enter");
-
-  await expect(card).toContainText("On since");
-  const codes = (await card.locator("pre").innerText()).split("\n").filter(Boolean);
-  expect(codes).toHaveLength(10);
-  return { secret, codes };
-}
 
 async function signInWithPassword(page: Page, email: string) {
   await logIn(page, email, ACCOUNT_PASSWORD);
@@ -30,7 +13,7 @@ async function signInWithPassword(page: Page, email: string) {
 
 test("two-factor authentication asks for a code after the password", async ({ page }, testInfo) => {
   const email = await createAccount(page, testInfo, "Code Keeper");
-  const { secret } = await turnOn(page);
+  const { secret } = await turnOnTwoFactor(page);
   await waitForEmailAbout(email, "Two-factor authentication is on");
   await logOut(page, "Code Keeper");
 
@@ -46,7 +29,7 @@ test("two-factor authentication asks for a code after the password", async ({ pa
 
 test("a recovery code works once instead of the app", async ({ page }, testInfo) => {
   const email = await createAccount(page, testInfo, "Phone Loser");
-  const { codes } = await turnOn(page);
+  const { codes } = await turnOnTwoFactor(page);
   await logOut(page, "Phone Loser");
 
   await signInWithPassword(page, email);
@@ -65,7 +48,7 @@ test("a recovery code works once instead of the app", async ({ page }, testInfo)
 
 test("turning two-factor off needs the password and is emailed", async ({ page }, testInfo) => {
   const email = await createAccount(page, testInfo, "Code Dropper");
-  await turnOn(page);
+  await turnOnTwoFactor(page);
 
   await page.locator("#two-factor").getByRole("button", { name: "Turn off" }).click();
   const dialog = page.getByRole("dialog", { name: "Turn off two-factor authentication" });
@@ -82,7 +65,7 @@ test("turning two-factor off needs the password and is emailed", async ({ page }
 
 test("the second step can't be skipped by going to the account", async ({ page }, testInfo) => {
   const email = await createAccount(page, testInfo, "Step Skipper");
-  await turnOn(page);
+  await turnOnTwoFactor(page);
   await logOut(page, "Step Skipper");
 
   await signInWithPassword(page, email);
@@ -93,7 +76,7 @@ test("the second step can't be skipped by going to the account", async ({ page }
 
 test("resetting the password by email still asks for the code", async ({ page }, testInfo) => {
   const email = await createAccount(page, testInfo, "Reset Keeper");
-  const { secret } = await turnOn(page);
+  const { secret } = await turnOnTwoFactor(page);
   await logOut(page, "Reset Keeper");
 
   await page.goto("/reset-password");

@@ -22,7 +22,8 @@ paths:
   readers only, for a search box with a placeholder; modal forms use `DialogForm` + `dialog_input`,
   `dialog_form_error`, `dialog_error_toast` from `form/dialog.rs`, and render
   through `modal_form` + `ModalSubmit` from `form/submit.rs`), `card` +
-  `card_header` + `card_body` (every settings block), `badge`, `avatar`,
+  `card_header` + `card_body` (every settings block; an `h2`;
+  `level: CardHeadingLevel::H3` under another `h2`), `badge`, `avatar`,
   `tone` (`Tone`: the `tone` prop of `notice`, `badge`, `toaster` and
   property tags),
   `label` (`LabelSize::Sm` above lists, demos and sidebar groups; `Md`
@@ -48,7 +49,7 @@ paths:
   `property_list` + `property` (name, badge tags, description, detail and
   actions: lists of fields, passkeys, tokens), `code_panel` + `code_block`
   (dark code with a copy button; `language: CodeLanguage::Json | Shell`
-  highlights it on the server via `src/syntax.rs`, `line_numbers: true`
+  highlights it on the server via `src/syntax.rs`, its `<pre>` is focusable so keyboards can scroll it, `line_numbers: true`
   adds CSS-only line numbers that are never copied; its Copy button is
   its own small dark-panel button on purpose, because `button` variants are
   styled for light surfaces, while `copy_field` uses a Secondary `button`),

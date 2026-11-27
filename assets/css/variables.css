@@ -58,7 +58,6 @@
   --palette-graphite-850: #1a1a1a;
   --palette-rust-50: #f6e6dc;
   --palette-rust-300: #d9804f;
-  --palette-rust-400: #bc5d27;
   --palette-rust-500: #ac501e;
   --palette-rust-600: #934419;
   --palette-rust-950: #2e1c13;
@@ -66,7 +65,7 @@
   --palette-red-100: #ffb1b1;
   --palette-red-300: #e29595;
   --palette-red-350: #d46464;
-  --palette-red-400: #c63a2f;
+  --palette-red-400: #c2392e;
   --palette-red-500: #b3261e;
   --palette-red-600: #961f19;
   --palette-red-700: #733939;
@@ -242,10 +241,7 @@
     var(--palette-graphite-850)
   );
   --color-button-primary-bg: var(--color-accent);
-  --color-button-primary-hover: light-dark(
-    var(--palette-rust-600),
-    var(--palette-rust-400)
-  );
+  --color-button-primary-hover: var(--palette-rust-600);
   --color-button-primary-text: light-dark(
     var(--palette-white),
     var(--palette-cream)
