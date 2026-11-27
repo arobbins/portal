@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n                (SELECT count(*) FROM account_events WHERE user_id = $1 AND kind = 'app_connected') AS \"connected!\",\n                (SELECT count(*) FROM account_events WHERE user_id = $1 AND kind = 'app_disconnected') AS \"disconnected!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "connected!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "disconnected!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "3f14fa64a52875b1790bde3d9bc4ce6849b33a332f270660eac4661a48851a47"
+}

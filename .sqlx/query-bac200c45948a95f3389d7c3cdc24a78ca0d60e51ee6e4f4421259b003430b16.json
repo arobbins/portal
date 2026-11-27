@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT c.public_id FROM oauth_connections c JOIN oauth_clients a ON a.id = c.client_id WHERE c.user_id = $1 AND a.client_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "public_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bac200c45948a95f3389d7c3cdc24a78ca0d60e51ee6e4f4421259b003430b16"
+}

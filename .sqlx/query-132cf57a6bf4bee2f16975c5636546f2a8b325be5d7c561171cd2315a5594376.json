@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT status, ends_at IS NOT NULL AS \"scheduled!\" FROM subscriptions WHERE user_id = $1 ORDER BY status = 'ended', id DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "scheduled!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "132cf57a6bf4bee2f16975c5636546f2a8b325be5d7c561171cd2315a5594376"
+}
