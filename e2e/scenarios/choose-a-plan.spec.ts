@@ -241,7 +241,7 @@ test("S1 Pricing lists the plans cheapest first and a new account is on Free", a
   );
 
   await expect(planRow(page, "Free").filter({ hasText: "$0" }).first()).toBeVisible();
-  await expect(planRow(page, "Pro").filter({ hasText: "$10 / month" }).first()).toBeVisible();
+  await expect(planRow(page, "Pro").filter({ hasText: "$120 / year" }).first()).toBeVisible();
   await expect(
     planRow(page, "Business").filter({ hasText: "$49 / month" }).first(),
   ).toBeVisible();
@@ -249,8 +249,8 @@ test("S1 Pricing lists the plans cheapest first and a new account is on Free", a
   await expect(main(page).getByText("Legacy add-on")).toHaveCount(0);
   await expect(main(page).getByText(CURRENT)).toHaveCount(0);
   const text = await main(page).innerText();
-  expect(text.indexOf("$0")).toBeLessThan(text.indexOf("$10 / month"));
-  expect(text.indexOf("$10 / month")).toBeLessThan(text.indexOf("$49 / month"));
+  expect(text.indexOf("$0")).toBeLessThan(text.indexOf("$120 / year"));
+  expect(text.indexOf("$120 / year")).toBeLessThan(text.indexOf("$49 / month"));
 
   await createAccount(page, testInfo, "Plan Browser");
   await openPricing(page);
@@ -651,7 +651,7 @@ async function checkoutPrices(email: string) {
     .map((request) => request.body["line_items[0][price]"]);
 }
 
-test("S18 the Billed yearly switch shows yearly prices per month and checks out the shown price", async ({
+test("S18 the Billed yearly switch shows yearly prices and checks out the shown price", async ({
   page,
 }, testInfo) => {
   await openPricing(page);
@@ -659,8 +659,9 @@ test("S18 the Billed yearly switch shows yearly prices per month and checks out 
   await expect(planRow(page, "Pro").getByRole("switch", { name: "Billed yearly" }).first()).toBeVisible();
   await expect(planRow(page, "Business").getByRole("switch")).toHaveCount(0);
   await expect(billedYearly(page)).toBeChecked();
-  await expect(planRow(page, "Pro").filter({ hasText: "$10 / month" }).first()).toBeVisible();
+  await expect(planRow(page, "Pro").filter({ hasText: "$120 / year" }).first()).toBeVisible();
   await expect(main(page).getByText("$12 / month")).toBeHidden();
+  await expect(main(page).getByText("$10 / month")).toBeHidden();
   await expect(
     planRow(page, "Business").filter({ hasText: "$49 / month" }).first(),
   ).toBeVisible();
@@ -674,7 +675,7 @@ test("S18 the Billed yearly switch shows yearly prices per month and checks out 
   await expect(billedYearly(page)).not.toBeChecked();
   await expect(page).toHaveURL(onMonthly());
   await expect(planRow(page, "Pro").filter({ hasText: "$12 / month" }).first()).toBeVisible();
-  await expect(main(page).getByText("$10 / month")).toBeHidden();
+  await expect(main(page).getByText("$120 / year")).toBeHidden();
   await expect(
     planRow(page, "Business").filter({ hasText: "$49 / month" }).first(),
   ).toBeVisible();
@@ -707,7 +708,7 @@ test("S19 without JavaScript Show monthly prices loads the monthly prices", asyn
 
   await expect(page).toHaveURL(onMonthly());
   await expect(planRow(page, "Pro").filter({ hasText: "$12 / month" }).first()).toBeVisible();
-  await expect(main(page).getByText("$10 / month")).toBeHidden();
+  await expect(main(page).getByText("$120 / year")).toBeHidden();
   await expect(main(page).getByRole("link", { name: "Show yearly prices" }).first()).toBeVisible();
   await page.context().close();
 });

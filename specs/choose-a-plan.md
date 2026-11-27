@@ -35,12 +35,12 @@ Stripe, and lets AI agents discover plans and start a Checkout for their user.
 - R19 Each paid plan with both a monthly and a yearly price has a switch **Billed
   yearly** under its price (`role="switch"`), on by default; the switches are synced,
   so flipping one flips them all and the page never mixes periods. On, each such plan
-  shows its yearly price as a per-month amount (yearly ÷ 12, to the cent: "$10 / month",
-  "$8.33 / month") and its Choose button starts Checkout for the yearly price; off, it
+  shows its yearly price ("$120 / year"; cents only when there are some, "$99.99 / year")
+  and its Choose button starts Checkout for the yearly price; off, it
   shows its monthly price and Choose uses that. The amount changes with a short
   animation (none when the person prefers reduced motion). A plan with only a monthly
-  price shows it with no switch; one with only a yearly price shows the per-month
-  amount with the text "Billed yearly" and no switch. Free shows "$0". With JavaScript
+  price shows it with no switch; one with only a yearly price shows "$<amount> / year"
+  and no switch (server-tested, with the cents case). Free shows "$0". With JavaScript
   the switch flips without a reload and updates the address (`/pricing` when on,
   `/pricing?billing=monthly` when off); `/pricing?billing=monthly` opens with the
   switches off, and any other value with them on. Without JavaScript each switch is
@@ -241,7 +241,7 @@ until the user adds a card in the portal (R9); no special handling.
   for Pro, and paying makes Pro current. (covers R5)
 - S18 Given Pro has $12 / month and $120 / year and Business only $49 / month, when a
   visitor opens Pricing, then Pro's "Billed yearly" switch is on and Pro shows
-  "$10 / month", and Business shows "$49 / month" with no switch; when they turn the
+  "$120 / year", and Business shows "$49 / month" with no switch; when they turn the
   switch off, then Pro shows "$12 / month" and the address is `/pricing?billing=monthly`
   without a reload; a Free account that clicks "Choose Pro" with the switch on lands in
   Checkout for the yearly price, and with it off for the monthly price. (covers R4, R19)
@@ -256,6 +256,8 @@ until the user adds a card in the portal (R9); no special handling.
   (covers R20)
 
 ## Changes
+- 2026-11-27: approved the yearly amount display.
+- 2026-11-27: with Billed yearly on, prices show the yearly amount ("$120 / year"), not per month.
 - 2026-11-27: approved R20.
 - 2026-11-26: Choose Free on the Free plan for signed-out visitors (R20).
 - 2026-11-26: approved the reworked R19.
