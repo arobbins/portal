@@ -1,13 +1,13 @@
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use sqlx::PgConnection;
+use sqlx::{PgConnection, Postgres, Transaction};
 use topcoat::router::StatusCode;
 
 use crate::action::{ActionProblem, Outcome, ProblemSpec, fail};
 use crate::env::Env;
 use crate::oauth::authorize::mcp_resource;
-use crate::oauth::lifecycle::record_disconnected;
+use crate::oauth::lifecycle::{active_owner, record_disconnected};
 use crate::oauth::queries::{
     NewToken, query_consume_code, query_delete_access_tokens, query_delete_connection_by_id,
     query_get_connection_scopes, query_get_refresh_token, query_get_token_owner,
@@ -86,44 +86,73 @@ pub async fn issue_tokens(
     if resource != mcp_resource(env) {
         return fail(TokenProblem::InvalidGrant);
     }
-    let connection = match input.grant_type.as_deref() {
-        Some("authorization_code") => exchange_code(env, client_id, input).await?,
-        Some("refresh_token") => refresh(env, client_id, input).await?,
+    let mut tx = env.db().begin().await?;
+    let granted = match input.grant_type.as_deref() {
+        Some("authorization_code") => exchange_code(env, client_id, input, &mut tx).await?,
+        Some("refresh_token") => refresh(env, client_id, input, &mut tx).await?,
         _ => return fail(TokenProblem::UnsupportedGrantType),
     };
-    let connection_id = match connection {
-        Ok(id) => id,
-        Err(problem) => return fail(problem),
+    let connection_id = match granted {
+        Granted::Connection(id) => id,
+        refused => return refuse(env, refused, tx).await,
     };
-    let mut tx = env.db().begin().await?;
-    let response = store_tokens(env, connection_id, &mut tx).await?;
+    let Some(response) = store_tokens(env, connection_id, &mut tx).await? else {
+        return fail(TokenProblem::InvalidGrant);
+    };
     tx.commit().await?;
-    Ok(response.ok_or(TokenProblem::InvalidGrant))
+    Ok(Ok(response))
+}
+
+enum Granted {
+    Connection(i32),
+    Refused(TokenProblem),
+    CodeSpent,
+    Reused(i32),
+}
+
+async fn refuse(
+    env: &Env<'_>,
+    granted: Granted,
+    tx: Transaction<'_, Postgres>,
+) -> Outcome<TokenResponse, TokenProblem> {
+    match granted {
+        Granted::CodeSpent => tx.commit().await?,
+        Granted::Reused(connection_id) => {
+            tx.rollback().await?;
+            end_connection(env, connection_id).await?;
+        }
+        _ => tx.rollback().await?,
+    }
+    match granted {
+        Granted::Refused(problem) => fail(problem),
+        _ => fail(TokenProblem::InvalidGrant),
+    }
 }
 
 async fn exchange_code(
     env: &Env<'_>,
     client_id: &str,
     input: &TokenRequest,
-) -> Outcome<i32, TokenProblem> {
+    tx: &mut PgConnection,
+) -> Result<Granted, sqlx::Error> {
     let (Some(code), Some(verifier)) = (input.code.as_deref(), input.code_verifier.as_deref())
     else {
-        return fail(TokenProblem::InvalidRequest);
+        return Ok(Granted::Refused(TokenProblem::InvalidRequest));
     };
     let Some(hash) = SecretKind::Code.hash_of(code) else {
-        return fail(TokenProblem::InvalidGrant);
+        return Ok(Granted::Refused(TokenProblem::InvalidGrant));
     };
-    let Some(issued) = query_consume_code(&hash, env.db()).await? else {
-        return fail(TokenProblem::InvalidGrant);
+    let Some(issued) = query_consume_code(&hash, &mut *tx).await? else {
+        return Ok(Granted::Refused(TokenProblem::InvalidGrant));
     };
     let valid = issued.client_id == client_id
         && input.redirect_uri.as_deref() == Some(issued.redirect_uri.as_str())
         && env.now() - issued.acted_at < CODE_LIFETIME
         && challenge_of(verifier) == issued.code_challenge;
     if !valid {
-        return fail(TokenProblem::InvalidGrant);
+        return Ok(Granted::CodeSpent);
     }
-    Ok(Ok(issued.connection_id))
+    Ok(Granted::Connection(issued.connection_id))
 }
 
 pub fn challenge_of(verifier: &str) -> String {
@@ -134,26 +163,31 @@ async fn refresh(
     env: &Env<'_>,
     client_id: &str,
     input: &TokenRequest,
-) -> Outcome<i32, TokenProblem> {
+    tx: &mut PgConnection,
+) -> Result<Granted, sqlx::Error> {
+    let refused = |problem| Ok(Granted::Refused(problem));
     let Some(raw) = input.refresh_token.as_deref() else {
-        return fail(TokenProblem::InvalidRequest);
+        return refused(TokenProblem::InvalidRequest);
     };
     let Some(hash) = SecretKind::RefreshToken.hash_of(raw) else {
-        return fail(TokenProblem::InvalidGrant);
+        return refused(TokenProblem::InvalidGrant);
     };
-    let Some(token) = query_get_refresh_token(&hash, env.db()).await? else {
-        return fail(TokenProblem::InvalidGrant);
+    let Some(token) = query_get_refresh_token(&hash, &mut *tx).await? else {
+        return refused(TokenProblem::InvalidGrant);
     };
     if token.client_id != client_id || token.expires_at <= env.now() {
-        return fail(TokenProblem::InvalidGrant);
+        return refused(TokenProblem::InvalidGrant);
     }
-    if token.replaced_at.is_some()
-        || !query_replace_refresh_token(token.id, env.now(), env.db()).await?
-    {
-        end_connection(env, token.connection_id).await?;
-        return fail(TokenProblem::InvalidGrant);
+    if token.replaced_at.is_some() {
+        return Ok(Granted::Reused(token.connection_id));
     }
-    Ok(Ok(token.connection_id))
+    if active_owner(token.user_id, &mut *tx).await?.is_none() {
+        return refused(TokenProblem::InvalidGrant);
+    }
+    if !query_replace_refresh_token(token.id, env.now(), &mut *tx).await? {
+        return Ok(Granted::Reused(token.connection_id));
+    }
+    Ok(Granted::Connection(token.connection_id))
 }
 
 async fn store_tokens(

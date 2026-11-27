@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "ALTER TABLE oauth_tokens DROP CONSTRAINT test_no_new_refresh",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "a1ae8ce01684f9f9749a1069bc087c9a8d31480abebde45626221028d4704176"
+}

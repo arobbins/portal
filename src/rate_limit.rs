@@ -22,6 +22,7 @@ pub const EXPORTS_PER_ACCOUNT_PER_HOUR: u32 = 5;
 pub const BILLING_SESSIONS_PER_ACCOUNT_PER_HOUR: u32 = 10;
 pub const PLAN_LISTS_PER_IP_PER_MINUTE: u32 = 60;
 pub const CLIENT_REGISTRATIONS_PER_IP_PER_HOUR: u32 = 20;
+pub const AUTHORIZATION_STARTS_PER_IP_PER_HOUR: u32 = 30;
 pub const TOKEN_REQUESTS_PER_CLIENT_PER_MINUTE: u32 = 60;
 pub const BAD_API_TOKENS_PER_WINDOW: u32 = 20;
 pub const BAD_API_TOKEN_WINDOW_MINUTES: u64 = 10;
@@ -112,6 +113,11 @@ impl RateLimits {
 
     pub async fn allow_client_registration(&self, ip: Option<IpAddr>) -> Result<bool, sqlx::Error> {
         self.allow(Limit::ClientRegistrationsByIp, &ip_key(ip))
+            .await
+    }
+
+    pub async fn allow_authorization_start(&self, ip: Option<IpAddr>) -> Result<bool, sqlx::Error> {
+        self.allow(Limit::AuthorizationStartsByIp, &ip_key(ip))
             .await
     }
 

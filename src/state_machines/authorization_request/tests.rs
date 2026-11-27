@@ -9,6 +9,7 @@ use crate::env::{App, Clock};
 use crate::oauth::lifecycle::delete_expired;
 use crate::oauth::secrets::REQUEST_IDLE_LIMIT;
 use crate::oauth::testing::{REDIRECT_URI, test_client};
+use crate::rate_limit::AUTHORIZATION_STARTS_PER_IP_PER_HOUR;
 use crate::routes::OAUTH_AUTHORIZE_PATH;
 use crate::secret::PublicIdKind;
 use crate::state_machines::testing::oauth::{
@@ -27,6 +28,7 @@ struct Owner {
     request: Option<String>,
     code: Option<String>,
     answer: Option<String>,
+    refused_cleanly: Option<bool>,
 }
 
 #[sqlx::test]
@@ -68,6 +70,7 @@ impl Owner {
             request: None,
             code: None,
             answer: None,
+            refused_cleanly: None,
         };
         assert!(owner.browser.sign_in(&email, TEST_PASSWORD).await);
         let steps: &[RequestEvent] = match from {
@@ -87,6 +90,7 @@ impl Owner {
     async fn apply(&mut self, event: RequestEvent) -> bool {
         match event {
             E::Start => self.start().await,
+            E::StartTooOften => self.start_too_often().await,
             E::ReturnsAfterEightMinutes => {
                 self.browser.minutes += 8;
                 let path = format!("{OAUTH_AUTHORIZE_PATH}?request={}", self.request_id());
@@ -126,6 +130,29 @@ impl Owner {
             self.request = started.clone();
         }
         response.status() == StatusCode::SEE_OTHER && started.is_some()
+    }
+
+    async fn start_too_often(&mut self) -> bool {
+        let path = start_path(&self.app, &self.client_id, SCOPES);
+        for _ in 0..AUTHORIZATION_STARTS_PER_IP_PER_HOUR {
+            self.browser.get(&path).await;
+        }
+        let before = self.stored_requests().await;
+        let response = self.browser.get(&path).await;
+        let status = response.status();
+        let unchanged = self.stored_requests().await == before;
+        self.refused_cleanly = Some(status == StatusCode::TOO_MANY_REQUESTS && unchanged);
+        status == StatusCode::SEE_OTHER
+    }
+
+    async fn stored_requests(&self) -> i64 {
+        sqlx::query_scalar!(
+            r#"SELECT count(*) AS "count!" FROM oauth_requests r JOIN oauth_clients c ON c.id = r.client_id WHERE c.client_id = $1"#,
+            self.client_id
+        )
+        .fetch_one(&self.app.db)
+        .await
+        .unwrap()
     }
 
     async fn answer(&mut self, form: &str) {
@@ -180,6 +207,9 @@ impl Owner {
         }
         if matches!(event, E::Approve | E::Deny) && accepted && !self.answered_with_state() {
             broken.push(ANSWERS_GO_BACK_TO_THE_APP);
+        }
+        if event == E::StartTooOften && self.refused_cleanly != Some(true) {
+            broken.push(OVER_THE_LIMIT_STORES_NOTHING);
         }
         if !self.code_once_and_hashed(event, accepted, actual).await {
             broken.push(CODE_ONCE_AND_HASHED);

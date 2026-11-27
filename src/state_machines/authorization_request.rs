@@ -12,6 +12,7 @@ pub enum RequestState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RequestEvent {
     Start,
+    StartTooOften,
     ReturnsAfterEightMinutes,
     Approve,
     Deny,
@@ -30,6 +31,7 @@ pub const AUTHORIZATION_REQUEST: Machine<RequestState, RequestEvent> = Machine {
     terminal: &[S::Gone],
     events: &[
         E::Start,
+        E::StartTooOften,
         E::ReturnsAfterEightMinutes,
         E::Approve,
         E::Deny,
@@ -42,10 +44,15 @@ pub const AUTHORIZATION_REQUEST: Machine<RequestState, RequestEvent> = Machine {
         "oauth_requests.status",
         "oauth_requests.acted_at",
     ],
-    rules: &[KEPT_ALIVE, ANSWERS_GO_BACK_TO_THE_APP, CODE_ONCE_AND_HASHED],
+    rules: &[
+        KEPT_ALIVE,
+        ANSWERS_GO_BACK_TO_THE_APP,
+        CODE_ONCE_AND_HASHED,
+        OVER_THE_LIMIT_STORES_NOTHING,
+    ],
     writers: &[
         writer(
-            "src/oauth/authorize.rs:start_authorization",
+            "src/oauth/authorize.rs:store_request",
             "query_insert_request",
             &[E::Start],
         ),
@@ -81,6 +88,7 @@ pub const KEPT_ALIVE: &str =
     "Opening the approval screen keeps a pending request alive for another 10 minutes.";
 pub const ANSWERS_GO_BACK_TO_THE_APP: &str =
     "Approving sends the app back a code and its state; denying sends it back access_denied.";
+pub const OVER_THE_LIMIT_STORES_NOTHING: &str = "Starting more than 30 times an hour from one address gets the 429 \"Too many sign-in requests\" page and stores no request.";
 pub const CODE_ONCE_AND_HASHED: &str =
     "The code is stored only as a hash, works once, and only within 10 minutes of approval.";
 
@@ -135,6 +143,7 @@ impl Labeled for RequestEvent {
     fn id(self) -> &'static str {
         match self {
             E::Start => "start",
+            E::StartTooOften => "start_too_often",
             E::ReturnsAfterEightMinutes => "returns_after_eight_minutes",
             E::Approve => "approve",
             E::Deny => "deny",
@@ -147,6 +156,7 @@ impl Labeled for RequestEvent {
     fn label(self) -> &'static str {
         match self {
             E::Start => "The app opens /oauth/authorize",
+            E::StartTooOften => "The app opens /oauth/authorize a 31st time within an hour",
             E::ReturnsAfterEightMinutes => "Owner reopens the approval screen 8 minutes later",
             E::Approve => "Owner approves",
             E::Deny => "Owner denies",
@@ -164,6 +174,15 @@ mod tests;
 mod limits {
     use super::*;
     use crate::oauth::secrets::{CODE_LIFETIME, REQUEST_IDLE_LIMIT};
+    use crate::rate_limit::AUTHORIZATION_STARTS_PER_IP_PER_HOUR;
+
+    #[test]
+    fn the_start_limit_in_the_labels_matches_the_limit() {
+        let limit = AUTHORIZATION_STARTS_PER_IP_PER_HOUR;
+        assert!(OVER_THE_LIMIT_STORES_NOTHING.contains(&format!("more than {limit} times")));
+        let label = E::StartTooOften.label();
+        assert!(label.contains(&format!("a {}st time", limit + 1)));
+    }
 
     #[test]
     fn the_waits_in_the_labels_match_the_limit() {

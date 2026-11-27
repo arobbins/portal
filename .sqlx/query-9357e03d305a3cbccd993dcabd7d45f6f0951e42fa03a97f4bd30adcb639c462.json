@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users SET disabled_at = CASE WHEN $2 THEN now() END WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9357e03d305a3cbccd993dcabd7d45f6f0951e42fa03a97f4bd30adcb639c462"
+}

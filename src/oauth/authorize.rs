@@ -32,6 +32,7 @@ pub enum CantConnect {
     UnknownClient,
     UnregisteredRedirect,
     Expired,
+    TooManyRequests,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,6 +64,9 @@ pub async fn start_authorization(
     env: &Env<'_>,
     params: &AuthorizeParams,
 ) -> topcoat::Result<Started> {
+    if !env.limits().allow_authorization_start(env.ip).await? {
+        return Ok(Started::Refused(CantConnect::TooManyRequests));
+    }
     let client_id = params.client_id.as_deref().unwrap_or_default();
     let Some(client) = find_client(env, client_id).await? else {
         return Ok(Started::Refused(CantConnect::UnknownClient));
@@ -79,6 +83,16 @@ pub async fn start_authorization(
             state,
         )));
     }
+    let public_id = store_request(env, client.id, redirect_uri, params).await?;
+    Ok(Started::Request(public_id))
+}
+
+async fn store_request(
+    env: &Env<'_>,
+    client_id: i32,
+    redirect_uri: &str,
+    params: &AuthorizeParams,
+) -> Result<String, sqlx::Error> {
     let scopes: Vec<String> = requested_scopes(params.scope.as_deref().unwrap_or_default())
         .into_iter()
         .map(|scope| scope.as_str().to_string())
@@ -86,15 +100,15 @@ pub async fn start_authorization(
     let public_id = PublicIdKind::AuthorizationRequest.generate();
     let request = NewRequest {
         public_id: &public_id,
-        client_id: client.id,
+        client_id,
         redirect_uri,
         scopes: &scopes,
-        state,
+        state: params.state.as_deref(),
         code_challenge: params.code_challenge.as_deref().unwrap_or_default(),
         now: env.now(),
     };
     query_insert_request(&request, env.db()).await?;
-    Ok(Started::Request(public_id))
+    Ok(public_id)
 }
 
 fn registered_redirect<'a>(registered: &'a [String], params: &AuthorizeParams) -> Option<&'a str> {
