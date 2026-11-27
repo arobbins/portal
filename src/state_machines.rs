@@ -11,7 +11,9 @@ pub mod account_tab_sections;
 pub mod admin_log;
 pub mod admin_unlock;
 pub mod api_token;
+pub mod authorization_request;
 pub mod caller;
+pub mod connection;
 pub mod email_change;
 pub mod emailed_link;
 pub mod flash;
@@ -26,8 +28,10 @@ pub mod permission;
 pub mod rate_limit;
 pub mod role;
 pub mod second_factor;
+pub mod sign_in_handoff;
 
 pub mod signed_in;
+pub mod subscription;
 pub mod testing;
 pub mod two_factor;
 

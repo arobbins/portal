@@ -10,6 +10,25 @@ use tower_sessions::{MemoryStore, SessionManagerLayer};
 use crate::env::{App, Clock};
 use crate::server::router::router;
 
+pub mod oauth;
+
+pub async fn json_of(response: Response<Body>) -> serde_json::Value {
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    serde_json::from_slice(&body).unwrap_or_default()
+}
+
+pub async fn deliver_webhook(browser: &mut Browser, body: &str, secret: &str) -> StatusCode {
+    let now = browser.now().unix_timestamp();
+    let signature = crate::stripe::sign(secret, now, body.as_bytes());
+    let header = ("stripe-signature", signature.as_str());
+    let response = browser
+        .post_with_header("/webhooks/stripe", header, body.to_string())
+        .await;
+    response.status()
+}
+
 pub fn assets() -> AssetBundle {
     AssetBundle::load_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target/debug/assets"))
         .expect("missing asset bundle: run `topcoat asset bundle` before `cargo test`")
@@ -118,6 +137,21 @@ impl Browser {
             .request("POST", path)
             .header(header::CONTENT_TYPE, "application/json")
             .body(Body::from(json.to_string()))
+            .unwrap();
+        self.send(request).await
+    }
+
+    pub async fn post_with_header(
+        &mut self,
+        path: &str,
+        (name, value): (&str, &str),
+        body: String,
+    ) -> Response<Body> {
+        let request = self
+            .request("POST", path)
+            .header(name, value)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(body))
             .unwrap();
         self.send(request).await
     }
