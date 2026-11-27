@@ -28,11 +28,15 @@ paths:
   live subscription per account (partial unique index, customer row locked
   `FOR UPDATE`); a second is cancelled and refunded by a job, once per Stripe
   subscription id (`duplicate_subscriptions`); `charge_already_refunded` counts as done.
-- Pricing shows one `BillingPeriod` (`period.rs`; `?billing=yearly`) at a
-  time: `pages/plan_offers.rs` groups prices per plan, picks each plan's
-  price for a period and the smallest yearly saving (integer cents);
-  `pages/pricing_periods.rs` renders the `segmented` control and hides the
-  other period's price with `:hidden` bound to one signal.
+- Pricing shows one `BillingPeriod` (`period.rs`; yearly by default,
+  `?billing=monthly` only for exactly `monthly`) everywhere at once:
+  `pages/plan_offers.rs` groups prices per plan into `OfferPrices` (both,
+  yearly only, single) and labels yearly per month (`yearly_per_month`,
+  integer cents, half up); `pages/pricing_periods.rs` renders a "Billed
+  yearly" `toggle` per plan with both, all bound to one `yearly` signal
+  (`flipped` adds the price animation class only after a flip), and one
+  Choose button whose hidden price input is `:value`-bound. Without JS a
+  `<noscript>` link replaces the switch (`:has()` hides the toggle).
 - Only a token's or a connected app's Checkout records an event (`checkout_started`).
 - Stripe calls never run inside a transaction. Deleting an account
   enqueues `CancelStripeSubscription` in the deletion's transaction; an

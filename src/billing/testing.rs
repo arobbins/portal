@@ -41,6 +41,7 @@ struct Fake {
     subscriptions: Mutex<HashMap<String, Value>>,
     invoices: Mutex<Option<Value>>,
     refund_rejection: Mutex<Option<String>>,
+    prices: Mutex<Option<Value>>,
 }
 
 pub struct FakeStripe {
@@ -108,6 +109,10 @@ impl FakeStripe {
         *self.fake.invoices.lock().unwrap() = Some(data);
     }
 
+    pub fn set_prices(&self, data: Value) {
+        *self.fake.prices.lock().unwrap() = Some(data);
+    }
+
     pub fn reject_refunds_with(&self, code: &str) {
         *self.fake.refund_rejection.lock().unwrap() = Some(code.to_string());
     }
@@ -117,10 +122,14 @@ impl FakeStripe {
     }
 }
 
-fn price(id: &str, amount: i64, name: &str, key: &str) -> Value {
+pub fn price(id: &str, amount: i64, name: &str, key: &str) -> Value {
+    price_every(id, amount, name, key, "month")
+}
+
+pub fn price_every(id: &str, amount: i64, name: &str, key: &str, interval: &str) -> Value {
     json!({
         "id": id, "object": "price", "active": true, "type": "recurring", "currency": "usd",
-        "unit_amount": amount, "recurring": { "interval": "month", "interval_count": 1 },
+        "unit_amount": amount, "recurring": { "interval": interval, "interval_count": 1 },
         "product": { "id": format!("prod_{key}"), "active": true, "name": name, "metadata": { "plan_key": key } },
     })
 }
@@ -145,13 +154,18 @@ async fn respond(
             .collect(),
     });
     match (method.as_str(), path.as_str()) {
-        ("GET", "/v1/prices") => (
-            StatusCode::OK,
-            Json(json!({ "object": "list", "data": [
-                price("price_business", 4900, "Business", "business"),
-                price("price_pro", 1200, "Pro", "pro"),
-            ] })),
-        ),
+        ("GET", "/v1/prices") => {
+            let data = fake.prices.lock().unwrap().clone().unwrap_or_else(|| {
+                json!([
+                    price("price_business", 4900, "Business", "business"),
+                    price("price_pro", 1200, "Pro", "pro"),
+                ])
+            });
+            (
+                StatusCode::OK,
+                Json(json!({ "object": "list", "data": data })),
+            )
+        }
         ("POST", "/v1/customers") => {
             let n = fake.customers.fetch_add(1, Ordering::SeqCst) + 1;
             (

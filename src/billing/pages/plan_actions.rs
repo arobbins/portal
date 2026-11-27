@@ -2,20 +2,25 @@ use topcoat::{
     Result,
     context::Cx,
     router::href,
-    runtime::signal,
+    runtime::{Expr, signal},
     view::{View, attributes, component, view},
 };
 
 use super::routes::{open_portal_submit, start_checkout_submit};
 use crate::auth::handoff::PRICE_PARAM;
-use crate::billing::actions::{BillingPage, PRICE_FIELD, PlanPrice};
+use crate::billing::actions::{BillingPage, PRICE_FIELD};
 use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
 use crate::components::form::form;
 use crate::routes::LOGIN_PATH;
 
 #[component]
-pub async fn choose_button(cx: &Cx, price: &PlanPrice, signed_in: bool) -> Result<impl View> {
-    let label = format!("Choose {}", price.plan_name);
+pub async fn choose_button(
+    cx: &Cx,
+    plan_name: &str,
+    #[into] price: Expr<String>,
+    signed_in: bool,
+) -> Result<impl View> {
+    let label = format!("Choose {plan_name}");
     let is_submitting = signal(cx, || false);
 
     Ok(view! {
@@ -27,7 +32,7 @@ pub async fn choose_button(cx: &Cx, price: &PlanPrice, signed_in: bool) -> Resul
                     action=(href!(start_checkout_submit))
                     class="p-pricing__choose"
                 },
-                <input type="hidden" name=(PRICE_FIELD) value=(price.price.as_str())>
+                <input type="hidden" name=(PRICE_FIELD) :value=$(price)>
                 button(
                     button_type: ButtonType::Submit,
                     busy: $(is_submitting.get()),
@@ -36,7 +41,7 @@ pub async fn choose_button(cx: &Cx, price: &PlanPrice, signed_in: bool) -> Resul
             )
         } else {
             <form method="get" action=(LOGIN_PATH) class="p-pricing__choose">
-                <input type="hidden" name=(PRICE_PARAM) value=(price.price.as_str())>
+                <input type="hidden" name=(PRICE_PARAM) :value=$(price)>
                 button(button_type: ButtonType::Submit, (label.as_str()))
             </form>
         }
