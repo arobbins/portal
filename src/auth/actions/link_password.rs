@@ -19,7 +19,7 @@ use crate::two_factor::actions::{CODE_FIELD, second_factor_matches};
 use crate::user::events::{AccountEventKind, EventSource, record_event};
 use crate::user::model::User;
 use crate::user::queries::{
-    query_lock_user_by_public_id, query_set_password_and_verify_user, query_update_password,
+    query_lock_user, query_set_password_and_verify_user, query_update_password,
 };
 
 mod lookup;
@@ -120,7 +120,7 @@ async fn use_link(
     code: Option<&str>,
 ) -> Outcome<User, LinkPasswordProblem> {
     let mut tx = env.db().begin().await?;
-    query_lock_user_by_public_id(&holder.public_id, &mut *tx).await?;
+    query_lock_user(holder.id, &mut *tx).await?;
     let Some(user_id) = consume_link(purpose, token, &mut tx).await? else {
         return fail(LinkPasswordProblem::ExpiredLink);
     };

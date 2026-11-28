@@ -15,7 +15,7 @@ use crate::mail::SendEmail;
 use crate::secret::hash_secret;
 use crate::user::events::{AccountEventKind, EventSource, record_event};
 use crate::user::model::User;
-use crate::user::queries::{query_get_user_by_id, query_update_user_email};
+use crate::user::queries::{query_get_user_by_id, query_lock_user, query_update_user_email};
 
 const PURPOSE: TokenPurpose = TokenPurpose::EmailChange;
 
@@ -51,10 +51,14 @@ pub async fn confirm_email_change(
     env: &Env<'_>,
     token: &str,
 ) -> Outcome<User, ConfirmEmailProblem> {
-    let mut tx = env.db().begin().await?;
-    let Some(link) =
-        query_consume_user_token_payload(PURPOSE, &hash_secret(token), &mut *tx).await?
+    let token_hash = hash_secret(token);
+    let Some(found) = query_get_valid_user_token_payload(PURPOSE, &token_hash, env.db()).await?
     else {
+        return fail(ConfirmEmailProblem::ExpiredLink);
+    };
+    let mut tx = env.db().begin().await?;
+    query_lock_user(found.user_id, &mut *tx).await?;
+    let Some(link) = query_consume_user_token_payload(PURPOSE, &token_hash, &mut *tx).await? else {
         return fail(ConfirmEmailProblem::ExpiredLink);
     };
     let Some((old_email, user)) = switch_email(&link, &mut tx).await? else {

@@ -11,7 +11,7 @@ use crate::env::App;
 use crate::jobs::enqueue;
 use crate::mail::{Email, SendEmail};
 use crate::secret::{hash_secret, random_base62};
-use crate::user::queries::query_delete_abandoned_signups;
+use crate::user::queries::{query_delete_abandoned_signups, query_lock_user};
 
 const LINK_TOKEN_LENGTH: usize = 32;
 const ABANDONED_SIGN_UP_AGE: Duration = Duration::days(7);
@@ -119,6 +119,7 @@ async fn replace_user_token(
     link: &NewLink<'_>,
     db: &mut PgConnection,
 ) -> Result<String, sqlx::Error> {
+    query_lock_user(link.user_id, &mut *db).await?;
     query_delete_user_tokens(link.user_id, link.purpose, &mut *db).await?;
     let raw = random_base62(LINK_TOKEN_LENGTH);
     let token = NewUserToken {

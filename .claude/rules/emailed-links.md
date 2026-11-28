@@ -55,6 +55,11 @@ paths:
   - *Delete account* (`delete_account.rs`): `DELETE` typed plus
     `check_reauth`; immediate, one transaction (goodbye email + delete row,
     everything cascades, so it's logged with `tracing`, not an event).
+  - Lock order: a transaction that consumes, replaces or deletes a user's
+    links locks the `users` row first (`query_lock_user`, `FOR NO KEY
+    UPDATE`, so link inserts' foreign-key checks don't wait on it, or an
+    `UPDATE users` before touching `user_tokens`), then the link rows.
+    Look a link's user up without locking, then lock, then consume.
   - A password change or reset deletes pending email-change and
     password-reset links. A verification link only sets a password on an
     account that has none (`password IS NULL`); otherwise it's expired.

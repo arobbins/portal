@@ -2,6 +2,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
 
 use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
 
 use super::*;
 use crate::action::Caller;
@@ -15,7 +16,7 @@ use crate::two_factor::actions::{
     EnableTwoFactor, SecondFactorProblem, enable_two_factor, verify_second_factor,
 };
 use crate::two_factor::codes::{code_at, new_secret};
-use crate::user::queries::query_get_user_by_id;
+use crate::user::queries::{query_get_user_by_id, query_lock_user};
 use crate::user::testing::{TEST_PASSWORD, active_user};
 
 const RAW_TOKEN: &str = "a-raw-reset-token";
@@ -365,9 +366,56 @@ async fn wrong_reset_codes_count_toward_the_sign_in_limit(db: PgPool) {
 }
 
 #[sqlx::test]
-async fn concurrent_wrong_reset_codes_are_checked_at_most_five_times(db: PgPool) {
+async fn an_empty_or_missing_code_is_a_wrong_code(db: PgPool) {
     let app = App::for_tests(db.clone());
+    let env = app.env(None);
+    let (user, secret, _) = with_two_factor("reset-no-code@example.test", &db).await;
+    let omitted: NewPassword = serde_json::from_value(json!({
+        "password": NEW_PASSWORD,
+        "confirm_password": NEW_PASSWORD,
+    }))
+    .unwrap();
+    insert_reset_link(user.id, RAW_TOKEN, &db).await;
+    insert_reset_link(user.id, ANOTHER_LINK, &db).await;
+
+    let outcome = set_password_from_link(&env, TokenPurpose::PasswordReset, RAW_TOKEN, &omitted)
+        .await
+        .unwrap();
+    assert_eq!(outcome.unwrap_err(), LinkPasswordProblem::WrongCode);
+    assert!(!reset_is_valid(&env, RAW_TOKEN).await);
+    assert!(!reset_is_valid(&env, ANOTHER_LINK).await);
+    insert_reset_link(user.id, WRONG_CODE_LINK, &db).await;
+    assert_eq!(
+        reset(&env, WRONG_CODE_LINK, "").await.unwrap_err(),
+        LinkPasswordProblem::WrongCode
+    );
+    assert!(!reset_is_valid(&env, WRONG_CODE_LINK).await);
+    for _ in 0..3 {
+        assert_eq!(
+            verify_second_factor(&env, &user, "000000").await.unwrap(),
+            Err(SecondFactorProblem::Wrong)
+        );
+    }
+
+    let right = code_at(&secret, env.now().unix_timestamp());
+    assert_eq!(
+        verify_second_factor(&env, &user, &right).await.unwrap(),
+        Err(SecondFactorProblem::TooManyAttempts)
+    );
+    assert_eq!(count(RESET_EVENTS, user.id, &db).await, 0);
+}
+
+#[sqlx::test]
+async fn concurrent_wrong_reset_codes_are_checked_at_most_five_times(db: PgPool) {
+    let wide = PgPoolOptions::new()
+        .max_connections(12)
+        .connect_with((*db.connect_options()).clone())
+        .await
+        .unwrap();
+    let app = App::for_tests(wide);
     let (user, secret, _) = with_two_factor("reset-race@example.test", &db).await;
+    let mut held = db.begin().await.unwrap();
+    assert!(query_lock_user(user.id, &mut *held).await.unwrap());
     let mut guesses = tokio::task::JoinSet::new();
     for attempt in 0..10u8 {
         let raw = format!("reset-race-{attempt}");
@@ -379,25 +427,21 @@ async fn concurrent_wrong_reset_codes_are_checked_at_most_five_times(db: PgPool)
                 .unwrap_err()
         });
     }
-    let mut answers = guesses.join_all().await;
 
-    let env = app.env(from(20));
-    for attempt in 0..6 {
-        let raw = format!("reset-after-race-{attempt}");
-        insert_reset_link(user.id, &raw, &db).await;
-        answers.push(reset(&env, &raw, "000000").await.unwrap_err());
+    let mut refused = Vec::new();
+    for _ in 0..5 {
+        refused.push(guesses.join_next().await.unwrap().unwrap());
     }
-    insert_reset_link(user.id, RAW_TOKEN, &db).await;
+    held.commit().await.unwrap();
+    let mut checked = guesses.join_all().await;
+    checked.sort_by_key(|answer| *answer != LinkPasswordProblem::WrongCode);
 
-    let checked = answers
-        .iter()
-        .filter(|&&answer| answer == LinkPasswordProblem::WrongCode)
-        .count();
-    assert!((1..=5).contains(&checked), "{answers:?}");
-    assert_eq!(
-        answers.last(),
-        Some(&LinkPasswordProblem::TooManyCodeAttempts)
-    );
+    assert_eq!(refused, [LinkPasswordProblem::TooManyCodeAttempts; 5]);
+    let mut expected = vec![LinkPasswordProblem::ExpiredLink; 5];
+    expected[0] = LinkPasswordProblem::WrongCode;
+    assert_eq!(checked, expected);
+    let env = app.env(from(20));
+    insert_reset_link(user.id, RAW_TOKEN, &db).await;
     let right = code_at(&secret, env.now().unix_timestamp());
     assert_eq!(
         reset(&env, RAW_TOKEN, &right).await.unwrap_err(),

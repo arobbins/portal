@@ -211,6 +211,16 @@ pub async fn query_lock_user_by_public_id(
     .await
 }
 
+pub async fn query_lock_user(user_id: i32, db: impl PgExecutor<'_>) -> Result<bool, sqlx::Error> {
+    let locked = sqlx::query_scalar!(
+        "SELECT id FROM users WHERE id = $1 FOR NO KEY UPDATE",
+        user_id
+    )
+    .fetch_optional(db)
+    .await?;
+    Ok(locked.is_some())
+}
+
 pub async fn query_disable_user(
     user_id: i32,
     disabled_at: time::OffsetDateTime,
