@@ -230,6 +230,7 @@ impl Mover {
         let input = NewPassword {
             password: NEW_PASSWORD.to_string(),
             confirm_password: NEW_PASSWORD.to_string(),
+            code: String::new(),
         };
         set_password_from_link(&self.env(), TokenPurpose::PasswordReset, &raw, &input)
             .await

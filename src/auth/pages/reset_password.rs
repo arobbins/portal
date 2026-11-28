@@ -18,13 +18,12 @@ use crate::action::{ActionProblem, page_status};
 use crate::app::page_title;
 use crate::auth::actions::{
     EMAIL_FIELD, LinkPasswordProblem, NewPassword, RequestPasswordReset, ResetRequestProblem,
-    link_is_valid, request_password_reset, set_password_from_link,
+    link_is_valid, link_needs_code, request_password_reset, set_password_from_link,
 };
 use crate::auth::links::TokenPurpose;
 use crate::auth::pages::expired_link::expired_link;
 use crate::auth::pages::login::login_page;
 use crate::auth::pages::new_password_form::new_password_form;
-use crate::auth::password::PasswordProblem;
 use crate::auth::session::{redirect_signed_in_users, sign_in};
 use crate::components::button::{ButtonType, button};
 use crate::components::form::{
@@ -33,9 +32,6 @@ use crate::components::form::{
 use crate::devices::lifecycle::SignInMethod;
 use crate::flash::{Flash, set_flash, take_flash};
 use crate::layout::page_heading::page_heading;
-use crate::two_factor::actions::needs_second_factor;
-use crate::two_factor::challenge::begin_second_factor;
-use crate::two_factor::pages::challenge_page::two_factor_page;
 use crate::web::{env, redisplay, session};
 
 pub const RETRY_AFTER_SECS: u64 = 10;
@@ -50,8 +46,10 @@ struct ResetRequestFailed {
 }
 
 pub struct LinkPasswordFailed {
-    pub problem: PasswordProblem,
+    pub problem: LinkPasswordProblem,
 }
+
+struct CodeUsedUpLink;
 
 #[page("/reset-password", with(Metadata::new().title(page_title("Reset password"))))]
 pub async fn reset_password_page(cx: &Cx) -> Result<impl View> {
@@ -127,36 +125,53 @@ pub async fn reset_password_submit(
     with(Metadata::new().title(page_title("Choose a new password")))
 )]
 pub async fn choose_password_page(cx: &Cx) -> Result<impl View> {
-    if !link_is_valid(&env(cx), PURPOSE, token(cx)).await? {
-        return Ok(view! {
-            expired_link(
-                <p>
-                    "This reset link is invalid or has already been used. Links work once and expire after "
-                    (PURPOSE.lifetime_text())
-                    "."
-                </p>
-                <p>
-                    <a href=(href!(reset_password_page).resolve(cx))>
-                        "Request a new link"
-                    </a>
-                </p>
-            )
-        }
-        .boxed());
+    if try_context::<CodeUsedUpLink>(cx).is_some() {
+        let message = LinkPasswordProblem::WrongCode.message();
+        return Ok(view! { used_up_link(message: &message) }.boxed());
+    }
+    let env = env(cx);
+    if !link_is_valid(&env, PURPOSE, token(cx)).await? {
+        let expired = format!(
+            "This reset link is invalid or has already been used. Links work once and expire after {}.",
+            PURPOSE.lifetime_text()
+        );
+        return Ok(view! { used_up_link(message: &expired) }.boxed());
     }
 
     let problem = try_context::<LinkPasswordFailed>(cx).map(|failed| failed.problem);
+    let asks_code = link_needs_code(&env, PURPOSE, token(cx)).await?;
 
     Ok(view! {
         <section class="l-contain l-skinny">
+            if let Some(problem) = problem {
+                (page_status(problem))
+            }
             page_heading(text: "Choose a new password")
             <p class="p-auth__intro">
                 "Choosing a new password signs you out on every other device."
             </p>
-            new_password_form(submit_label: "Reset password", problem: problem)
+            new_password_form(
+                submit_label: "Reset password",
+                problem: problem,
+                asks_code: asks_code
+            )
         </section>
     }
     .boxed())
+}
+
+#[component]
+async fn used_up_link(cx: &Cx, message: &str) -> Result<impl View> {
+    Ok(view! {
+        expired_link(
+            <p>(message)</p>
+            <p>
+                <a href=(href!(reset_password_page).resolve(cx))>
+                    "Request a new link"
+                </a>
+            </p>
+        )
+    })
 }
 
 #[route(POST "/reset-password/{token}")]
@@ -164,12 +179,6 @@ pub async fn choose_password_submit(cx: &Cx, Form(input): Form<NewPassword>) -> 
     match set_password_from_link(&env(cx), PURPOSE, token(cx), &input).await? {
         Ok(user) => {
             let session = session(cx)?;
-            let env = env(cx);
-            if needs_second_factor(&env, &user).await? {
-                begin_second_factor(&session, &user, SignInMethod::PasswordReset, env.now())
-                    .await?;
-                return Ok(see_other(href!(two_factor_page).resolve(cx)));
-            }
             sign_in(cx, &session, &user, SignInMethod::PasswordReset).await?;
             set_flash(&session, Flash::PasswordReset).await?;
             Ok(see_other(ACCOUNT_PATH))
@@ -183,7 +192,8 @@ pub fn link_password_failed(cx: &Cx, problem: LinkPasswordProblem) -> topcoat::E
     match problem {
         LinkPasswordProblem::TooManyAttempts => too_many_requests(RETRY_AFTER_SECS).into(),
         LinkPasswordProblem::ExpiredLink => redisplay(form_path, ()),
-        LinkPasswordProblem::Password(problem) => {
+        LinkPasswordProblem::WrongCode => redisplay(form_path, CodeUsedUpLink),
+        LinkPasswordProblem::Password(_) | LinkPasswordProblem::TooManyCodeAttempts => {
             redisplay(form_path, LinkPasswordFailed { problem })
         }
     }

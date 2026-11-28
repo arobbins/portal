@@ -24,7 +24,9 @@ use crate::user::events::{AccountEventKind, EventSource, record_event};
 
 mod sign_in;
 
-pub use sign_in::{SecondFactorProblem, needs_second_factor, verify_second_factor};
+pub use sign_in::{
+    SecondFactorProblem, needs_second_factor, second_factor_matches, verify_second_factor,
+};
 
 pub const CODE_FIELD: &str = "code";
 

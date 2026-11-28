@@ -44,7 +44,8 @@ paths:
   - *Password reset* (`password_reset.rs`, `link_password.rs`): the request
     is one job insert whatever the email (same answer and timing); the POST
     checks the link before argon2, bumps `session_version`, deletes every API
-    token and records one `password_reset` event.
+    token and records one `password_reset` event. With two-factor on, the
+    same POST needs the code (`two-factor.md`).
   - *Change email* (`change_email.rs`, `confirm_email.rs`): re-auth with
     `check_reauth`; the request only enqueues `EmailChangeJob`, so the answer
     never reveals whether the new address has an account. The new address
@@ -54,6 +55,11 @@ paths:
   - *Delete account* (`delete_account.rs`): `DELETE` typed plus
     `check_reauth`; immediate, one transaction (goodbye email + delete row,
     everything cascades, so it's logged with `tracing`, not an event).
+  - Lock order: a transaction that consumes, replaces or deletes a user's
+    links locks the `users` row first (`query_lock_user`, `FOR NO KEY
+    UPDATE`, so link inserts' foreign-key checks don't wait on it, or an
+    `UPDATE users` before touching `user_tokens`), then the link rows.
+    Look a link's user up without locking, then lock, then consume.
   - A password change or reset deletes pending email-change and
     password-reset links. A verification link only sets a password on an
     account that has none (`password IS NULL`); otherwise it's expired.

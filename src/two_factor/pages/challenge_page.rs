@@ -20,11 +20,9 @@ use crate::components::button::{ButtonType, button};
 use crate::components::form::{
     Autocomplete, FormVariant, form, form_actions, form_error, form_field,
 };
-use crate::devices::lifecycle::SignInMethod;
-use crate::flash::{Flash, set_flash};
 use crate::layout::page_heading::page_heading;
 use crate::passkeys::pages::passkey_setup::after_password_sign_in;
-use crate::routes::{ACCOUNT_PATH, LOGIN_PATH};
+use crate::routes::LOGIN_PATH;
 use crate::two_factor::actions::{CODE_FIELD, SecondFactorProblem, verify_second_factor};
 use crate::two_factor::challenge::{end_second_factor, pending_user};
 use crate::web::{env, redisplay, session};
@@ -108,10 +106,6 @@ pub async fn two_factor_submit(cx: &Cx, Form(input): Form<SecondFactor>) -> Resu
         Ok(()) => {
             end_second_factor(&session).await?;
             sign_in(cx, &session, &user, method).await?;
-            if method == SignInMethod::PasswordReset {
-                set_flash(&session, Flash::PasswordReset).await?;
-                return Ok(see_other(ACCOUNT_PATH));
-            }
             Ok(see_other(
                 after_password_sign_in(cx, &session, &user).await?,
             ))

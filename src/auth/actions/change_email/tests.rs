@@ -5,9 +5,10 @@ use crate::action::{ActionError, Denied};
 use crate::api::scope::ApiScope;
 use crate::auth::actions::{ConfirmEmailProblem, confirm_email_change, pending_email_change};
 use crate::auth::password::CurrentPasswordProblem;
-use crate::auth::queries::{NewUserToken, query_insert_user_token};
+use crate::auth::queries::{NewUserToken, query_delete_user_tokens, query_insert_user_token};
 use crate::auth::reauth::{PasskeyProof, ReauthProblem};
 use crate::secret::hash_secret;
+use crate::user::queries::query_lock_user;
 use crate::user::testing::{TEST_PASSWORD, active_user};
 
 const NEW_EMAIL: &str = "new@example.test";
@@ -291,6 +292,7 @@ async fn changing_or_resetting_the_password_cancels_a_pending_email_change(db: P
     let chosen = NewPassword {
         password: new_password.clone(),
         confirm_password: new_password,
+        code: String::new(),
     };
     set_password_from_link(
         &env,
@@ -352,4 +354,28 @@ async fn a_disabled_accounts_links_and_queued_jobs_do_nothing(db: PgPool) {
     };
     job.run(&app).await.unwrap();
     assert!(jobs(&db).await.is_empty());
+}
+
+#[sqlx::test]
+async fn a_confirmation_waits_for_a_reset_holding_the_account(db: PgPool) {
+    let user = active_user("racing-links@example.test", &db).await;
+    insert_link(user.id, NEW_EMAIL, &db).await;
+    let app = App::for_tests(db.clone());
+    let mut reset = db.begin().await.unwrap();
+    assert!(query_lock_user(user.id, &mut *reset).await.unwrap());
+
+    let confirming = {
+        let app = app.clone();
+        tokio::spawn(async move { confirm_email_change(&app.env(None), RAW_TOKEN).await })
+    };
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    assert!(!confirming.is_finished());
+    query_delete_user_tokens(user.id, TokenPurpose::EmailChange, &mut *reset)
+        .await
+        .unwrap();
+    reset.commit().await.unwrap();
+
+    let confirmed = confirming.await.unwrap().unwrap();
+    assert_eq!(confirmed.err(), Some(ConfirmEmailProblem::ExpiredLink));
+    assert_eq!(email_of(user.id, &db).await, "racing-links@example.test");
 }

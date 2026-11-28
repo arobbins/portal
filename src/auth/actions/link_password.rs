@@ -11,16 +11,21 @@ use crate::auth::links::TokenPurpose;
 use crate::auth::password::{
     MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, PasswordProblem, check_new_password, hash_password,
 };
-use crate::auth::queries::{
-    query_consume_user_token, query_delete_user_tokens, query_get_valid_user_token,
-    query_get_valid_user_token_payload,
-};
+use crate::auth::queries::{query_consume_user_token, query_delete_user_tokens};
 use crate::env::Env;
 use crate::oauth::lifecycle::disconnect_all_for_user;
 use crate::secret::hash_secret;
+use crate::two_factor::actions::{CODE_FIELD, second_factor_matches};
 use crate::user::events::{AccountEventKind, EventSource, record_event};
 use crate::user::model::User;
-use crate::user::queries::{query_set_password_and_verify_user, query_update_password};
+use crate::user::queries::{
+    query_lock_user, query_set_password_and_verify_user, query_update_password,
+};
+
+mod lookup;
+
+use lookup::{asks_for_code, link_holder};
+pub use lookup::{link_is_valid, link_needs_code, link_payload};
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -33,12 +38,20 @@ pub struct NewPassword {
     pub password: String,
     #[schemars(description = "The new password again.")]
     pub confirm_password: String,
+    #[serde(default)]
+    #[schemars(
+        description = "A code from the authenticator app or a recovery code, when two-factor is on.",
+        length(max = 32)
+    )]
+    pub code: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LinkPasswordProblem {
     ExpiredLink,
     Password(PasswordProblem),
+    WrongCode,
+    TooManyCodeAttempts,
     TooManyAttempts,
 }
 
@@ -51,27 +64,15 @@ impl ActionProblem for LinkPasswordProblem {
             )
             .with_status(StatusCode::BAD_REQUEST),
             Self::Password(problem) => problem.spec(),
-            Self::TooManyAttempts => TooManyAttempts.spec(),
+            Self::WrongCode => ProblemSpec::new(
+                "wrong_code",
+                "That code didn't work, so this link has been used up. Request a new link to try again.",
+            )
+            .on_field(CODE_FIELD)
+            .with_status(StatusCode::BAD_REQUEST),
+            Self::TooManyCodeAttempts | Self::TooManyAttempts => TooManyAttempts.spec(),
         }
     }
-}
-
-pub async fn link_is_valid(
-    env: &Env<'_>,
-    purpose: TokenPurpose,
-    token: &str,
-) -> topcoat::Result<bool> {
-    let user_id = query_get_valid_user_token(purpose, &hash_secret(token), env.db()).await?;
-    Ok(user_id.is_some())
-}
-
-pub async fn link_payload(
-    env: &Env<'_>,
-    purpose: TokenPurpose,
-    token: &str,
-) -> topcoat::Result<Option<String>> {
-    let found = query_get_valid_user_token_payload(purpose, &hash_secret(token), env.db()).await?;
-    Ok(found.map(|token| token.payload))
 }
 
 pub async fn set_password_from_link(
@@ -83,25 +84,58 @@ pub async fn set_password_from_link(
     if !env.limits().allow_password_submission(env.ip).await? {
         return fail(LinkPasswordProblem::TooManyAttempts);
     }
-    if !link_is_valid(env, purpose, token).await? {
+    let Some(holder) = link_holder(env, purpose, token).await? else {
         return fail(LinkPasswordProblem::ExpiredLink);
-    }
+    };
     if let Err(problem) = check_new_password(&input.password, &input.confirm_password) {
         return fail(LinkPasswordProblem::Password(problem));
     }
+    let needs_code = asks_for_code(env, purpose, &holder).await?;
+    if needs_code
+        && !env
+            .limits()
+            .take_second_factor_attempt(&holder.email)
+            .await?
+    {
+        return fail(LinkPasswordProblem::TooManyCodeAttempts);
+    }
 
     let password_hash = hash_password(&input.password)?;
+    let code = needs_code.then_some(input.code.as_str());
+    let outcome = use_link(env, purpose, token, &holder, &password_hash, code).await?;
+    if needs_code && outcome.is_ok() {
+        env.limits()
+            .clear_failed_second_factors(&holder.email)
+            .await?;
+    }
+    Ok(outcome)
+}
+
+async fn use_link(
+    env: &Env<'_>,
+    purpose: TokenPurpose,
+    token: &str,
+    holder: &User,
+    password_hash: &str,
+    code: Option<&str>,
+) -> Outcome<User, LinkPasswordProblem> {
     let mut tx = env.db().begin().await?;
+    query_lock_user(holder.id, &mut *tx).await?;
     let Some(user_id) = consume_link(purpose, token, &mut tx).await? else {
         return fail(LinkPasswordProblem::ExpiredLink);
     };
-    let Some(user) = apply_password(env, purpose, user_id, &password_hash, &mut tx).await? else {
+    if let Some(code) = code
+        && !second_factor_matches(env, holder, code, &mut tx).await?
+    {
         tx.commit().await?;
-        return fail(LinkPasswordProblem::ExpiredLink);
-    };
+        return fail(LinkPasswordProblem::WrongCode);
+    }
+    let applied = apply_password(env, purpose, user_id, password_hash, &mut tx).await?;
     tx.commit().await?;
-
-    Ok(Ok(user))
+    match applied {
+        Some(user) => Ok(Ok(user)),
+        None => fail(LinkPasswordProblem::ExpiredLink),
+    }
 }
 
 async fn consume_link(
