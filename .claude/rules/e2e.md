@@ -36,18 +36,14 @@ for the full suite and the `verify` skill for one spec.
   Tests that change data use their own `uniqueEmail` user, never the seeded
   ones. New accounts land on the passkey prompt; `createAccount` answers
   "Not now", so later password logins go straight to `/account`.
-- Submit forms with `press("Enter")` on the last field you typed in, never a
-  click on the submit button: Firefox under Playwright sometimes drops the
-  first click after typing (on any page, not just modals), so the form is
-  never posted. Shared helpers in `flows.ts` already do this.
 - Toasts are held open in tests (`holdToasts`, on by default in
   `support/test.ts`; held toasts ignore clicks), so a slow machine can't miss
   a toast before it auto-hides. Only `toaster.spec.ts` turns it off.
 - Failed logins are rate-limited per account even in relaxed mode, so tests
   that log in with a wrong password use their own `uniqueEmail` account, never
   a seeded one.
-- Popovers and menus must not move while opening (fade, don't slide): a
-  moving target makes Playwright press outside it, which light-dismisses it.
+- Browser quirks (Firefox clicks and slow tabs, popovers, layout widths):
+  `e2e-browser-quirks.md`.
 - Find a flake with `--repeat-each=2 --workers=16`, then read the failing
   test's `trace.zip`.
 - Find elements by role/label/text
@@ -63,5 +59,3 @@ for the full suite and the `verify` skill for one spec.
   and menus, light and dark, at 390 and 1280px: `serious`/`critical` fail,
   `minor`/`moderate` are listed in its output and `accessibility.json`
   attachment. Add new pages to it (it may find dialogs by id).
-- Layout checks measure `document.body`, never `innerWidth`/`clientWidth`:
-  CI's scrollbars plus `scrollbar-gutter: stable` make those 15px wider.
