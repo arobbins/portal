@@ -31,7 +31,7 @@ def code_text(markdown):
 
 def source_functions():
     for path in sorted((ROOT / "src").rglob("*.rs")):
-        if path.name in ("tests.rs", "testing.rs") or "state_machines" in path.parts:
+        if path.name in ("tests.rs", "testing.rs") or {"tests", "state_machines"} & set(path.parts):
             continue
         code = path.read_text().split("#[cfg(test)]\nmod tests", 1)[0]
         starts = list(FUNCTION.finditer(code))
