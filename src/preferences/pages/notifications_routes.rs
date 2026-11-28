@@ -10,7 +10,7 @@ use topcoat::{
 };
 
 use crate::account::tabs::AccountSection;
-use crate::action::{FieldError, browser_caller, require_browser_caller};
+use crate::action::{FieldError, ForPage, browser_caller, require_browser_caller};
 use crate::flash::{Flash, set_flash};
 use crate::preferences::actions::{UpdateNotifications, update_notifications};
 use crate::web::{env, session};
@@ -25,10 +25,10 @@ pub(super) async fn save_notifications(
     };
     let input = UpdateNotifications { sign_in_alerts };
 
-    match update_notifications(&env(cx), &caller, &input).await? {
-        Ok(_) => Ok(Ok(String::new())),
-        Err(error) => match error.for_browser()? {},
-    }
+    update_notifications(&env(cx), &caller, &input)
+        .await?
+        .for_page()?;
+    Ok(Ok(String::new()))
 }
 
 #[route(POST "/account/notifications/update")]
@@ -38,11 +38,9 @@ pub async fn update_notifications_submit(
 ) -> Result<SeeOther> {
     let caller = require_browser_caller(cx)?;
 
-    match update_notifications(&env(cx), &caller, &input).await? {
-        Ok(_) => {
-            set_flash(&session(cx)?, Flash::NotificationsSaved).await?;
-            Ok(see_other(AccountSection::Notifications.path()))
-        }
-        Err(error) => match error.for_browser()? {},
-    }
+    update_notifications(&env(cx), &caller, &input)
+        .await?
+        .for_page()?;
+    set_flash(&session(cx)?, Flash::NotificationsSaved).await?;
+    Ok(see_other(AccountSection::Notifications.path()))
 }

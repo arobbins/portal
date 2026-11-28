@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::queries::query_get_user_of_customer;
 use crate::env::App;
 use crate::jobs::{Job, JobError};
-use crate::stripe::{Request, Stripe};
+use crate::stripe::{Request, Stripe, expandable_id, is_id};
 use crate::user::queries::query_get_user_by_id;
 
 const RETRY_FOR_DAYS_OF_ATTEMPTS: i32 = 100;
@@ -21,7 +21,7 @@ impl Job for CancelStripeSubscription {
     const MAX_ATTEMPTS: i32 = RETRY_FOR_DAYS_OF_ATTEMPTS;
 
     async fn run(self, app: &App) -> Result<(), JobError> {
-        if !is_stripe_id(&self.subscription, "sub_") {
+        if !is_id(&self.subscription, "sub_") {
             return Err(JobError::new("not a Stripe subscription id"));
         }
         let stripe = configured(app)?;
@@ -58,7 +58,7 @@ async fn refund_latest_invoice(stripe: &Stripe, subscription: &str) -> Result<()
     ]
     .into_iter()
     .find_map(|(field, value)| {
-        let id = value.as_str().or_else(|| value["id"].as_str())?;
+        let id = expandable_id(value)?;
         Some((field, id.to_string()))
     });
     let Some((field, id)) = paid_with else {
@@ -83,7 +83,7 @@ impl Job for UpdateStripeCustomerEmail {
     const KIND: &'static str = "update_stripe_customer_email";
 
     async fn run(self, app: &App) -> Result<(), JobError> {
-        if !is_stripe_id(&self.customer, "cus_") {
+        if !is_id(&self.customer, "cus_") {
             return Err(JobError::new("not a Stripe customer id"));
         }
         let Some(email) = current_email(app, &self.customer).await? else {
@@ -117,14 +117,4 @@ fn configured(app: &App) -> Result<&Stripe, JobError> {
         .stripe
         .as_ref()
         .ok_or_else(|| JobError::new("billing isn't configured"))
-}
-
-pub fn is_stripe_id(value: &str, prefix: &str) -> bool {
-    value.len() <= 255
-        && value.strip_prefix(prefix).is_some_and(|rest| {
-            !rest.is_empty()
-                && rest
-                    .bytes()
-                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
-        })
 }

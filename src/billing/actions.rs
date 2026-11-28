@@ -3,6 +3,7 @@ mod customer;
 mod overview;
 mod plans;
 mod portal;
+mod stripe_call;
 mod sync;
 mod webhook;
 

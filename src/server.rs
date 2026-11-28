@@ -1,12 +1,13 @@
+mod cleanup;
 #[cfg(test)]
 mod oauth_tests;
 pub mod router;
 #[cfg(test)]
 mod tests;
+pub mod tools;
 
 use std::env;
 use std::net::SocketAddr;
-use std::sync::Arc;
 
 use axum::{ServiceExt, extract::Request, middleware};
 use listenfd::ListenFd;
@@ -21,15 +22,14 @@ use tower_sessions_sqlx_store::PostgresStore;
 
 use crate::auth::actions::{EmailChangeJob, PasswordResetJob};
 use crate::billing::jobs::{CancelStripeSubscription, UpdateStripeCustomerEmail};
-use crate::cleanup::CleanupJob;
 use crate::config::Config;
 use crate::devices::lifecycle::DEVICE_IDLE_LIMIT;
-use crate::env::{App, Clock};
+use crate::env::App;
 use crate::jobs::{Handler, Worker};
 use crate::mail::SendEmail;
 use crate::passkeys::webauthn::relying_party;
-use crate::rate_limit::RateLimits;
 use crate::web::run_to_completion;
+use cleanup::CleanupJob;
 
 pub use router::router;
 
@@ -101,12 +101,14 @@ fn load_config() -> Config {
 }
 
 fn build_app(db: PgPool, config: Config) -> App {
-    App {
-        limits: Arc::new(RateLimits::new(db.clone(), config.rate_limit_mode)),
-        webauthn: Arc::new(relying_party(&config)),
-        config: Arc::new(config),
-        clock: Clock::System,
-        db,
+    let webauthn = relying_party(&config);
+    App::new(db, config, webauthn)
+}
+
+#[cfg(test)]
+impl App {
+    pub fn for_tests(db: PgPool) -> Self {
+        build_app(db, Config::for_tests())
     }
 }
 

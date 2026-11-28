@@ -3,18 +3,24 @@ use serde::{Deserialize, Serialize};
 
 use crate::user::model::{Role, User};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, sqlx::Type)]
+#[sqlx(type_name = "text")]
 pub enum ApiScope {
     #[serde(rename = "profile:read")]
+    #[sqlx(rename = "profile:read")]
     ProfileRead,
     #[serde(rename = "profile:write")]
+    #[sqlx(rename = "profile:write")]
     ProfileWrite,
     #[serde(rename = "billing:read")]
+    #[sqlx(rename = "billing:read")]
     BillingRead,
     #[serde(rename = "billing:write")]
+    #[sqlx(rename = "billing:write")]
     BillingWrite,
     #[cfg(test)]
     #[serde(rename = "test:admin")]
+    #[sqlx(rename = "test:admin")]
     TestAdmin,
 }
 
@@ -103,18 +109,17 @@ impl ApiScope {
     }
 }
 
-pub fn parse_scopes(values: &[String]) -> Vec<ApiScope> {
-    values
-        .iter()
-        .filter_map(|value| ApiScope::from_str(value))
-        .collect()
+pub fn scope_names(scopes: &[ApiScope]) -> String {
+    let names: Vec<&str> = scopes.iter().map(|scope| scope.as_str()).collect();
+    names.join(" ")
 }
 
 pub fn grants(scopes: &[ApiScope], needed: ApiScope) -> bool {
     scopes.iter().any(|scope| scope.implies(needed))
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, sqlx::Type)]
+#[sqlx(type_name = "text", rename_all = "lowercase")]
 pub enum TokenAudience {
     #[serde(rename = "api")]
     Api,
@@ -187,9 +192,10 @@ mod tests {
     }
 
     #[test]
-    fn unknown_scope_names_grant_nothing() {
-        let scopes = parse_scopes(&["admin:*".to_string(), "profile:read".to_string()]);
+    fn scope_names_are_space_separated() {
+        let scopes = [ApiScope::ProfileRead, ApiScope::BillingWrite];
 
-        assert_eq!(scopes, vec![ApiScope::ProfileRead]);
+        assert_eq!(scope_names(&scopes), "profile:read billing:write");
+        assert_eq!(scope_names(&[]), "");
     }
 }

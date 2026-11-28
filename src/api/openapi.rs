@@ -2,8 +2,9 @@ use schemars::Schema;
 use serde_json::{Map, Value, json};
 use topcoat::router::{StatusCode, content::Json};
 
-use crate::api::catalog::{Endpoint, ErrorDoc, TITLE, VERSION, common_errors, endpoints};
+use crate::api::catalog::{Endpoint, ErrorDoc, TITLE, VERSION, common_errors};
 use crate::api::problem::ApiProblem;
+use crate::api::registry::endpoints;
 use crate::api::scope::ApiScope;
 
 pub fn openapi(base_url: &str) -> Value {

@@ -152,11 +152,14 @@ impl ApiAction for CreateThingAction {
 
     fn example_input() -> Option<DoThing> { Some(/* real-looking values */) }
     fn example_output() -> ThingView { /* … */ }
-    fn problems() -> Vec<ErrorDoc> { ThingProblem::ALL.into_iter().map(ErrorDoc::of).collect() }
+}
+
+impl ListedProblem for ThingProblem {
+    fn all() -> &'static [Self] { &Self::ALL }
 }
 ```
 
-Add it to `endpoints()` in `src/api/registry.rs`, then the thin route in
+Add it to `tools()` in `src/server/tools.rs`, then the thin route in
 `src/api/v1/<feature>.rs` (Topcoat needs the path in the attribute):
 
 ```rust

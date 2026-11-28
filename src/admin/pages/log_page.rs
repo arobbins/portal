@@ -7,10 +7,12 @@ use topcoat::{
 };
 
 use super::admin_access::require_admin;
-use super::admin_shell::{AdminSection, admin_shell};
+use super::admin_shell::admin_shell;
 use super::user_page::{admin_user_page, id};
+use crate::action::ForPage;
 use crate::admin::actions::{LOG_ENTRIES_SHOWN, list_admin_log};
 use crate::admin::queries::LogEntry;
+use crate::admin::sections::AdminSection;
 use crate::app::page_title;
 use crate::auth::session::viewer_zone;
 use crate::components::table::{
@@ -23,10 +25,7 @@ const SERVER_CONSOLE: &str = "Server console";
 #[page("/admin/log", with(Metadata::new().title(page_title("Admin log"))))]
 pub async fn admin_log_page(cx: &Cx) -> Result<impl View> {
     let caller = require_admin(cx).await?;
-    let entries = match list_admin_log(&env(cx), &caller).await? {
-        Ok(entries) => entries,
-        Err(error) => match error.for_browser()? {},
-    };
+    let entries = list_admin_log(&env(cx), &caller).await?.for_page()?;
     let caption = format!("The last {LOG_ENTRIES_SHOWN} admin actions, newest first");
 
     Ok(view! {

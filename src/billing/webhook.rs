@@ -1,3 +1,4 @@
+use crate::stripe::expandable_id;
 use serde_json::Value;
 use time::OffsetDateTime;
 
@@ -20,12 +21,31 @@ pub enum EventKind {
     Other,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StripeStatus {
+    Live,
+    Unpaid,
+    Over,
+    Other,
+}
+
+impl StripeStatus {
+    fn parse(value: &str) -> Self {
+        match value {
+            "active" | "trialing" => Self::Live,
+            "past_due" | "unpaid" => Self::Unpaid,
+            "canceled" | "incomplete_expired" => Self::Over,
+            _ => Self::Other,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubscriptionPayload {
     pub id: String,
     pub customer: String,
     pub price_id: String,
-    pub stripe_status: String,
+    pub stripe_status: StripeStatus,
     pub deleted: bool,
     pub cancel_at_period_end: bool,
     pub cancel_at: Option<i64>,
@@ -88,10 +108,7 @@ pub fn parse_event(payload: &[u8]) -> Option<StripeEvent> {
 }
 
 fn id_of(value: &Value) -> Option<String> {
-    value
-        .as_str()
-        .or_else(|| value["id"].as_str())
-        .map(str::to_string)
+    expandable_id(value).map(str::to_string)
 }
 
 pub fn subscription(object: &Value, deleted: bool) -> Option<SubscriptionPayload> {
@@ -100,7 +117,7 @@ pub fn subscription(object: &Value, deleted: bool) -> Option<SubscriptionPayload
         id: object["id"].as_str()?.to_string(),
         customer: id_of(&object["customer"])?,
         price_id: id_of(&item["price"])?,
-        stripe_status: object["status"].as_str()?.to_string(),
+        stripe_status: StripeStatus::parse(object["status"].as_str()?),
         deleted,
         cancel_at_period_end: object["cancel_at_period_end"].as_bool().unwrap_or(false),
         cancel_at: object["cancel_at"].as_i64(),
@@ -124,18 +141,18 @@ fn invoice_subscription(object: &Value) -> Option<String> {
         .or_else(|| id_of(&object["parent"]["subscription_details"]["subscription"]))
 }
 
-pub fn status_of(payload: &SubscriptionPayload) -> Option<SubscriptionStatus> {
+fn status_of(payload: &SubscriptionPayload) -> Option<SubscriptionStatus> {
     if payload.deleted {
         return Some(SubscriptionStatus::Ended);
     }
-    match payload.stripe_status.as_str() {
-        "active" | "trialing" if payload.cancel_at_period_end || payload.cancel_at.is_some() => {
+    match payload.stripe_status {
+        StripeStatus::Live if payload.cancel_at_period_end || payload.cancel_at.is_some() => {
             Some(SubscriptionStatus::Cancelling)
         }
-        "active" | "trialing" => Some(SubscriptionStatus::Active),
-        "past_due" | "unpaid" => Some(SubscriptionStatus::PastDue),
-        "canceled" | "incomplete_expired" => Some(SubscriptionStatus::Ended),
-        _ => None,
+        StripeStatus::Live => Some(SubscriptionStatus::Active),
+        StripeStatus::Unpaid => Some(SubscriptionStatus::PastDue),
+        StripeStatus::Over => Some(SubscriptionStatus::Ended),
+        StripeStatus::Other => None,
     }
 }
 
@@ -229,7 +246,7 @@ mod tests {
             id: "sub_1".into(),
             customer: "cus_1".into(),
             price_id: "price_pro".into(),
-            stripe_status: status.into(),
+            stripe_status: StripeStatus::parse(status),
             deleted,
             cancel_at_period_end: cancelling,
             cancel_at: None,

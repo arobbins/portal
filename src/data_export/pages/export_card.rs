@@ -3,23 +3,21 @@ use topcoat::{
     context::Cx,
     router::href,
     runtime::{Event, Signal, signal},
-    view::{View, attributes, component, view},
+    view::{View, component, view},
 };
 
 use super::export_routes::{export_data_js, export_data_submit};
 use crate::account::tabs::AccountSection;
-use crate::action::FieldError;
 use crate::auth::pages::reauth_field::reauth_field;
 use crate::auth::password::CURRENT_PASSWORD_FIELD;
-use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
+use crate::components::button::{ButtonSize, ButtonVariant, button};
 use crate::components::form::{
-    DialogForm, dialog_form_error, dialog_input, form, form_actions, form_group,
+    DialogForm, ModalSubmit, ModalSuccess, dialog_input, dialog_opener, form_group, modal_form,
 };
-use crate::components::modal::{modal, modal_cancel};
 use crate::components::property_list::property;
 use crate::components::toaster::NO_TOAST;
 
-pub const EXPORT_MODAL: &str = "export-data-dialog";
+const EXPORT_MODAL: &str = "export-data-dialog";
 const UNREACHABLE: &str = "We couldn't prepare your data. Please try again.";
 
 pub struct ExportDrafts {
@@ -39,11 +37,6 @@ impl ExportDrafts {
 #[component]
 pub async fn export_row(cx: &Cx, form: &DialogForm, drafts: &ExportDrafts) -> Result<impl View> {
     let ExportDrafts { blank, password } = drafts;
-    let DialogForm {
-        error_field,
-        error_message,
-        ..
-    } = form;
     let section = AccountSection::ExportData;
 
     Ok(view! {
@@ -56,16 +49,7 @@ pub async fn export_row(cx: &Cx, form: &DialogForm, drafts: &ExportDrafts) -> Re
             button(
                 variant: ButtonVariant::Secondary,
                 size: ButtonSize::Sm,
-                attrs: attributes! {
-                    command="show-modal"
-                    commandfor=(EXPORT_MODAL)
-                    @click=$(|_e: Event| {
-                        blank.set("".to_owned());
-                        password.set("".to_owned());
-                        error_field.set("".to_owned());
-                        error_message.set("".to_owned());
-                    })
-                },
+                attrs: dialog_opener(cx, form, EXPORT_MODAL, &[blank, password]),
                 "Export data"
             )
         )
@@ -80,61 +64,25 @@ pub async fn export_dialog(
     toast: &Signal<String>,
 ) -> Result<impl View> {
     let ExportDrafts { blank, password } = drafts;
-    let DialogForm {
-        error_field,
-        error_message,
-        is_submitting,
-    } = form;
-    let modal_id = EXPORT_MODAL.to_string();
-    let export_failed: std::result::Result<String, FieldError> =
-        Err(FieldError::general(UNREACHABLE));
+    let submit = ModalSubmit {
+        procedure: export_data_js,
+        action: href!(export_data_submit).resolve(cx),
+        label: "Export data",
+        success_toast: NO_TOAST,
+        unreachable: UNREACHABLE,
+    };
 
     Ok(view! {
-        modal(
+        modal_form(
             id: EXPORT_MODAL,
             heading: "Export data",
-            form(
-                attrs: attributes! {
-                    method="post"
-                    action=(href!(export_data_submit))
-                    @submit=$(async |e: Event| {
-                        e.prevent_default();
-                        is_submitting.set(true);
-                        error_field.set("".to_owned());
-                        error_message.set("".to_owned());
-                        toast.set(NO_TOAST.to_owned());
-                        let _pending = export_data_js(password.get());
-                        let result = raw!(
-                            "await Promise.resolve(${_pending}).catch(() => ${export_failed})",
-                            export_failed.clone(),
-                        );
-                        is_submitting.set(false);
-                        if result.is_ok() {
-                            blank.set("".to_owned());
-                            password.set("".to_owned());
-                            let _file = result.unwrap();
-                            raw!(
-                                "{ const [name, data] = String(${_file}).split('\\n'); const link = document.createElement('a'); link.href = 'data:application/zip;base64,' + data; link.download = name; document.body.append(link); link.click(); link.remove(); document.getElementById(String(${modal_id})).close(); }",
-                                (),
-                            );
-                        } else {
-                            let failure = result.unwrap_err();
-                            error_field.set(failure.field);
-                            error_message.set(failure.message);
-                        }
-                    })
-                },
-                export_fields(form: form, drafts: drafts)
-                dialog_form_error(form: form)
-                form_actions(
-                    modal_cancel(modal_id: EXPORT_MODAL)
-                    button(
-                        button_type: ButtonType::Submit,
-                        busy: $(is_submitting.get()),
-                        "Export data"
-                    )
-                )
-            )
+            form: form,
+            toast: toast,
+            submit: submit,
+            args: $((password.get(),)),
+            on_success: ModalSuccess::DownloadFile,
+            clear: Some((blank, password)),
+            export_fields(form: form, drafts: drafts)
         )
     })
 }

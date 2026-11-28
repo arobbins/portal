@@ -38,7 +38,8 @@ skipped by any path. New features follow the `new-action` skill.
   `FieldError::session_expired()`) or `require_browser_caller(cx)?` (POST
   routes; redirects to sign-in). `authenticate(cx, audience)` (→ `authenticate_header(env, header, audience)`) builds
   `Caller::api_token(..)` for the API. Pages turn errors into their problem
-  with `error.for_browser()?` (a browser caller is never denied).
+  with `error.for_browser()?` (a browser caller is never denied); an `Infallible`
+  action's result is `.await?.for_page()?` (`ForPage`).
 - Input structs derive `Deserialize` + `JsonSchema` with
   `#[serde(deny_unknown_fields)]` and `#[schemars(description = "…",
   length(..))]` on each field (attributes, not doc comments; limits from

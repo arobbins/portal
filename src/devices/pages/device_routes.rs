@@ -9,7 +9,7 @@ use topcoat::{
 };
 
 use crate::account::tabs::AccountSection;
-use crate::action::require_browser_caller;
+use crate::action::{ForPage, require_browser_caller};
 use crate::auth::session::{current_device, stay_signed_in};
 use crate::devices::actions::{
     SignOutDevice, SignOutDeviceProblem, sign_out_device, sign_out_other_devices,
@@ -41,13 +41,11 @@ pub async fn sign_out_other_devices_submit(cx: &Cx) -> Result<SeeOther> {
         return Err(not_found().into());
     };
 
-    match sign_out_other_devices(&env(cx), &caller, &current).await? {
-        Ok(user) => {
-            stay_signed_in(app(cx), &session, &user).await?;
-            set_flash(&session, Flash::OtherDevicesSignedOut).await?;
-        }
-        Err(error) => match error.for_browser()? {},
-    }
+    let user = sign_out_other_devices(&env(cx), &caller, &current)
+        .await?
+        .for_page()?;
+    stay_signed_in(app(cx), &session, &user).await?;
+    set_flash(&session, Flash::OtherDevicesSignedOut).await?;
 
     Ok(see_other(AccountSection::Devices.path()))
 }

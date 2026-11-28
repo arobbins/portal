@@ -1,9 +1,7 @@
 use std::sync::Arc;
-use std::time::Duration;
 
 use axum::http::header::USER_AGENT;
 use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
 use topcoat::{
     Result,
     context::Cx,
@@ -15,14 +13,13 @@ use crate::auth::pages::login::login_page;
 use crate::devices::known::{known_device_cookie, known_device_token, recognize_device};
 use crate::devices::lifecycle::{SignInMethod, end_device, keep_device, load_device, start_device};
 use crate::env::{App, Env};
+use crate::passkeys::prompt_grant::revoke_passkey_prompt;
 use crate::routes::ACCOUNT_PATH;
 use crate::two_factor::challenge::end_second_factor;
 use crate::user::model::User;
 use crate::web::{config, env, globals, set_response_cookie};
 
 const SESSION_AUTH: &str = "auth";
-pub const PASSKEY_PROMPT_GRANT: &str = "passkey_prompt_grant";
-pub const PASSKEY_PROMPT_WINDOW: Duration = Duration::from_secs(5 * 60);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct SessionAuth {
@@ -30,12 +27,6 @@ struct SessionAuth {
     session_version: i32,
     #[serde(default)]
     device: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-struct PasskeyPromptGrant {
-    user_id: i32,
-    granted_at: i64,
 }
 
 pub async fn load_signed_in_user(session: &Session, app: &App) -> Result<Option<Arc<User>>> {
@@ -156,68 +147,18 @@ async fn remember(session: &Session, user: &User, device: String) -> Result<()> 
     Ok(())
 }
 
-pub async fn grant_passkey_prompt(
-    session: &Session,
-    user: &User,
-    now: OffsetDateTime,
-) -> Result<()> {
-    session
-        .insert(
-            PASSKEY_PROMPT_GRANT,
-            PasskeyPromptGrant {
-                user_id: user.id,
-                granted_at: now.unix_timestamp(),
-            },
-        )
-        .await?;
-
-    Ok(())
-}
-
-pub async fn passkey_prompt_granted(
-    session: &Session,
-    user: &User,
-    now: OffsetDateTime,
-) -> Result<bool> {
-    let grant = session
-        .get::<PasskeyPromptGrant>(PASSKEY_PROMPT_GRANT)
-        .await?;
-
-    Ok(grant.is_some_and(|grant| {
-        grant.user_id == user.id && within_prompt_window(grant.granted_at, now.unix_timestamp())
-    }))
-}
-
-pub async fn revoke_passkey_prompt(session: &Session) -> Result<()> {
-    session
-        .remove::<PasskeyPromptGrant>(PASSKEY_PROMPT_GRANT)
-        .await?;
-
-    Ok(())
-}
-
-fn within_prompt_window(granted_at: i64, now: i64) -> bool {
-    (0..=PASSKEY_PROMPT_WINDOW.as_secs() as i64).contains(&(now - granted_at))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::auth::password::hash_password;
+    use crate::passkeys::prompt_grant::{grant_passkey_prompt, passkey_prompt_granted};
     use crate::user::queries::{
         NewUser, query_get_user_by_id, query_insert_user, query_update_password,
     };
     use crate::user::testing::active_user;
     use sqlx::PgPool;
+    use time::OffsetDateTime;
     use tower_sessions::MemoryStore;
-
-    #[test]
-    fn a_passkey_prompt_grant_lasts_five_minutes() {
-        assert!(within_prompt_window(1_000, 1_000));
-        assert!(within_prompt_window(1_000, 1_300));
-        assert!(!within_prompt_window(1_000, 1_301));
-        assert!(!within_prompt_window(1_000, 999));
-    }
 
     #[sqlx::test]
     async fn a_passkey_prompt_grant_belongs_to_one_user_and_one_sign_in(db: PgPool) {

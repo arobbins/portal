@@ -77,17 +77,17 @@ Never type a path: `href!(handler)`, `AccountTab::X.path()`, `AccountSection::X.
 ## 5. Modal + procedure (settings cards only)
 
 Follow `profile/pages/profile_tab.rs` exactly (and `account/pages/security_tab.rs` +
-`password_routes.rs` for the file split once a tab grows past 300 lines):
+`auth/pages/password_routes.rs` + `password_card.rs` for the file split once a tab grows past 300 lines):
 
 - Each dialog gets its own `let form = DialogForm::new(cx, failure)`, where `failure` is
   that dialog's no-JS problem (`Option<ProblemSpec>`); it holds the error field, error
   message and busy signals. Inputs take `attrs: dialog_input(cx, &form, FIELD, &value,
-  &draft)` and the dialog's error is `dialog_form_error(form: &form)`. The page has one
+  &draft)`; `modal_form` renders the dialog's error. The page has one
   `dialog_error_toast(failure: page_failure, toast: &toast)` (any dialog's failure) with
   the toast signal from `page_toast(cx, page_failure.is_some(), flash)`.
 
 - `card(id: Some(AccountSection::X.anchor()), …)` with the action button in its header
-  (`command="show-modal" commandfor=(MODAL_ID)`; its `@click` resets the field signals).
+  (`attrs: dialog_opener(cx, &form, MODAL_ID, &[blank, password])` opens it and resets the drafts and errors).
   The button label and the modal heading are the same "Verb noun" ("Edit profile",
   "Change password", "Add passkey", "Create API token").
 - Two signals for the input: `field_value` (bound to `:value`) and `draft_name` (written by

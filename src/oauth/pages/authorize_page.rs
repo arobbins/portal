@@ -28,23 +28,35 @@ use crate::auth::session::current_user;
 use crate::oauth::actions::{ConnectApp, ConnectProblem, connect_app, deny_app};
 use crate::oauth::authorize::{
     AuthorizeParams, CantConnect, REQUEST_PARAM, Started, keep_request_alive, live_request,
-    requested_scopes, start_authorization,
+    request_path, start_authorization,
 };
 use crate::oauth::queries::RequestRow;
 use crate::oauth::redirect::return_host;
-use crate::routes::{LOGIN_PATH, OAUTH_AUTHORIZE_PATH};
+use crate::routes::LOGIN_PATH;
 use crate::web::{env, redisplay, session};
 
 pub const SCOPE_FIELD: &str = "scope";
 pub const DECISION_FIELD: &str = "decision";
 pub const DENY: &str = "deny";
 
-struct ConnectFailed {
-    problem: ConnectProblem,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Decision {
+    Approve,
+    Deny,
 }
 
-fn request_path(request: &str) -> String {
-    format!("{OAUTH_AUTHORIZE_PATH}?{REQUEST_PARAM}={request}")
+impl Decision {
+    fn of(value: &str) -> Self {
+        if value == DENY {
+            Self::Deny
+        } else {
+            Self::Approve
+        }
+    }
+}
+
+struct ConnectFailed {
+    problem: ConnectProblem,
 }
 
 fn query_params(cx: &Cx) -> HashMap<String, String> {
@@ -93,7 +105,7 @@ fn approval_of(request: &RequestRow) -> Approval {
         request: request.public_id.clone(),
         name: request.client_name.clone(),
         return_host: return_host(&request.redirect_uri),
-        scopes: requested_scopes(&request.scopes.join(" ")),
+        scopes: request.scopes.clone(),
     }
 }
 
@@ -110,7 +122,7 @@ pub async fn authorize_submit(cx: &Cx, body: Body) -> Result<SeeOther> {
             .unwrap_or_default()
     };
     let request = value(ID_FIELD);
-    let outcome = if value(DECISION_FIELD) == DENY {
+    let outcome = if Decision::of(&value(DECISION_FIELD)) == Decision::Deny {
         deny_app(&env(cx), &caller, &request).await?
     } else {
         let scopes = fields

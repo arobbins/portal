@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT r.id, r.public_id, r.client_id, c.name AS client_name, r.redirect_uri, r.scopes, r.state, r.status, r.acted_at FROM oauth_requests r JOIN oauth_clients c ON c.id = r.client_id WHERE r.public_id = $1",
+  "query": "SELECT r.id, r.public_id, r.client_id, c.name AS client_name, r.redirect_uri, r.scopes AS \"scopes: Vec<ApiScope>\", r.state, r.status AS \"status: RequestStatus\", r.acted_at FROM oauth_requests r JOIN oauth_clients c ON c.id = r.client_id WHERE r.public_id = $1",
   "describe": {
     "columns": [
       {
@@ -30,7 +30,7 @@
       },
       {
         "ordinal": 5,
-        "name": "scopes",
+        "name": "scopes: Vec<ApiScope>",
         "type_info": "TextArray"
       },
       {
@@ -40,7 +40,7 @@
       },
       {
         "ordinal": 7,
-        "name": "status",
+        "name": "status: RequestStatus",
         "type_info": "Text"
       },
       {
@@ -66,5 +66,5 @@
       false
     ]
   },
-  "hash": "ea3fafbe5c44c27f41d755c20625480c4f5c4b9005f1570a8864094eba7662aa"
+  "hash": "a56e9a0812d56a4fef4d65e32a7ae19d3a7f338d92d2c55eca4eac9f5fe63ab4"
 }

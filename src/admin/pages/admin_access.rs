@@ -14,6 +14,7 @@ use tower_sessions::Session;
 use super::admin_confirm::admin_confirm_page;
 use super::users_page::admin_users_page;
 use crate::action::{Caller, browser_caller};
+use crate::env::is_within;
 use crate::permission::Permission;
 use crate::user::model::User;
 use crate::web::{app, session};
@@ -94,12 +95,11 @@ async fn is_unlocked(session: &Session, user: &User, now: OffsetDateTime) -> Res
 }
 
 fn still_unlocked(unlock: AdminUnlock, user: &User, now: OffsetDateTime) -> bool {
-    let idle = now.unix_timestamp() - unlock.last_used_at;
     unlock.user_id == user.id
         && unlock.session_version == user.session_version
         && unlock.admin_since.is_some()
         && unlock.admin_since == admin_since(user)
-        && (0..=ADMIN_IDLE_LIMIT.whole_seconds()).contains(&idle)
+        && is_within(unlock.last_used_at, now, ADMIN_IDLE_LIMIT)
 }
 
 fn admin_since(user: &User) -> Option<i64> {

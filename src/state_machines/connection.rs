@@ -108,7 +108,7 @@ pub const CONNECTION: Machine<ConnectionState, ConnectionEvent> = Machine {
 const CONNECT: &str = "src/oauth/actions/connect.rs:store_connection";
 const STORE: &str = "src/oauth/grant.rs:store_tokens";
 const REFRESH: &str = "src/oauth/grant.rs:refresh";
-const END: &str = "src/oauth/grant.rs:end_connection";
+const END: &str = "src/oauth/revoke.rs:end_connection";
 
 pub const APP_GETS_IN_ONLY_WHILE_CONNECTED: &str = "The app's newest access token gets in only while the connection is live and the owner enabled.";
 pub const REFRESH_REPLACES_THE_ACCESS_TOKEN: &str =

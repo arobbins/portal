@@ -1,9 +1,12 @@
 use std::net::IpAddr;
 
-use sqlx::PgExecutor;
+use serde_json::json;
+use sqlx::PgConnection;
 
 use super::queries::{NewLogEntry, query_insert_admin_log};
-use crate::user::events::AccountEventKind;
+use crate::user::events::{
+    AccountEventKind, EventSource, NewAccountEvent, query_insert_account_event,
+};
 use crate::user::model::User;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
@@ -49,7 +52,7 @@ pub async fn log_admin_action(
     action: AdminLogAction,
     target: &User,
     ip: Option<IpAddr>,
-    db: impl PgExecutor<'_>,
+    tx: &mut PgConnection,
 ) -> Result<(), sqlx::Error> {
     let entry = NewLogEntry {
         admin_public_id: admin.map(|admin| admin.public_id.as_str()),
@@ -59,5 +62,22 @@ pub async fn log_admin_action(
         target_email: &target.email,
         ip: ip.map(|ip| ip.to_string()),
     };
-    query_insert_admin_log(&entry, db).await
+    query_insert_admin_log(&entry, &mut *tx).await?;
+    let Some(kind) = action.event_kind() else {
+        return Ok(());
+    };
+    let (source, detail) = match admin {
+        Some(admin) => (
+            EventSource::admin(target.id),
+            json!({ "admin": admin.public_id }),
+        ),
+        None => (EventSource::console(target.id), json!({})),
+    };
+    let event = NewAccountEvent {
+        source: &source,
+        kind,
+        detail: &detail,
+        ip,
+    };
+    query_insert_account_event(&event, &mut *tx).await
 }

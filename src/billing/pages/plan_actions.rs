@@ -7,12 +7,12 @@ use topcoat::{
 };
 
 use super::routes::{open_portal_submit, start_checkout_submit};
-use crate::auth::handoff::PRICE_PARAM;
 use crate::auth::pages::register::register_page;
 use crate::billing::actions::{BillingPage, PRICE_FIELD};
 use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
 use crate::components::form::form;
 use crate::routes::LOGIN_PATH;
+use crate::routes::PRICE_PARAM;
 
 #[component]
 pub async fn choose_button(

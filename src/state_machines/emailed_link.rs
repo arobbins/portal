@@ -63,7 +63,7 @@ const SWITCH: &str = "src/auth/actions/confirm_email.rs:switch_email";
 const CONFIRM: &str = "src/auth/actions/confirm_email.rs:confirm_email_change";
 const RESET: &str = "src/auth/actions/link_password.rs:revoke_access";
 const CHANGE: &str = "src/auth/actions/change_password.rs:change_password";
-const DISABLE: &str = "src/admin/actions/manage.rs:disable_user";
+const DISABLE: &str = "src/auth/links.rs:delete_every_link";
 const CLEANUP: &str = "src/auth/links.rs:delete_stale_sign_ups";
 
 pub const ONLY_THE_HASH_IS_STORED: &str =

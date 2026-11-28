@@ -226,9 +226,9 @@ async fn log_and_tell(
     tx: &mut PgConnection,
 ) -> topcoat::Result<()> {
     record_event(env, &EventSource::of(caller), kind, json!({}), &mut *tx).await?;
-    let sign_in_url = env.app.url(&AccountSection::TwoFactor.path());
+    let settings_url = env.app.url(&AccountSection::TwoFactor.path());
     enqueue(
-        &SendEmail(email(&caller.user.email, &sign_in_url)),
+        &SendEmail(email(&caller.user.email, &settings_url)),
         &mut *tx,
     )
     .await?;

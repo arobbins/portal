@@ -1,5 +1,4 @@
 use super::Email;
-use crate::utils::escape_html;
 
 pub enum Part<'a> {
     Text(&'a str),
@@ -74,6 +73,21 @@ fn render_html(part: &Part<'_>) -> String {
     }
 }
 
+fn escape_html(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for character in text.chars() {
+        match character {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&#39;"),
+            other => escaped.push(other),
+        }
+    }
+    escaped
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -99,6 +113,14 @@ mod tests {
         assert_eq!(
             email.html,
             "<p>Token &lt;b&gt;x&lt;/b&gt; added. <a href=\"https://example.test/a?b=1&amp;c=2\">Review it</a></p><p>Thanks.</p>"
+        );
+    }
+
+    #[test]
+    fn html_is_escaped_for_emails() {
+        assert_eq!(
+            escape_html("<a href=\"x\">Tom & 'Jerry'</a>"),
+            "&lt;a href=&quot;x&quot;&gt;Tom &amp; &#39;Jerry&#39;&lt;/a&gt;"
         );
     }
 }

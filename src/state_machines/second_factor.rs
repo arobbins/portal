@@ -126,11 +126,11 @@ mod tests;
 #[cfg(test)]
 mod limits {
     use super::*;
-    use crate::two_factor::challenge::PENDING_WINDOW_SECONDS;
+    use crate::two_factor::challenge::PENDING_WINDOW;
 
     #[test]
     fn the_late_wait_in_the_label_matches_the_limit() {
-        const { assert!(LATE_MINUTES * 60 > PENDING_WINDOW_SECONDS) };
+        const { assert!(LATE_MINUTES * 60 > PENDING_WINDOW.whole_seconds()) };
         assert!(
             E::RightCodeLate
                 .label()

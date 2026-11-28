@@ -11,7 +11,7 @@ use topcoat::{
     },
 };
 
-use super::handoff::mark_checkout_pending;
+use super::checkout_pending::mark_checkout_pending;
 use crate::account::tabs::AccountPage;
 use crate::action::{ActionProblem, ProblemSpec, require_browser_caller};
 use crate::billing::actions::{

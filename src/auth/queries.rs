@@ -107,6 +107,17 @@ pub async fn query_delete_user_tokens(
     Ok(())
 }
 
+pub async fn query_delete_all_user_tokens(
+    user_id: i32,
+    db: impl PgExecutor<'_>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!("DELETE FROM user_tokens WHERE user_id = $1", user_id)
+        .execute(db)
+        .await?;
+
+    Ok(())
+}
+
 pub async fn query_delete_expired_user_tokens(db: impl PgExecutor<'_>) -> Result<u64, sqlx::Error> {
     let result = sqlx::query!("DELETE FROM user_tokens WHERE expires_at <= now()")
         .execute(db)

@@ -6,7 +6,8 @@ use time::{Duration, OffsetDateTime};
 use super::*;
 use crate::api::scope::ApiScope;
 use crate::env::{App, Clock};
-use crate::oauth::lifecycle::app_caller;
+use crate::oauth::access::app_caller;
+use crate::oauth::revoke::revoke_token;
 use crate::oauth::testing::{
     app_still_works, approve, code_exchange, connect_test_app, refresh_request, start_request,
     test_client,

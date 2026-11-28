@@ -79,7 +79,7 @@ mod tests {
             }
         }
         assert_eq!(
-            SecretKind::AccessToken.hash_of(&generate_api_token().raw),
+            SecretKind::AccessToken.hash_of(generate_api_token().raw.expose()),
             None
         );
     }

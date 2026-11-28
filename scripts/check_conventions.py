@@ -99,7 +99,7 @@ for path in sorted((ROOT / "src/api/v1").rglob("*.rs")):
         if api_path == "/api/v1/openapi.json":
             continue
         if (method, api_path) not in documented:
-            problems.append(f"{path.relative_to(ROOT).as_posix()}: {method} {api_path} has no ApiAction in the registry (src/api/registry.rs), so it's undocumented")
+            problems.append(f"{path.relative_to(ROOT).as_posix()}: {method} {api_path} has no ApiAction listed in src/server/tools.rs, so it's undocumented")
 
 RULE_MAX_BYTES = 4096
 RULE_BROAD_GLOBS = {"**", "**/*", "src/**", "src/**/*.rs", "migrations/**", "migrations/*.sql", "e2e/tests/**"}

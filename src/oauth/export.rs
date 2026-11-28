@@ -1,3 +1,4 @@
+use crate::api::scope::scope_names;
 use crate::data_export::{Dataset, maybe_utc, utc};
 use crate::env::Env;
 use crate::oauth::queries::query_list_connections;
@@ -22,7 +23,7 @@ pub async fn connected_apps_export(env: &Env<'_>, user: &User) -> Result<Dataset
                 vec![
                     connection.name,
                     connection.return_host,
-                    connection.scopes.join(" "),
+                    scope_names(&connection.scopes),
                     utc(connection.created_at),
                     maybe_utc(connection.last_used_at),
                 ]

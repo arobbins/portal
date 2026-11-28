@@ -2,9 +2,9 @@ use schemars::JsonSchema;
 use serde::Serialize;
 
 use super::{Unavailable, too_many_attempts};
-use crate::action::{ActionProblem, Outcome, ProblemSpec, fail};
+use crate::action::{ActionProblem, ListedProblem, Outcome, ProblemSpec, fail};
 use crate::billing::catalog::{PaidPrice, load_catalog};
-use crate::billing::period::BillingPeriod;
+use crate::billing::period::{BillingPeriod, Interval};
 use crate::env::Env;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
@@ -21,7 +21,7 @@ pub struct PlanPrice {
     #[schemars(description = "Lowercase ISO currency code, e.g. usd.")]
     pub currency: String,
     #[schemars(description = "How often it's charged: day, week, month or year.")]
-    pub interval: String,
+    pub interval: Interval,
     #[serde(skip)]
     pub label: String,
     #[serde(skip)]
@@ -38,10 +38,10 @@ impl PlanPrice {
             price: price.price_id.clone(),
             amount: price.amount,
             currency: price.currency.clone(),
-            interval: price.interval.clone(),
+            interval: price.interval,
             label: price.label(),
             decimal_amount: price.decimal_amount(),
-            period: BillingPeriod::of_interval(&price.interval, price.interval_count),
+            period: BillingPeriod::of_interval(price.interval, price.interval_count),
         }
     }
 }
@@ -63,6 +63,12 @@ pub enum PlansProblem {
 
 impl PlansProblem {
     pub const ALL: [Self; 2] = [Self::Unavailable, Self::TooManyRequests];
+}
+
+impl ListedProblem for PlansProblem {
+    fn all() -> &'static [Self] {
+        &Self::ALL
+    }
 }
 
 impl ActionProblem for PlansProblem {

@@ -1,3 +1,4 @@
+pub mod action;
 pub mod auth;
 pub mod body;
 pub mod catalog;
@@ -6,4 +7,6 @@ pub mod openapi;
 pub mod problem;
 pub mod registry;
 pub mod scope;
+pub mod serve;
+pub mod tool;
 pub mod v1;

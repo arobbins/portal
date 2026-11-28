@@ -159,7 +159,7 @@ async fn name_row(
     drafts: &NameDrafts,
 ) -> Result<impl View> {
     let NameDrafts { value, draft } = drafts;
-    let error_message = &form.error_message;
+    let (error_field, error_message) = (&form.error_field, &form.error_message);
 
     Ok(view! {
         property(
@@ -174,6 +174,7 @@ async fn name_row(
                     @click=$(|_e: Event| {
                         value.set(display_name.get());
                         draft.set(display_name.get());
+                        error_field.set("".to_owned());
                         error_message.set("".to_owned());
                     })
                 },

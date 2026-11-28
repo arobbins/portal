@@ -8,7 +8,7 @@ use webauthn_rs::prelude::{
 };
 
 use crate::auth::reauth::grant_passkey_reauth;
-use crate::auth::session::{passkey_prompt_granted, revoke_passkey_prompt};
+use crate::passkeys::prompt_grant::{passkey_prompt_granted, revoke_passkey_prompt};
 use crate::passkeys::webauthn::{
     AUTHENTICATION_STATE, REGISTRATION_STATE, VERIFICATION_STATE, store_ceremony, take_ceremony,
 };

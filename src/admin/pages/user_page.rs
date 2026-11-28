@@ -7,7 +7,7 @@ use topcoat::{
 };
 
 use super::admin_access::require_admin;
-use super::admin_shell::{AdminSection, admin_shell};
+use super::admin_shell::admin_shell;
 use super::user_actions::user_actions_card;
 use super::user_routes::admin_action_problem;
 use super::user_view::{listed_status, role_label, status_label};
@@ -15,6 +15,7 @@ use super::users_page::admin_users_page;
 use crate::action::ActionProblem;
 use crate::activity::pages::activity_card::activity_list;
 use crate::admin::actions::{TargetUser, UserOverview, get_user};
+use crate::admin::sections::AdminSection;
 use crate::app::page_title;
 use crate::components::card::{CardHeadingLevel, card, card_body, card_header};
 use crate::components::notice::notice;
@@ -107,7 +108,7 @@ async fn account_card(cx: &Cx, overview: &UserOverview) -> Result<impl View> {
 async fn billing_card(cx: &Cx, overview: &UserOverview) -> Result<impl View> {
     let billing = &overview.billing;
     let plan = format!("Plan: {}", billing.plan_name);
-    let status = format!("Status: {}", billing.status);
+    let status = format!("Status: {}", billing.status.label());
 
     Ok(view! {
         card(

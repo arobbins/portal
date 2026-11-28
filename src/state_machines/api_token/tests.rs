@@ -130,7 +130,7 @@ impl Holder {
             admin: admin.clone(),
             user,
             browser: Browser::new(app, assets, ip),
-            raw: generate_api_token().raw,
+            raw: generate_api_token().raw.into_inner(),
             issued: false,
             ip,
         };
@@ -240,7 +240,7 @@ impl Holder {
             return false;
         };
         if !self.issued {
-            self.raw = raw;
+            self.raw = raw.into_inner();
             self.issued = true;
         }
         true
@@ -304,7 +304,7 @@ impl Holder {
     }
 
     async fn works_for(&self, audience: TokenAudience) -> bool {
-        find_grant(&self.raw, audience, &self.app.db)
+        find_grant(&self.raw, audience, self.app.clock.now(), &self.app.db)
             .await
             .unwrap()
             .is_some()

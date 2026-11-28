@@ -14,7 +14,7 @@ paths:
   a user-verified request for the user's own passkeys stores a 5-minute
   `PasskeyReauth` grant bound to `session_version`. Routes
   `take_passkey_proof` (single use) and `return_passkey_proof` when the
-  action fails; removing a passkey `forget_passkey_proof`s. Dialogs that
+  action fails (a taken proof is gone, so nothing else clears it). Dialogs that
   need re-auth render `reauth_field` (passkey first when the user has one)
   and actions call `check_reauth`. Used by Change email, Delete account, Export data,
   Create API token, approving a write scope for a connected app, Remove passkey and the admin area; Change password and Add passkey keep the password.

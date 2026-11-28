@@ -4,9 +4,9 @@ use sqlx::PgPool;
 
 use super::*;
 use crate::action::{Caller, Denied};
-use crate::api::registry::tools;
 use crate::api::scope::ApiScope;
 use crate::permission::TokenAccess;
+use crate::server::tools::tools;
 use crate::state_machines::testing::admin_caller;
 use crate::state_machines::{CellResult, failures, write_results};
 use crate::user::model::User;

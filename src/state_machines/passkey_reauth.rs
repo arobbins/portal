@@ -67,7 +67,6 @@ pub const PASSKEY_REAUTH: Machine<ProofState, ProofEvent> = Machine {
         ),
         writer(REMOVE, "take_passkey_proof", &[E::RemoveAPasskey]),
         writer(REMOVE, "return_passkey_proof", &[E::UseItAndFail]),
-        writer(REMOVE, "forget_passkey_proof", &[E::RemoveAPasskey]),
     ],
 };
 

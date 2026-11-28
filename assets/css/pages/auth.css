@@ -51,5 +51,5 @@
 
 .p-auth__sent {
   max-width: var(--width-form);
-  margin: 2em auto 0;
+  margin: var(--space-8) auto 0;
 }

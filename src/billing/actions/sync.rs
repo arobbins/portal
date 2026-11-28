@@ -73,7 +73,7 @@ async fn apply_subscription(
     }
     query_update_subscription(before.id, state, at, &mut *tx).await?;
     for kind in transitions(Some(&before), state) {
-        log(env, user_id, kind, state, &mut *tx).await?;
+        log(env, user_id, kind, EventDetail::of_state(state), &mut *tx).await?;
     }
     Ok(Applied::Changed)
 }
@@ -96,7 +96,7 @@ async fn start_subscription(
     }
     query_insert_subscription(user_id, state, at, &mut *tx).await?;
     for kind in transitions(None, state) {
-        log(env, user_id, kind, state, &mut *tx).await?;
+        log(env, user_id, kind, EventDetail::of_state(state), &mut *tx).await?;
     }
     Ok(Applied::Changed)
 }
@@ -118,7 +118,7 @@ async fn refund_duplicate(
     };
     enqueue(&job, &mut *tx).await?;
     let kind = AccountEventKind::Billing(BillingEventKind::DuplicateRefunded);
-    log(env, user_id, kind, state, &mut *tx).await?;
+    log(env, user_id, kind, EventDetail::of_state(state), &mut *tx).await?;
     Ok(Applied::Duplicate)
 }
 
@@ -156,10 +156,7 @@ fn refusal(before: &Subscription, at: OffsetDateTime, snapshot: Snapshot) -> Opt
     None
 }
 
-pub fn transitions(
-    before: Option<&Subscription>,
-    after: &SubscriptionState,
-) -> Vec<AccountEventKind> {
+fn transitions(before: Option<&Subscription>, after: &SubscriptionState) -> Vec<AccountEventKind> {
     let Some(before) = before else {
         return vec![AccountEventKind::Billing(BillingEventKind::Subscribed)];
     };
@@ -203,12 +200,11 @@ async fn apply_invoice(
     };
     query_update_subscription_status(before.id, status, at, &mut *tx).await?;
     if !paid && before.status != SubscriptionStatus::PastDue {
-        let state = state_of(&before);
         log(
             env,
             before.user_id,
             AccountEventKind::Billing(BillingEventKind::PaymentFailed),
-            &state,
+            EventDetail::of_row(&before),
             &mut *tx,
         )
         .await?;
@@ -216,16 +212,30 @@ async fn apply_invoice(
     Ok(Applied::Changed)
 }
 
-fn state_of(row: &Subscription) -> SubscriptionState {
-    SubscriptionState {
-        stripe_subscription_id: row.stripe_subscription_id.clone(),
-        customer_id: String::new(),
-        plan_key: row.plan_key.clone(),
-        plan_name: row.plan_name.clone(),
-        price_id: row.price_id.clone(),
-        status: row.status,
-        current_period_end: row.current_period_end,
-        ends_at: row.ends_at,
+struct EventDetail<'a> {
+    plan_key: &'a str,
+    plan_name: &'a str,
+    subscription: &'a str,
+    ends_at: Option<time::OffsetDateTime>,
+}
+
+impl<'a> EventDetail<'a> {
+    fn of_state(state: &'a SubscriptionState) -> Self {
+        Self {
+            plan_key: &state.plan_key,
+            plan_name: &state.plan_name,
+            subscription: &state.stripe_subscription_id,
+            ends_at: state.ends_at,
+        }
+    }
+
+    fn of_row(row: &'a Subscription) -> Self {
+        Self {
+            plan_key: &row.plan_key,
+            plan_name: &row.plan_name,
+            subscription: &row.stripe_subscription_id,
+            ends_at: row.ends_at,
+        }
     }
 }
 
@@ -233,19 +243,111 @@ async fn log(
     env: &Env<'_>,
     user_id: i32,
     kind: AccountEventKind,
-    state: &SubscriptionState,
+    event: EventDetail<'_>,
     tx: &mut PgConnection,
 ) -> topcoat::Result<()> {
     let mut detail = json!({
-        "plan": state.plan_key,
-        "plan_name": state.plan_name,
-        "subscription": state.stripe_subscription_id,
+        "plan": event.plan_key,
+        "plan_name": event.plan_name,
+        "subscription": event.subscription,
     });
     if kind == AccountEventKind::Billing(BillingEventKind::SubscriptionCancelled)
-        && let Some(ends_at) = state.ends_at
+        && let Some(ends_at) = event.ends_at
         && let Some(user) = query_get_user_by_id(user_id, &mut *tx).await?
     {
         detail["ends_on"] = json!(user.zone().date(ends_at));
     }
     record_event(env, &EventSource::stripe(user_id), kind, detail, &mut *tx).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn at(seconds: i64) -> OffsetDateTime {
+        OffsetDateTime::from_unix_timestamp(seconds).unwrap()
+    }
+
+    fn stored(status: SubscriptionStatus, ends_at: Option<OffsetDateTime>) -> Subscription {
+        Subscription {
+            id: 1,
+            user_id: 1,
+            stripe_subscription_id: "sub_1".to_string(),
+            plan_key: "pro".to_string(),
+            plan_name: "Pro".to_string(),
+            price_id: "price_pro".to_string(),
+            status,
+            current_period_end: at(2_000),
+            ends_at,
+            last_event_at: at(1_000),
+        }
+    }
+
+    fn state(
+        plan_key: &str,
+        status: SubscriptionStatus,
+        ends_at: Option<OffsetDateTime>,
+    ) -> SubscriptionState {
+        SubscriptionState {
+            stripe_subscription_id: "sub_1".to_string(),
+            customer_id: "cus_1".to_string(),
+            plan_key: plan_key.to_string(),
+            plan_name: plan_key.to_string(),
+            price_id: "price_x".to_string(),
+            status,
+            current_period_end: at(2_000),
+            ends_at,
+        }
+    }
+
+    fn billing(kind: BillingEventKind) -> AccountEventKind {
+        AccountEventKind::Billing(kind)
+    }
+
+    #[test]
+    fn transitions_name_what_changed() {
+        let active = stored(SubscriptionStatus::Active, None);
+        let same = state("pro", SubscriptionStatus::Active, None);
+        let upgraded = state("business", SubscriptionStatus::Active, None);
+        let cancelling = state("business", SubscriptionStatus::Cancelling, Some(at(2_000)));
+        let ended = state("pro", SubscriptionStatus::Ended, None);
+
+        assert_eq!(
+            transitions(None, &same),
+            vec![billing(BillingEventKind::Subscribed)]
+        );
+        assert_eq!(transitions(Some(&active), &same), vec![]);
+        assert_eq!(
+            transitions(Some(&active), &upgraded),
+            vec![billing(BillingEventKind::PlanChanged)]
+        );
+        assert_eq!(
+            transitions(Some(&active), &cancelling),
+            vec![
+                billing(BillingEventKind::PlanChanged),
+                billing(BillingEventKind::SubscriptionCancelled)
+            ]
+        );
+        assert_eq!(
+            transitions(Some(&active), &ended),
+            vec![billing(BillingEventKind::SubscriptionEnded)]
+        );
+    }
+
+    #[test]
+    fn only_old_data_as_sent_or_an_ended_subscription_is_refused() {
+        let active = stored(SubscriptionStatus::Active, None);
+        let ended = stored(SubscriptionStatus::Ended, None);
+
+        assert_eq!(
+            refusal(&ended, at(5_000), Snapshot::Current),
+            Some(Applied::AlreadyEnded)
+        );
+        assert_eq!(
+            refusal(&active, at(999), Snapshot::AsSent),
+            Some(Applied::OutOfOrder)
+        );
+        assert_eq!(refusal(&active, at(999), Snapshot::Current), None);
+        assert_eq!(refusal(&active, at(1_000), Snapshot::AsSent), None);
+    }
 }

@@ -5,11 +5,11 @@ use topcoat::{
     view::{View, ViewExt, component, view},
 };
 
-use super::handoff::{checkout_pending, clear_checkout_pending};
+use super::checkout_pending::{checkout_pending, clear_checkout_pending};
 use super::plan_actions::manage_billing_button;
 use super::routes::take_billing_problem;
 use crate::account::tabs::AccountSection;
-use crate::action::browser_caller;
+use crate::action::{ForPage, browser_caller};
 use crate::billing::actions::{Billing, BillingPage, BillingStatus, get_billing};
 use crate::components::button::{ButtonSize, ButtonVariant, button};
 use crate::components::card::{card, card_body, card_header};
@@ -50,10 +50,7 @@ async fn your_plan(cx: &Cx) -> Result<impl View> {
         );
     };
     let env = env(cx);
-    let billing = match get_billing(&env, &caller).await? {
-        Ok(billing) => billing,
-        Err(error) => match error.for_browser()? {},
-    };
+    let billing = get_billing(&env, &caller).await?.for_page()?;
     let waiting = awaiting_confirmation(cx, &billing).await?;
     let checks = signal(cx, || 0u32);
     let _ = checks.get();
@@ -149,15 +146,4 @@ async fn subscription_details(cx: &Cx, billing: &Billing, zone: &Zone) -> Result
             <p>(renews.as_str())</p>
         }
     })
-}
-
-pub async fn subscription_to_cancel(cx: &Cx) -> Result<Option<String>> {
-    let Some(caller) = browser_caller(cx) else {
-        return Ok(None);
-    };
-    let billing = match get_billing(&env(cx), &caller).await? {
-        Ok(billing) => billing,
-        Err(error) => match error.for_browser()? {},
-    };
-    Ok((billing.status != BillingStatus::Free).then_some(billing.plan_name))
 }

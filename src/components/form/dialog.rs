@@ -41,6 +41,38 @@ pub fn page_toast(cx: &Cx, form_failed: bool, flash: Option<Flash>) -> Signal<St
     }
 }
 
+pub fn dialog_opener(
+    cx: &Cx,
+    form: &DialogForm,
+    modal_id: &str,
+    clear: &[&Signal<String>],
+) -> Attributes {
+    let DialogForm {
+        error_field,
+        error_message,
+        ..
+    } = form;
+    debug_assert!(clear.len() <= 4, "dialog_opener clears at most four drafts");
+    let slot = |index: usize| match clear.get(index) {
+        Some(draft) => (*draft).clone(),
+        None => signal(cx, String::new),
+    };
+    let (first, second, third, fourth) = (slot(0), slot(1), slot(2), slot(3));
+
+    attributes! {
+        command="show-modal"
+        commandfor=(modal_id)
+        @click=$(|_e: Event| {
+            first.set("".to_owned());
+            second.set("".to_owned());
+            third.set("".to_owned());
+            fourth.set("".to_owned());
+            error_field.set("".to_owned());
+            error_message.set("".to_owned());
+        })
+    }
+}
+
 pub fn dialog_input(
     cx: &Cx,
     form: &DialogForm,

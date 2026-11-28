@@ -20,7 +20,7 @@ paths:
   `busy`, `disabled` and `button_type`), `form` controls (incl. `code_field`; `form_field` / `form_input` take
   `max_length`; `form_field(hide_label: true)` keeps the label for screen
   readers only, for a search box with a placeholder; modal forms use `DialogForm` + `dialog_input`,
-  `dialog_form_error`, `dialog_error_toast` from `form/dialog.rs`, and render
+  `dialog_opener`, `dialog_error_toast` from `form/dialog.rs`, and render
   through `modal_form` + `ModalSubmit` from `form/submit.rs`), `card` +
   `card_header` + `card_body` (every settings block; an `h2`;
   `level: CardHeadingLevel::H3` under another `h2`), `badge`, `avatar`,

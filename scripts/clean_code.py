@@ -11,10 +11,23 @@ MAX_VIEW_LINES = 75
 MAX_FILE_LINES = 275
 
 VIEW_ATTRIBUTES = ("#[component", "#[page", "#[layout")
-FEATURES = ("auth", "passkeys", "profile", "api_tokens", "account", "devices", "activity", "admin", "data_export")
-INFRASTRUCTURE = ("action", "env", "jobs", "mail", "rate_limit", "web", "secret", "flash", "permission")
+INFRASTRUCTURE = (
+    "action", "api", "env", "flash", "jobs", "listing", "mail", "mcp", "permission", "rate_limit",
+    "secret", "stripe", "web",
+)
+FEATURE_PARTS = ("actions.rs", "actions", "queries.rs", "queries", "pages")
+FEATURES = tuple(
+    sorted(
+        folder.name
+        for folder in SRC.iterdir()
+        if folder.is_dir()
+        and folder.name not in INFRASTRUCTURE + ("user",)
+        and any((folder / part).exists() for part in FEATURE_PARTS)
+    )
+)
 FN = re.compile(r"^\s*(?:pub(?:\([\w:]+\))? )?(?:async )?fn (\w+)")
-COMPOSITION = {"src/web/middleware.rs"}
+COMPOSITION = {"src/web/middleware.rs", "src/api/auth.rs"}
+COMPOSITION_FOLDERS = ("src/api/v1/",)
 VIEW_FILE = re.compile(r"_(tab|card|dialog)\.rs$")
 TEST_MODULE = re.compile(r"^#\[cfg\(test\)\]\n(?:pub )?mod tests", re.M)
 
@@ -108,7 +121,7 @@ def boundary_problems(path, lines):
         yield f"{name}: keep `mod queries` private; other features call a function the feature exposes"
     if VIEW_FILE.search(name) and re.search(r"^#\[(route|procedure)\b", code, re.M):
         yield f"{name}: tabs, cards and dialogs only render; move routes and procedures to a `*_routes.rs` file"
-    if module_of(path) in INFRASTRUCTURE and name not in COMPOSITION:
+    if module_of(path) in INFRASTRUCTURE and name not in COMPOSITION and not name.startswith(COMPOSITION_FOLDERS):
         for feature in FEATURES:
             if re.search(rf"\bcrate::{feature}\b", code):
                 yield f"{name}: infrastructure must not import the `{feature}` feature; invert it (a trait, a `Job`, or a registry in `server.rs`)"

@@ -1,35 +1,29 @@
-use axum::http::{
-    HeaderMap, HeaderValue,
-    header::{CONTENT_TYPE, WWW_AUTHENTICATE},
-};
+use axum::http::{HeaderValue, header::WWW_AUTHENTICATE};
 use serde_json::{Value, json};
 use topcoat::{
     Result,
     context::Cx,
-    router::{Body, BodyLimit, StatusCode, content::Json, route},
+    router::{Body, BodyLimit, StatusCode, route},
 };
 
 use crate::action::Caller;
 use crate::api::auth::{ApiAuthProblem, authenticate};
 use crate::api::body::{MAX_JSON_BODY, read_json};
 use crate::api::openapi::without_meta;
-use crate::api::problem::{ApiResponse, no_store, or_internal_error};
-use crate::api::registry::{Tool, ToolOutcome, feedback_tool, tools};
+use crate::api::problem::{no_store, or_internal_error};
 use crate::api::scope::TokenAudience;
+use crate::api::tool::{Tool, ToolOutcome};
 use crate::app::SITE_NAME;
 use crate::env::Env;
 use crate::routes::PROTECTED_RESOURCE_METADATA_PATH;
+use crate::server::tools::{feedback_tool, tools};
 use crate::web::env;
+use rpc::{McpResponse, RpcError, from_api, rpc_error, rpc_result};
+
+mod rpc;
 
 pub const PROTOCOL_VERSION: &str = "2025-06-18";
 const SUPPORTED_VERSIONS: &[&str] = &[PROTOCOL_VERSION, "2025-03-26"];
-
-const PARSE_ERROR: i64 = -32700;
-const INVALID_REQUEST: i64 = -32600;
-const METHOD_NOT_FOUND: i64 = -32601;
-const INVALID_PARAMS: i64 = -32602;
-
-type McpResponse = (StatusCode, HeaderMap, String);
 
 #[route(POST "/mcp", with(BodyLimit::max(MAX_JSON_BODY)))]
 pub async fn mcp_endpoint(cx: &Cx, body: Body) -> Result<McpResponse> {
@@ -67,7 +61,7 @@ async fn handle(env: &Env<'_>, caller: Option<&Caller>, message: Value) -> Resul
     let Some(request) = message.as_object() else {
         return Ok(rpc_error(
             Value::Null,
-            INVALID_REQUEST,
+            RpcError::InvalidRequest,
             "Send one JSON-RPC 2.0 object.",
         ));
     };
@@ -77,7 +71,7 @@ async fn handle(env: &Env<'_>, caller: Option<&Caller>, message: Value) -> Resul
     else {
         return Ok(rpc_error(
             id.unwrap_or(Value::Null),
-            INVALID_REQUEST,
+            RpcError::InvalidRequest,
             "A request needs \"jsonrpc\": \"2.0\" and a \"method\".",
         ));
     };
@@ -93,7 +87,7 @@ async fn handle(env: &Env<'_>, caller: Option<&Caller>, message: Value) -> Resul
         "tools/call" => call_tool(env, caller, id, &params).await,
         other => Ok(rpc_error(
             id,
-            METHOD_NOT_FOUND,
+            RpcError::MethodNotFound,
             &format!(
                 "Unknown method `{other}`. This server supports initialize, ping, tools/list and tools/call."
             ),
@@ -163,7 +157,7 @@ async fn call_tool(
     let Some(name) = params["name"].as_str() else {
         return Ok(rpc_error(
             id,
-            INVALID_PARAMS,
+            RpcError::InvalidParams,
             "tools/call needs a \"name\".",
         ));
     };
@@ -171,7 +165,7 @@ async fn call_tool(
     let Some(tool) = all.iter().find(|tool| tool.name() == name) else {
         return Ok(rpc_error(
             id,
-            INVALID_PARAMS,
+            RpcError::InvalidParams,
             &format!("Unknown tool `{name}`. Call tools/list to see what this token can use."),
         ));
     };
@@ -201,7 +195,7 @@ fn tool_response(id: Value, outcome: ToolOutcome) -> McpResponse {
         }),
         ToolOutcome::InvalidArguments(reason) => {
             let message = format!("The arguments don't match the tool's inputSchema: {reason}");
-            return rpc_error(id, INVALID_PARAMS, &message);
+            return rpc_error(id, RpcError::InvalidParams, &message);
         }
     };
     rpc_result(id, result)
@@ -209,35 +203,6 @@ fn tool_response(id: Value, outcome: ToolOutcome) -> McpResponse {
 
 fn pretty(value: &Value) -> String {
     serde_json::to_string_pretty(value).unwrap_or_default()
-}
-
-fn json_response(status: StatusCode, body: &Value) -> McpResponse {
-    let mut headers = no_store();
-    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-    (status, headers, body.to_string())
-}
-
-fn rpc_result(id: Value, result: Value) -> McpResponse {
-    json_response(
-        StatusCode::OK,
-        &json!({ "jsonrpc": "2.0", "id": id, "result": result }),
-    )
-}
-
-fn rpc_error(id: Value, code: i64, message: &str) -> McpResponse {
-    let status = if code == PARSE_ERROR || code == INVALID_REQUEST {
-        StatusCode::BAD_REQUEST
-    } else {
-        StatusCode::OK
-    };
-    json_response(
-        status,
-        &json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } }),
-    )
-}
-
-fn from_api((status, headers, Json(body)): ApiResponse) -> McpResponse {
-    (status, headers, body.to_string())
 }
 
 #[cfg(test)]
@@ -347,7 +312,10 @@ mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(body(&unknown)["error"]["code"], METHOD_NOT_FOUND);
+        assert_eq!(
+            body(&unknown)["error"]["code"],
+            RpcError::MethodNotFound.code()
+        );
 
         let not_rpc = handle(&env, Some(&reader), json!({ "id": 2 }))
             .await

@@ -13,19 +13,13 @@ pub struct PastEvent {
     pub at: OffsetDateTime,
 }
 
-impl AccountEventKind {
-    pub fn parse(kind: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|known| known.as_str() == kind)
-    }
-}
-
 pub async fn query_list_recent_account_events(
     user_id: i32,
     limit: i64,
     db: impl PgExecutor<'_>,
 ) -> Result<Vec<PastEvent>, sqlx::Error> {
     let rows = sqlx::query!(
-        "SELECT kind, detail, ip, channel, created_at FROM account_events WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2",
+        "SELECT kind, detail, ip, channel, api_token_id, created_at FROM account_events WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2",
         user_id,
         limit,
     )
@@ -39,7 +33,7 @@ pub async fn query_list_recent_account_events(
                 kind: AccountEventKind::parse(&row.kind)?,
                 detail: row.detail,
                 ip: row.ip,
-                via: EventChannel::parse(&row.channel),
+                via: EventChannel::parse(&row.channel, row.api_token_id)?,
                 at: row.created_at,
             })
         })

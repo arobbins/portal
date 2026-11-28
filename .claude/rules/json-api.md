@@ -2,24 +2,25 @@
 paths:
   - "src/api.rs"
   - "src/api/**"
-  - "src/mcp.rs"
   - "src/profile/api.rs"
   - "src/pages/api_docs.rs"
   - "src/pages/api_docs/**"
   - "src/pages/llms_txt.rs"
   - "src/server/tests.rs"
+  - "src/server/tools.rs"
   - "e2e/tests/api-*.spec.ts"
   - "e2e/support/api.ts"
 ---
 
-# JSON API, MCP and API docs
+# JSON API and API docs
 
 ## JSON API (`src/api/`)
 
-- **Registry** (`api/registry.rs`): every API endpoint is an `ApiAction`
+- **Registry** (`api/action.rs` trait, `api/registry.rs` docs, `api/tool.rs`
+  MCP tools, `api/serve.rs` routes): every API endpoint is an `ApiAction`
   impl next to its action (id, group, method, path, summary, description,
   permission, `Input`/`Output`/`Problem` types, examples, problem docs) listed
-  in `tools()`. `Endpoint.scope` is `None` for `AnyToken` actions
+  in `server::tools::tools()`. `Endpoint.scope` is `None` for `AnyToken` actions
   (`send_feedback`): docs use `access_note()` / `scope_name()`. The docs page, `/api/v1/openapi.json`, `/llms.txt` and
   the MCP tools are generated from it; nothing about an endpoint is
   written twice.
@@ -43,22 +44,6 @@ paths:
   POSTs that create something accept an `Idempotency-Key` header; breaking
   changes go to `/api/v2`.
 
-## MCP (`src/mcp.rs`, `POST /mcp`)
-
-- Streamable HTTP, stateless JSON-RPC 2.0 (`initialize`, `ping`,
-  `tools/list`, `tools/call`; notifications get 202). Every registered
-  `ApiAction` is a tool named after its id (`get_profile`), with its request
-  schema as `inputSchema` and response schema as `outputSchema`.
-- Only tokens issued for `TokenAudience::Mcp` ("Used by: AI assistants" on
-  the Developer tab) and sign-in tokens from connected apps
-  (`connected-apps.md`) work here, and they don't work on `/api/v1`.
-  `tools/list` shows only the tools the token's permissions allow; without
-  a token only public tools (`public_tool`), and other calls get 401 with
-  `resource_metadata`.
-- Tool problems are results with `isError: true` and the problem+json body
-  as text (so the model can read `code` and `detail`); bad arguments and
-  unknown tools are JSON-RPC `-32602` errors.
-
 ## Docs (`/docs/api`, `/api/v1/openapi.json`, `/llms.txt`)
 
 - Both (and `/llms.txt`) are generated from the registry: `endpoint::<A>()`
@@ -70,7 +55,8 @@ paths:
   descriptions and length limits, so write good `#[schemars(description)]`s.
   Never hand-write an error code or field list on the page.
 - Adding an endpoint means an `ApiAction` impl plus a line in
-  `registry::tools()`; `server/tests.rs` tests that every catalog entry exists and needs a token, and
+  `server/tools.rs`; `server/tests.rs` tests that every catalog entry exists and needs a token, and
   `api-docs.spec.ts` checks the page and the OpenAPI document.
 - Error enums the docs list need `pub const ALL` (`ApiAuthProblem`,
-  `BodyProblem`, `NameProblem`); shared API errors are `ApiFailure`.
+  `BodyProblem`, `NameProblem`); an action's `Problem` implements
+  `ListedProblem` (`all()`) for the docs; shared API errors are `ApiFailure`.

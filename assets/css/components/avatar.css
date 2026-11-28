@@ -10,8 +10,8 @@
 }
 
 .a-avatar--sm {
-  width: 25px;
-  height: 25px;
+  width: var(--space-6);
+  height: var(--space-6);
   font-size: var(--text-sm);
 }
 

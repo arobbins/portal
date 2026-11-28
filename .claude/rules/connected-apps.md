@@ -4,6 +4,7 @@ paths:
   - "src/oauth/**"
   - "src/auth/handoff.rs"
   - "src/mcp.rs"
+  - "src/mcp/**"
 ---
 
 # Connected apps (OAuth sign-in for `/mcp`)

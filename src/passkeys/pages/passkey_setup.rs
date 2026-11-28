@@ -13,10 +13,10 @@ use topcoat::{
 use tower_sessions::Session;
 
 use crate::account::tabs::AccountSection;
-use crate::action::require_browser_caller;
+use crate::action::{ForPage, require_browser_caller};
 use crate::app::page_title;
 use crate::auth::handoff::destination_after_sign_in;
-use crate::auth::session::{grant_passkey_prompt, passkey_prompt_granted, require_user};
+use crate::auth::session::require_user;
 use crate::components::button::{ButtonType, ButtonVariant, button};
 use crate::components::form::{FormVariant, form, form_error};
 use crate::components::icon::{IconName, icon};
@@ -25,6 +25,7 @@ use crate::layout::page_heading::page_heading;
 use crate::passkeys::actions::passkey_prompt_due;
 use crate::passkeys::actions::{PromptAnswer, answer_passkey_prompt};
 use crate::passkeys::pages::passkeys_card::ADD_ERROR_ID;
+use crate::passkeys::prompt_grant::{grant_passkey_prompt, passkey_prompt_granted};
 use crate::user::model::User;
 use crate::web::{app, env, session};
 
@@ -132,9 +133,9 @@ async fn answer_prompt(cx: &Cx, answer: PromptAnswer) -> Result<SeeOther> {
     if !prompt_showing(cx, &caller.user).await? {
         return Ok(see_other(ACCOUNT_PATH));
     }
-    if let Err(error) = answer_passkey_prompt(&env(cx), &session(cx)?, &caller, answer).await? {
-        match error.for_browser()? {}
-    }
+    answer_passkey_prompt(&env(cx), &session(cx)?, &caller, answer)
+        .await?
+        .for_page()?;
 
     Ok(see_other(ACCOUNT_PATH))
 }

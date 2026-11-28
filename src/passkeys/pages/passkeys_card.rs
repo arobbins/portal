@@ -9,7 +9,7 @@ use topcoat::{
 use super::passkey_routes::{remove_passkey_submit, rename_passkey_submit};
 use super::passkey_view::PasskeyRow;
 use crate::account::tabs::AccountSection;
-use crate::action::{ID_FIELD, require_browser_caller};
+use crate::action::{ForPage, ID_FIELD, require_browser_caller};
 use crate::auth::pages::reauth_field::reauth_field;
 use crate::auth::password::CURRENT_PASSWORD_FIELD;
 use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
@@ -35,10 +35,7 @@ pub const ADD_ERROR_ID: &str = "add-passkey-error";
 #[component]
 pub async fn passkeys_card(cx: &Cx) -> Result<impl View> {
     let caller = require_browser_caller(cx)?;
-    let passkeys = match list_passkeys(&env(cx), &caller).await? {
-        Ok(passkeys) => passkeys,
-        Err(error) => match error.for_browser()? {},
-    };
+    let passkeys = list_passkeys(&env(cx), &caller).await?.for_page()?;
     let zone = caller.user.zone();
     let rows: Vec<PasskeyRow> = passkeys
         .iter()

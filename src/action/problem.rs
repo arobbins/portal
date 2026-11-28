@@ -23,6 +23,19 @@ impl<P> From<P> for ActionError<P> {
     }
 }
 
+pub trait ForPage<T> {
+    fn for_page(self) -> Result<T>;
+}
+
+impl<T> ForPage<T> for std::result::Result<T, ActionError<Infallible>> {
+    fn for_page(self) -> Result<T> {
+        match self {
+            Ok(value) => Ok(value),
+            Err(error) => match error.for_browser()? {},
+        }
+    }
+}
+
 impl<P> ActionError<P> {
     pub fn for_browser(self) -> Result<P> {
         match self {
@@ -92,6 +105,16 @@ impl ActionProblem for ProblemSpec {
 impl ActionProblem for Infallible {
     fn spec(self) -> ProblemSpec {
         match self {}
+    }
+}
+
+pub trait ListedProblem: ActionProblem + 'static {
+    fn all() -> &'static [Self];
+}
+
+impl ListedProblem for Infallible {
+    fn all() -> &'static [Self] {
+        &[]
     }
 }
 

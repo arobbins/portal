@@ -16,7 +16,7 @@ paths:
   `view!`, then inside the handler
   `let result = raw!("await Promise.resolve(${_pending}).catch(() => ${save_failed})", save_failed.clone());`
   (modal forms get this from `modal_form` in `components/form/submit.rs`;
-  `api_tokens/pages/create_token_dialog.rs` shows it standalone).
+  `components/copy_field.rs` shows `raw!` standalone).
 - Don't bind an input's `:value` to the same signal its `@input` writes: the
   binding rewrites the field whenever the signal changes. Keep a separate
   signal for `:value` that only changes when you deliberately reset the field

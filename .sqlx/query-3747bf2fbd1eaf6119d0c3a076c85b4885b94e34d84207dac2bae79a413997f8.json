@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT kind, detail, ip, channel, created_at FROM account_events WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2",
+  "query": "SELECT kind, detail, ip, channel, api_token_id, created_at FROM account_events WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2",
   "describe": {
     "columns": [
       {
@@ -25,6 +25,11 @@
       },
       {
         "ordinal": 4,
+        "name": "api_token_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
@@ -40,8 +45,9 @@
       false,
       true,
       false,
+      true,
       false
     ]
   },
-  "hash": "b2d1defb67dcb89898d86eebf999ebec1b294dcc64f1532e14197e355a7398b4"
+  "hash": "3747bf2fbd1eaf6119d0c3a076c85b4885b94e34d84207dac2bae79a413997f8"
 }

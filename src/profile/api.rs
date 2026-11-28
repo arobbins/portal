@@ -1,8 +1,8 @@
 use std::convert::Infallible;
 
 use crate::action::{ActionResult, Caller};
-use crate::api::catalog::{ErrorDoc, HttpMethod};
-use crate::api::registry::{ApiAction, NoInput};
+use crate::api::action::{ApiAction, NoInput};
+use crate::api::catalog::HttpMethod;
 use crate::env::Env;
 use crate::permission::Permission;
 use crate::profile::actions::{ProfileView, UpdateProfile, get_profile, update_profile};
@@ -39,10 +39,6 @@ impl ApiAction for GetProfileAction {
     fn example_output() -> ProfileView {
         sample_profile()
     }
-
-    fn problems() -> Vec<ErrorDoc> {
-        Vec::new()
-    }
 }
 
 pub struct UpdateProfileAction;
@@ -76,10 +72,6 @@ impl ApiAction for UpdateProfileAction {
 
     fn example_output() -> ProfileView {
         sample_profile()
-    }
-
-    fn problems() -> Vec<ErrorDoc> {
-        NameProblem::ALL.into_iter().map(ErrorDoc::of).collect()
     }
 }
 

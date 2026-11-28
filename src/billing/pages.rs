@@ -1,4 +1,4 @@
-pub mod handoff;
+mod checkout_pending;
 pub mod invoices_page;
 mod plan_actions;
 mod plan_offers;

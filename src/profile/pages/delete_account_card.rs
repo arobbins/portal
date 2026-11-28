@@ -2,26 +2,29 @@ use topcoat::{
     Result,
     context::Cx,
     router::href,
-    runtime::{Event, Signal, signal},
+    runtime::{Signal, signal},
     view::{View, attributes, component, view},
 };
 
 use super::delete_routes::{delete_account_js, delete_account_submit};
 use crate::account::tabs::AccountSection;
+use crate::action::browser_caller;
 use crate::auth::actions::CONFIRMATION_FIELD;
 use crate::auth::pages::login::login_page;
 use crate::auth::pages::reauth_field::reauth_field;
 use crate::auth::password::CURRENT_PASSWORD_FIELD;
-use crate::billing::pages::plan_page::subscription_to_cancel;
+use crate::billing::subscription_to_cancel;
 use crate::components::button::{ButtonSize, ButtonVariant, button};
 use crate::components::form::{
-    DialogForm, ModalSubmit, dialog_input, form_field, form_group, modal_form,
+    DialogForm, ModalSubmit, ModalSuccess, dialog_input, dialog_opener, form_field, form_group,
+    modal_form,
 };
 use crate::components::notice::notice;
 use crate::components::property_list::property;
 use crate::components::tone::Tone;
 use crate::data_export::pages::export_card::export_first_prompt;
 use crate::flash::Flash;
+use crate::web::env;
 
 const MODAL_ID: &str = "delete-account-dialog";
 const UNREACHABLE: &str = "We couldn't delete your account. Please try again.";
@@ -53,11 +56,6 @@ pub async fn delete_account_row(
         confirmation,
         password,
     } = drafts;
-    let DialogForm {
-        error_field,
-        error_message,
-        ..
-    } = form;
     let section = AccountSection::DeleteAccount;
 
     Ok(view! {
@@ -70,17 +68,12 @@ pub async fn delete_account_row(
             button(
                 variant: ButtonVariant::Danger,
                 size: ButtonSize::Sm,
-                attrs: attributes! {
-                    command="show-modal"
-                    commandfor=(MODAL_ID)
-                    @click=$(|_e: Event| {
-                        blank.set("".to_owned());
-                        confirmation.set("".to_owned());
-                        password.set("".to_owned());
-                        error_field.set("".to_owned());
-                        error_message.set("".to_owned());
-                    })
-                },
+                attrs: dialog_opener(
+                    cx,
+                    form,
+                    MODAL_ID,
+                    &[blank, confirmation, password],
+                ),
                 "Delete account"
             )
         )
@@ -100,9 +93,11 @@ pub async fn delete_account_dialog(
         password,
     } = drafts;
     let login = href!(login_page).resolve(cx);
-    let cancelled = subscription_to_cancel(cx)
-        .await?
-        .map(|plan| format!("Your {plan} subscription is cancelled now, with no refund."));
+    let cancelled = match browser_caller(cx) {
+        Some(caller) => subscription_to_cancel(&env(cx), &caller).await?,
+        None => None,
+    }
+    .map(|plan| format!("Your {plan} subscription is cancelled now, with no refund."));
     let submit = ModalSubmit {
         procedure: delete_account_js,
         action: href!(delete_account_submit).resolve(cx),
@@ -120,7 +115,7 @@ pub async fn delete_account_dialog(
             submit: submit,
             args: $((confirmation.get(), password.get())),
             variant: ButtonVariant::Danger,
-            navigate_to: Some(&login),
+            on_success: ModalSuccess::Navigate(&login),
             form_group(
                 notice(
                     tone: Tone::Error,

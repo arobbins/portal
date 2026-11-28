@@ -175,3 +175,27 @@ pub fn or_internal_error(result: topcoat::Result<ApiResponse>) -> ApiResponse {
         ApiProblem::of(ApiFailure::Internal).response()
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::scope::ApiScope;
+
+    #[test]
+    fn a_missing_scope_names_it_in_the_body_and_the_challenge() {
+        let (status, headers, Json(body)) = denied(Denied::MissingScope(ApiScope::ProfileWrite));
+
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(body["code"], "insufficient_scope");
+        let challenge = headers[WWW_AUTHENTICATE].to_str().unwrap();
+        assert!(challenge.contains("scope=\"profile:write\""), "{challenge}");
+    }
+
+    #[test]
+    fn browser_only_actions_are_refused_to_tokens() {
+        let (status, _, Json(body)) = denied(Denied::BrowserOnly);
+
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(body["code"], ApiFailure::BrowserOnly.code());
+    }
+}

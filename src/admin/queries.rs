@@ -93,17 +93,6 @@ pub async fn query_count_user_things(
     .await
 }
 
-pub async fn query_delete_all_user_tokens(
-    user_id: i32,
-    db: impl PgExecutor<'_>,
-) -> Result<(), sqlx::Error> {
-    sqlx::query!("DELETE FROM user_tokens WHERE user_id = $1", user_id)
-        .execute(db)
-        .await?;
-
-    Ok(())
-}
-
 pub struct NewLogEntry<'a> {
     pub admin_public_id: Option<&'a str>,
     pub admin_email: Option<&'a str>,

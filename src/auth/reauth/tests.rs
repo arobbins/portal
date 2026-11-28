@@ -74,8 +74,6 @@ async fn a_proof_is_used_once_unless_it_is_given_back(db: PgPool) {
             .is_some()
     );
 
-    grant_passkey_reauth(&session, &user, at(4)).await.unwrap();
-    forget_passkey_proof(&session).await.unwrap();
     assert!(
         take_passkey_proof(&session, &user, at(5))
             .await

@@ -49,13 +49,17 @@ paths:
   shared between dialogs): `DialogForm::new(cx, failure)` takes that
   dialog's own no-JS failure (`Option<ProblemSpec>`) and holds the error
   field, error message and busy signals; inputs spread `dialog_input(cx,
-  &form, FIELD, &value, &draft)` and the error is `dialog_form_error(form:
-  &form)`. The page shows whichever dialog failed in one error toast,
+  &form, FIELD, &value, &draft)`; the opening button takes `attrs:
+  dialog_opener(cx, &form, MODAL_ID, &[drafts…])` (up to four drafts, and it
+  always clears both error signals). The page shows whichever dialog failed in one error toast,
   `dialog_error_toast(failure: page_failure, toast: &toast)`, with the toast
   signal from `page_toast(cx, page_failure.is_some(), flash)`. The dialog itself is
   `modal_form(…, submit: ModalSubmit { … }, args: $((…)))`
   (`form/submit.rs`), which owns the procedure call, busy state, catch,
-  success toast and closing; dialogs that don't close on success (Create
-  API token) still write their own `@submit`.
+  error, success toast and `on_success: ModalSuccess` (`Close` by default,
+  `Navigate(path)`, `NavigateToResult`, `DownloadFile`, `KeepOpen` with
+  `saved`; `clear: Some((blank, password))` empties them on success). A form
+  inside a larger dialog (Create API token) uses `dialog_submit_form` with
+  `SubmitSettings`. Never write a dialog's `@submit` by hand.
 - The full recipe for a new form (page, POST route, problem enum, modal +
   procedure) is the `new-form-flow` skill.

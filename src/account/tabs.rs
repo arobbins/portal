@@ -1,4 +1,4 @@
-use crate::admin::pages::admin_shell::AdminSection;
+use crate::admin::sections::AdminSection;
 use crate::routes::ACCOUNT_PATH;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

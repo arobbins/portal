@@ -1,6 +1,6 @@
 use crate::api_tokens::token::TOKEN_PREFIX;
 
-pub const REDACTED: &str = "[redacted]";
+const REDACTED: &str = "[redacted]";
 const BEARER: &str = "bearer";
 
 pub fn redact_secrets(text: &str) -> String {

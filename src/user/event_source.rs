@@ -29,14 +29,15 @@ impl EventChannel {
         }
     }
 
-    pub fn parse(channel: &str) -> Self {
-        match channel {
-            "api_token" => Self::ApiToken(0),
-            "app" => Self::App,
-            "admin" => Self::Admin,
-            "console" => Self::Console,
-            "stripe" => Self::Stripe,
-            _ => Self::Browser,
+    pub fn parse(channel: &str, api_token_id: Option<i32>) -> Option<Self> {
+        match (channel, api_token_id) {
+            ("api_token", Some(id)) => Some(Self::ApiToken(id)),
+            ("browser", None) => Some(Self::Browser),
+            ("app", None) => Some(Self::App),
+            ("admin", None) => Some(Self::Admin),
+            ("console", None) => Some(Self::Console),
+            ("stripe", None) => Some(Self::Stripe),
+            _ => None,
         }
     }
 }
@@ -66,6 +67,14 @@ impl EventSource {
             user_id,
             channel: EventChannel::Browser,
             app: None,
+        }
+    }
+
+    pub fn app(user_id: i32, label: String) -> Self {
+        Self {
+            user_id,
+            channel: EventChannel::App,
+            app: Some(label),
         }
     }
 

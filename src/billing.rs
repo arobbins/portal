@@ -4,17 +4,22 @@ pub mod catalog;
 pub mod export;
 pub mod jobs;
 pub mod pages;
-pub mod period;
+mod period;
 mod queries;
-pub mod subscription;
+mod subscription;
 #[cfg(test)]
 pub mod testing;
-pub mod webhook;
+mod webhook;
+
+use std::sync::Arc;
 
 use sqlx::PgConnection;
 
-use crate::env::App;
+use crate::action::{Caller, ForPage};
+use crate::env::{App, Env};
 use crate::jobs::enqueue;
+use crate::user::queries::query_get_user_by_id;
+use actions::{BillingStatus, StartCheckout, get_billing, start_checkout};
 use jobs::{CancelStripeSubscription, UpdateStripeCustomerEmail};
 use queries::{
     query_delete_old_checkout_requests, query_delete_old_stripe_events,
@@ -62,4 +67,30 @@ pub async fn follow_email_change(user_id: i32, tx: &mut PgConnection) -> Result<
     };
     let job = UpdateStripeCustomerEmail { customer };
     enqueue(&job, &mut *tx).await
+}
+
+pub async fn subscription_to_cancel(
+    env: &Env<'_>,
+    caller: &Caller,
+) -> topcoat::Result<Option<String>> {
+    let billing = get_billing(env, caller).await?.for_page()?;
+    Ok((billing.status != BillingStatus::Free).then_some(billing.plan_name))
+}
+
+pub async fn checkout_for_price(
+    env: &Env<'_>,
+    user_id: i32,
+    price: String,
+) -> topcoat::Result<Option<String>> {
+    let Some(user) = query_get_user_by_id(user_id, env.db()).await? else {
+        return Ok(None);
+    };
+    let caller = Caller::browser(Arc::new(user));
+    match start_checkout(env, &caller, &StartCheckout { price }).await? {
+        Ok(link) => Ok(Some(link.checkout_url)),
+        Err(error) => {
+            tracing::info!("no checkout after sign-in: {:?}", error.for_browser()?);
+            Ok(None)
+        }
+    }
 }

@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use topcoat::Result;
@@ -9,11 +7,11 @@ use crate::action::{ActionProblem, Outcome, ProblemSpec, fail};
 use crate::auth::password::{
     CURRENT_PASSWORD_FIELD, CurrentPasswordProblem, check_current_password,
 };
-use crate::env::Env;
+use crate::env::{Env, is_within};
 use crate::user::model::User;
 
 pub const PASSKEY_REAUTH: &str = "passkey_reauth";
-const PASSKEY_REAUTH_WINDOW: Duration = Duration::from_secs(5 * 60);
+const PASSKEY_REAUTH_WINDOW: time::Duration = time::Duration::minutes(5);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 struct PasskeyReauth {
@@ -113,16 +111,10 @@ pub async fn return_passkey_proof(session: &Session, proof: Option<PasskeyProof>
     Ok(())
 }
 
-pub async fn forget_passkey_proof(session: &Session) -> Result<()> {
-    session.remove::<PasskeyReauth>(PASSKEY_REAUTH).await?;
-    Ok(())
-}
-
 fn is_fresh(grant: &PasskeyReauth, user: &User, now: OffsetDateTime) -> bool {
-    let age = now.unix_timestamp() - grant.confirmed_at;
     grant.user_id == user.id
         && grant.session_version == user.session_version
-        && (0..=PASSKEY_REAUTH_WINDOW.as_secs() as i64).contains(&age)
+        && is_within(grant.confirmed_at, now, PASSKEY_REAUTH_WINDOW)
 }
 
 #[cfg(test)]

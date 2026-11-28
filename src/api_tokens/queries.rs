@@ -1,4 +1,4 @@
-use crate::api::scope::{ApiScope, TokenAudience, parse_scopes};
+use crate::api::scope::{ApiScope, TokenAudience};
 use sqlx::PgExecutor;
 
 pub struct NewApiTokenRow<'a> {
@@ -7,21 +7,10 @@ pub struct NewApiTokenRow<'a> {
     pub name: &'a str,
     pub token_hash: &'a str,
     pub last_four: &'a str,
-    pub scopes: &'a [String],
-    pub audience: &'a str,
+    pub scopes: &'a [ApiScope],
+    pub audience: TokenAudience,
     pub expires_at: time::OffsetDateTime,
     pub max_per_user: i64,
-}
-
-struct ApiTokenRow {
-    public_id: String,
-    name: String,
-    last_four: String,
-    scopes: Vec<String>,
-    audience: String,
-    created_at: time::OffsetDateTime,
-    expires_at: time::OffsetDateTime,
-    last_used_at: Option<time::OffsetDateTime>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,27 +25,12 @@ pub struct ApiToken {
     pub last_used_at: Option<time::OffsetDateTime>,
 }
 
-impl From<ApiTokenRow> for ApiToken {
-    fn from(row: ApiTokenRow) -> Self {
-        Self {
-            scopes: parse_scopes(&row.scopes),
-            audience: TokenAudience::from_str(&row.audience).unwrap_or(TokenAudience::Api),
-            public_id: row.public_id,
-            name: row.name,
-            last_four: row.last_four,
-            created_at: row.created_at,
-            expires_at: row.expires_at,
-            last_used_at: row.last_used_at,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct ApiTokenGrant {
     pub id: i32,
     pub user_id: i32,
-    pub scopes: Vec<String>,
-    pub audience: String,
+    pub scopes: Vec<ApiScope>,
+    pub audience: TokenAudience,
 }
 
 pub async fn query_insert_api_token(
@@ -70,8 +44,8 @@ pub async fn query_insert_api_token(
         token.name,
         token.token_hash,
         token.last_four,
-        token.scopes,
-        token.audience,
+        token.scopes as &[ApiScope],
+        token.audience as TokenAudience,
         token.expires_at,
         token.max_per_user,
     )
@@ -85,25 +59,25 @@ pub async fn query_list_api_tokens(
     user_id: i32,
     db: impl PgExecutor<'_>,
 ) -> Result<Vec<ApiToken>, sqlx::Error> {
-    let rows = sqlx::query_as!(
-        ApiTokenRow,
-        "SELECT public_id, name, last_four, scopes, audience, created_at, expires_at, last_used_at FROM api_tokens WHERE user_id = $1 ORDER BY created_at DESC",
+    sqlx::query_as!(
+        ApiToken,
+        r#"SELECT public_id, name, last_four, scopes AS "scopes: Vec<ApiScope>", audience AS "audience: TokenAudience", created_at, expires_at, last_used_at FROM api_tokens WHERE user_id = $1 ORDER BY created_at DESC"#,
         user_id,
     )
     .fetch_all(db)
-    .await?;
-
-    Ok(rows.into_iter().map(ApiToken::from).collect())
+    .await
 }
 
 pub async fn query_get_api_token_by_hash(
     token_hash: &str,
+    now: time::OffsetDateTime,
     db: impl PgExecutor<'_>,
 ) -> Result<Option<ApiTokenGrant>, sqlx::Error> {
     let grant = sqlx::query_as!(
         ApiTokenGrant,
-        "SELECT id, user_id, scopes, audience FROM api_tokens WHERE token_hash = $1 AND expires_at > now()",
+        r#"SELECT id, user_id, scopes AS "scopes: Vec<ApiScope>", audience AS "audience: TokenAudience" FROM api_tokens WHERE token_hash = $1 AND expires_at > $2"#,
         token_hash,
+        now,
     )
     .fetch_optional(db)
     .await?;
@@ -113,11 +87,13 @@ pub async fn query_get_api_token_by_hash(
 
 pub async fn query_record_api_token_use(
     id: i32,
+    now: time::OffsetDateTime,
     db: impl PgExecutor<'_>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "UPDATE api_tokens SET last_used_at = now() WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < now() - interval '5 minutes')",
+        "UPDATE api_tokens SET last_used_at = $2 WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < $2::timestamptz - interval '5 minutes')",
         id,
+        now,
     )
     .execute(db)
     .await?;
@@ -209,7 +185,7 @@ mod tests {
     #[sqlx::test]
     async fn each_user_has_a_token_limit(db: PgPool) {
         let user_id = user(&db).await;
-        let scopes = vec!["profile:read".to_string()];
+        let scopes = vec![ApiScope::ProfileRead];
         let insert = |public_id: &'static str| {
             let token = generate_api_token();
             let db = db.clone();
@@ -222,7 +198,7 @@ mod tests {
                     token_hash: &token.hash,
                     last_four: &token.last_four,
                     scopes: &scopes,
-                    audience: TokenAudience::Api.as_str(),
+                    audience: TokenAudience::Api,
                     expires_at: time::OffsetDateTime::now_utc() + time::Duration::days(1),
                     max_per_user: 1,
                 };

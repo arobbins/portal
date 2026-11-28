@@ -5,10 +5,10 @@ use serde::Deserialize;
 use topcoat::router::StatusCode;
 
 use crate::action::{ActionProblem, ActionResult, Caller, ProblemSpec, authorize, fail};
-use crate::api::scope::{ApiScope, parse_scopes};
+use crate::api::scope::ApiScope;
 use crate::env::Env;
-use crate::oauth::lifecycle::record_disconnected;
 use crate::oauth::queries::{query_delete_connection, query_list_connections};
+use crate::oauth::revoke::record_disconnected;
 use crate::permission::Permission;
 use crate::secret::PublicIdKind;
 use crate::user::events::EventSource;
@@ -56,7 +56,7 @@ pub async fn list_connected_apps(
             id: row.public_id,
             name: row.name,
             return_host: row.return_host,
-            scopes: parse_scopes(&row.scopes),
+            scopes: row.scopes,
             connected_at: row.created_at,
             last_used_at: row.last_used_at,
         })

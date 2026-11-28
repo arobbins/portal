@@ -43,9 +43,9 @@ pub const ACCOUNT_EVENT: Machine<EventState, EventEvent> = Machine {
             events: &[E::ChangeSucceeds],
         },
         Writer {
-            caller: "src/admin/console.rs:change_role",
+            caller: "src/admin/log.rs:log_admin_action",
             query: "query_insert_account_event",
-            events: &[],
+            events: &[E::ChangeSucceeds],
         },
         Writer {
             caller: "src/user/events.rs:delete_old_events",

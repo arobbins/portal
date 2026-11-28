@@ -3,8 +3,8 @@ use sqlx::PgPool;
 
 use super::*;
 use crate::auth::links::TokenPurpose;
-use crate::auth::session::{PASSKEY_PROMPT_GRANT as GRANT_KEY, PASSKEY_PROMPT_WINDOW};
 use crate::env::App;
+use crate::passkeys::prompt_grant::{PASSKEY_PROMPT_GRANT as GRANT_KEY, PASSKEY_PROMPT_WINDOW};
 use crate::routes::LOGOUT_PATH;
 use crate::secret::{hash_secret, random_base62};
 use crate::state_machines::testing::{Browser, assets, location};
@@ -212,5 +212,5 @@ fn redirected(response: axum::http::Response<axum::body::Body>) -> bool {
 
 #[test]
 fn the_window_matches_the_limit() {
-    assert_eq!(WINDOW_SECONDS as u64, PASSKEY_PROMPT_WINDOW.as_secs());
+    assert_eq!(WINDOW_SECONDS, PASSKEY_PROMPT_WINDOW.whole_seconds());
 }

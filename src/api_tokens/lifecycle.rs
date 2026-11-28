@@ -14,14 +14,15 @@ const EXPIRED_TOKEN_GRACE: time::Duration = time::Duration::days(7);
 pub async fn find_grant(
     raw: &str,
     audience: TokenAudience,
+    now: time::OffsetDateTime,
     db: impl PgExecutor<'_>,
 ) -> Result<Option<ApiTokenGrant>, sqlx::Error> {
     if !is_well_formed(raw) {
         return Ok(None);
     }
-    let grant = query_get_api_token_by_hash(&hash_secret(raw), db).await?;
+    let grant = query_get_api_token_by_hash(&hash_secret(raw), now, db).await?;
 
-    Ok(grant.filter(|grant| grant.audience == audience.as_str()))
+    Ok(grant.filter(|grant| grant.audience == audience))
 }
 
 pub async fn token_name(
@@ -32,8 +33,12 @@ pub async fn token_name(
     query_get_api_token_name(token_id, user_id, db).await
 }
 
-pub async fn record_use(token_id: i32, db: impl PgExecutor<'_>) -> Result<(), sqlx::Error> {
-    query_record_api_token_use(token_id, db).await
+pub async fn record_use(
+    token_id: i32,
+    now: time::OffsetDateTime,
+    db: impl PgExecutor<'_>,
+) -> Result<(), sqlx::Error> {
+    query_record_api_token_use(token_id, now, db).await
 }
 
 pub async fn revoke_all_for_user(

@@ -53,7 +53,8 @@ impl From<topcoat::Error> for JobError {
 }
 
 pub async fn enqueue<J: Job>(job: &J, db: impl PgExecutor<'_>) -> Result<(), sqlx::Error> {
-    let payload = serde_json::to_value(job).unwrap_or_else(|_| serde_json::json!({}));
+    let payload =
+        serde_json::to_value(job).map_err(|error| sqlx::Error::Encode(Box::new(error)))?;
     queue::query_insert_job(J::KIND, &payload, J::MAX_ATTEMPTS, db).await
 }
 

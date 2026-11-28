@@ -34,21 +34,6 @@ pub fn count(n: i64, one: &str, many: &str) -> String {
     format!("{n} {noun}")
 }
 
-pub fn escape_html(text: &str) -> String {
-    let mut escaped = String::with_capacity(text.len());
-    for character in text.chars() {
-        match character {
-            '&' => escaped.push_str("&amp;"),
-            '<' => escaped.push_str("&lt;"),
-            '>' => escaped.push_str("&gt;"),
-            '"' => escaped.push_str("&quot;"),
-            '\'' => escaped.push_str("&#39;"),
-            other => escaped.push(other),
-        }
-    }
-    escaped
-}
-
 #[cfg(test)]
 mod tests {
     #[test]
@@ -77,14 +62,6 @@ mod tests {
         assert_eq!(
             parse_email(&format!("{}@example.test", "a".repeat(250))),
             None
-        );
-    }
-
-    #[test]
-    fn html_is_escaped_for_emails() {
-        assert_eq!(
-            escape_html("<a href=\"x\">Tom & 'Jerry'</a>"),
-            "&lt;a href=&quot;x&quot;&gt;Tom &amp; &#39;Jerry&#39;&lt;/a&gt;"
         );
     }
 }

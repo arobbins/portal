@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT o.id AS connection_id, o.user_id, o.scopes, c.name, o.return_host FROM oauth_tokens t JOIN oauth_connections o ON o.id = t.connection_id JOIN oauth_clients c ON c.id = o.client_id WHERE t.token_hash = $1 AND t.kind = 'access' AND t.expires_at > $2",
+  "query": "SELECT o.id AS connection_id, o.user_id, o.scopes AS \"scopes: Vec<ApiScope>\", c.name, o.return_host FROM oauth_tokens t JOIN oauth_connections o ON o.id = t.connection_id JOIN oauth_clients c ON c.id = o.client_id WHERE t.token_hash = $1 AND t.kind = 'access' AND t.expires_at > $2",
   "describe": {
     "columns": [
       {
@@ -15,7 +15,7 @@
       },
       {
         "ordinal": 2,
-        "name": "scopes",
+        "name": "scopes: Vec<ApiScope>",
         "type_info": "TextArray"
       },
       {
@@ -43,5 +43,5 @@
       false
     ]
   },
-  "hash": "46a0d0d2e93280d199651b4aa870c52452c743b97f23cf6ca6ffd4ad305ceab4"
+  "hash": "572001cc995276e93168ae22a6ce3838530eb874181f0dee2f19f7ba888b99e0"
 }

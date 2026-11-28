@@ -3,8 +3,8 @@ use time::{Duration, OffsetDateTime};
 
 use crate::auth::emails::register_verification_email;
 use crate::auth::queries::{
-    NewUserToken, query_delete_expired_user_tokens, query_delete_user_tokens,
-    query_insert_user_token,
+    NewUserToken, query_delete_all_user_tokens, query_delete_expired_user_tokens,
+    query_delete_user_tokens, query_insert_user_token,
 };
 use crate::config::Config;
 use crate::env::App;
@@ -75,10 +75,33 @@ pub struct NewLink<'a> {
 
 pub async fn email_user_link(app: &App, link: NewLink<'_>) -> Result<(), sqlx::Error> {
     let mut tx = app.db.begin().await?;
-    let token = replace_user_token(app.clock.now(), &link, &mut tx).await?;
-    let url = link.purpose.url(&app.config, &token);
-    enqueue(&SendEmail((link.email)(&url)), &mut *tx).await?;
+    email_user_link_in(app, link, &mut tx).await?;
     tx.commit().await
+}
+
+async fn email_user_link_in(
+    app: &App,
+    link: NewLink<'_>,
+    tx: &mut PgConnection,
+) -> Result<(), sqlx::Error> {
+    let token = replace_user_token(app.clock.now(), &link, &mut *tx).await?;
+    let url = link.purpose.url(&app.config, &token);
+    enqueue(&SendEmail((link.email)(&url)), &mut *tx).await
+}
+
+pub async fn queue_verification_link(
+    app: &App,
+    user_id: i32,
+    email: &str,
+    tx: &mut PgConnection,
+) -> Result<(), sqlx::Error> {
+    let link = NewLink {
+        user_id,
+        purpose: TokenPurpose::EmailVerification,
+        payload: None,
+        email: &|url| register_verification_email(email, url),
+    };
+    email_user_link_in(app, link, tx).await
 }
 
 pub async fn send_verification_link(
@@ -105,6 +128,10 @@ pub async fn send_verification_link_for(
         },
     )
     .await
+}
+
+pub async fn delete_every_link(user_id: i32, tx: &mut PgConnection) -> Result<(), sqlx::Error> {
+    query_delete_all_user_tokens(user_id, &mut *tx).await
 }
 
 pub async fn delete_stale_sign_ups(app: &App) -> Result<(u64, u64), sqlx::Error> {

@@ -46,6 +46,10 @@ impl User {
             _ => AccountStatus::AwaitingPassword,
         }
     }
+
+    pub fn is_active(&self) -> bool {
+        matches!(self.status(), AccountStatus::Active { .. })
+    }
 }
 
 #[cfg(test)]

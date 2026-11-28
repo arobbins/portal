@@ -60,15 +60,17 @@ pub fn plan_offers(prices: &[PlanPrice]) -> Vec<PlanOffer> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::billing::period::Interval;
 
     fn price(plan: &str, id: &str, amount: i64, interval: &str, count: i64) -> PlanPrice {
+        let interval = Interval::parse(interval).unwrap();
         PlanPrice {
             plan: plan.to_string(),
             plan_name: plan.to_string(),
             price: id.to_string(),
             amount,
             currency: "usd".to_string(),
-            interval: interval.to_string(),
+            interval,
             label: String::new(),
             decimal_amount: String::new(),
             period: BillingPeriod::of_interval(interval, count),

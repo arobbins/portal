@@ -7,7 +7,9 @@ use topcoat::{
 };
 
 use super::admin_access::require_admin;
-use super::admin_shell::{AdminSection, admin_shell};
+use super::admin_shell::admin_shell;
+use crate::action::ForPage;
+use crate::admin::sections::AdminSection;
 use crate::app::page_title;
 use crate::auth::session::viewer_zone;
 use crate::components::table::{
@@ -19,10 +21,7 @@ use crate::web::env;
 #[page("/admin/feedback", with(Metadata::new().title(page_title("API feedback"))))]
 pub async fn admin_feedback_page(cx: &Cx) -> Result<impl View> {
     let caller = require_admin(cx).await?;
-    let feedback = match list_api_feedback(&env(cx), &caller).await? {
-        Ok(feedback) => feedback,
-        Err(error) => match error.for_browser()? {},
-    };
+    let feedback = list_api_feedback(&env(cx), &caller).await?.for_page()?;
     let caption =
         format!("The last {FEEDBACK_SHOWN} messages agents sent about the API, newest first");
 

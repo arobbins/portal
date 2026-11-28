@@ -1,5 +1,7 @@
+mod job;
 mod template;
 
+pub use job::SendEmail;
 pub use template::{EmailTemplate, Part};
 
 use std::path::PathBuf;
@@ -38,16 +40,9 @@ impl std::error::Error for MailError {}
 
 #[derive(Debug, Clone)]
 pub enum Mailer {
-    Postmark {
-        client: reqwest::Client,
-        server_token: String,
-        base_url: String,
-        from: String,
-    },
+    Postmark(Postmark),
     Log,
-    File {
-        dir: PathBuf,
-    },
+    File { dir: PathBuf },
 }
 
 #[derive(Serialize)]
@@ -69,20 +64,7 @@ impl Mailer {
                 Ok(())
             }
             Self::File { dir } => write_to_file(dir, email).await,
-            Self::Postmark {
-                client,
-                server_token,
-                base_url,
-                from,
-            } => {
-                let postmark = Postmark {
-                    client,
-                    server_token,
-                    base_url,
-                    from,
-                };
-                send_with_postmark(&postmark, email).await
-            }
+            Self::Postmark(postmark) => postmark.send(email).await,
         }
     }
 }
@@ -103,53 +85,42 @@ async fn write_to_file(dir: &PathBuf, email: &Email) -> Result<(), MailError> {
         .map_err(MailError::new)
 }
 
-struct Postmark<'a> {
-    client: &'a reqwest::Client,
-    server_token: &'a str,
-    base_url: &'a str,
-    from: &'a str,
+#[derive(Debug, Clone)]
+pub struct Postmark {
+    pub client: reqwest::Client,
+    pub server_token: String,
+    pub base_url: String,
+    pub from: String,
 }
 
-async fn send_with_postmark(postmark: &Postmark<'_>, email: &Email) -> Result<(), MailError> {
-    let body = PostmarkEmail {
-        from: postmark.from,
-        to: &email.to,
-        subject: &email.subject,
-        text_body: &email.text,
-        html_body: &email.html,
-        message_stream: "outbound",
-    };
-    let response = postmark
-        .client
-        .post(format!("{}/email", postmark.base_url))
-        .header("X-Postmark-Server-Token", postmark.server_token)
-        .header(ACCEPT, "application/json")
-        .json(&body)
-        .send()
-        .await
-        .map_err(MailError::new)?;
-
-    let status = response.status();
-    if status.is_success() {
-        return Ok(());
-    }
-    let response_body = response.text().await.map_err(MailError::new)?;
-    Err(MailError::new(format!(
-        "Postmark returned {status}: {response_body}"
-    )))
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SendEmail(pub Email);
-
-impl crate::jobs::Job for SendEmail {
-    const KIND: &'static str = "send_email";
-
-    async fn run(self, app: &crate::env::App) -> Result<(), crate::jobs::JobError> {
-        app.config
-            .mailer
-            .send(&self.0)
+impl Postmark {
+    async fn send(&self, email: &Email) -> Result<(), MailError> {
+        let postmark = self;
+        let body = PostmarkEmail {
+            from: &postmark.from,
+            to: &email.to,
+            subject: &email.subject,
+            text_body: &email.text,
+            html_body: &email.html,
+            message_stream: "outbound",
+        };
+        let response = postmark
+            .client
+            .post(format!("{}/email", postmark.base_url))
+            .header("X-Postmark-Server-Token", &postmark.server_token)
+            .header(ACCEPT, "application/json")
+            .json(&body)
+            .send()
             .await
-            .map_err(crate::jobs::JobError::new)
+            .map_err(MailError::new)?;
+
+        let status = response.status();
+        if status.is_success() {
+            return Ok(());
+        }
+        let response_body = response.text().await.map_err(MailError::new)?;
+        Err(MailError::new(format!(
+            "Postmark returned {status}: {response_body}"
+        )))
     }
 }

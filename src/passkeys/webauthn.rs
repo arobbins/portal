@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use time::OffsetDateTime;
@@ -10,11 +8,11 @@ use webauthn_rs::prelude::{CredentialID, Url, Webauthn, WebauthnBuilder};
 
 use crate::app::SITE_NAME;
 use crate::config::Config;
-use crate::env::App;
+use crate::env::{App, is_within};
 use crate::passkeys::queries::query_list_passkeys;
 use crate::user::model::User;
 
-const CEREMONY_LIFETIME: Duration = Duration::from_secs(10 * 60);
+const CEREMONY_LIFETIME: time::Duration = time::Duration::minutes(10);
 pub const REGISTRATION_STATE: &str = "passkey_registration";
 pub const AUTHENTICATION_STATE: &str = "passkey_authentication";
 pub const VERIFICATION_STATE: &str = "passkey_verification";
@@ -47,7 +45,7 @@ pub fn relying_party(config: &Config) -> Webauthn {
         .and_then(|builder| {
             builder
                 .rp_name(SITE_NAME)
-                .timeout(CEREMONY_LIFETIME)
+                .timeout(CEREMONY_LIFETIME.unsigned_abs())
                 .build()
         })
         .expect("Config validated the passkey domain and origin")
@@ -111,11 +109,7 @@ pub async fn take_ceremony<T: DeserializeOwned>(
     let Some(ceremony) = session.remove::<Ceremony<T>>(key).await? else {
         return Ok(None);
     };
-    let age = now.unix_timestamp() - ceremony.started_at;
-
-    Ok((0..=CEREMONY_LIFETIME.as_secs() as i64)
-        .contains(&age)
-        .then_some(ceremony.state))
+    Ok(is_within(ceremony.started_at, now, CEREMONY_LIFETIME).then_some(ceremony.state))
 }
 
 pub fn encode_binary(bytes: &[u8]) -> Value {

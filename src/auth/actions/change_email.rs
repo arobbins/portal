@@ -14,7 +14,6 @@ use crate::jobs::{Job, JobError, enqueue};
 use crate::mail::SendEmail;
 use crate::permission::Permission;
 use crate::user::events::{AccountEventKind, EventSource, record_event};
-use crate::user::model::AccountStatus;
 use crate::user::queries::{query_get_user_by_email, query_get_user_by_id};
 use crate::utils::parse_email;
 
@@ -121,7 +120,7 @@ impl Job for EmailChangeJob {
 
     async fn run(self, app: &App) -> Result<(), JobError> {
         let user = query_get_user_by_id(self.user_id, &app.db).await?;
-        if !user.is_some_and(|user| matches!(user.status(), AccountStatus::Active { .. })) {
+        if !user.is_some_and(|user| user.is_active()) {
             return Ok(());
         }
         if query_get_user_by_email(&self.new_email, &app.db)

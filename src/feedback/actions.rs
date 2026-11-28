@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::action::{ActionProblem, ProblemSpec, TooManyAttempts};
+use crate::action::{ActionProblem, ListedProblem, ProblemSpec, TooManyAttempts};
 
 mod list;
 mod send;
@@ -11,10 +11,10 @@ pub use send::send_api_feedback;
 
 pub const MAX_FEEDBACK_LENGTH: usize = 2000;
 const MAX_REFERENCE_LENGTH: usize = 100;
-pub const MESSAGE_FIELD: &str = "message";
-pub const ENDPOINT_FIELD: &str = "endpoint";
-pub const PROBLEM_CODE_FIELD: &str = "problem_code";
-pub const REQUEST_ID_FIELD: &str = "request_id";
+const MESSAGE_FIELD: &str = "message";
+const ENDPOINT_FIELD: &str = "endpoint";
+const PROBLEM_CODE_FIELD: &str = "problem_code";
+const REQUEST_ID_FIELD: &str = "request_id";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, sqlx::Type)]
 #[sqlx(type_name = "text", rename_all = "snake_case")]
@@ -117,6 +117,12 @@ impl FeedbackProblem {
         Self::InvalidRequestId,
         Self::TooManyAttempts,
     ];
+}
+
+impl ListedProblem for FeedbackProblem {
+    fn all() -> &'static [Self] {
+        &Self::ALL
+    }
 }
 
 impl ActionProblem for FeedbackProblem {

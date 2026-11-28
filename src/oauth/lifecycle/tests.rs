@@ -4,6 +4,7 @@ use time::Duration;
 use super::*;
 use crate::activity::actions::activity_of;
 use crate::api::scope::ApiScope;
+use crate::oauth::access::app_caller;
 use crate::oauth::testing::{connect_test_app, test_client};
 use crate::profile::actions::{UpdateProfile, update_profile};
 use crate::user::testing::active_user;

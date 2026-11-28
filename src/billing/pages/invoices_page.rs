@@ -7,7 +7,7 @@ use topcoat::{
 use super::plan_actions::manage_billing_button;
 use super::routes::take_billing_problem;
 use crate::account::tabs::AccountSection;
-use crate::action::require_browser_caller;
+use crate::action::{ForPage, require_browser_caller};
 use crate::billing::actions::{BillingPage, get_billing};
 use crate::components::card::{card, card_body, card_header};
 use crate::components::notice::notice;
@@ -17,10 +17,7 @@ use crate::web::env;
 #[component]
 pub async fn invoices_page(cx: &Cx) -> Result<impl View> {
     let caller = require_browser_caller(cx)?;
-    let billing = match get_billing(&env(cx), &caller).await? {
-        Ok(billing) => billing,
-        Err(error) => match error.for_browser()? {},
-    };
+    let billing = get_billing(&env(cx), &caller).await?.for_page()?;
     let problem = take_billing_problem(cx).await?;
     let manages = billing.configured && billing.ever_paid;
 

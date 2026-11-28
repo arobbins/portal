@@ -8,7 +8,7 @@ use crate::api::scope::{ApiScope, TokenAudience};
 use crate::api_tokens::emails::api_token_created_email;
 use crate::api_tokens::lifetime::TokenLifetime;
 use crate::api_tokens::queries::{NewApiTokenRow, query_insert_api_token};
-use crate::api_tokens::token::{NewApiToken, generate_api_token};
+use crate::api_tokens::token::{NewApiToken, RevealedToken, generate_api_token};
 use crate::auth::reauth::{PasskeyProof, ReauthProblem, check_reauth};
 use crate::env::Env;
 use crate::jobs::enqueue;
@@ -73,7 +73,7 @@ pub async fn create_api_token(
     caller: &Caller,
     input: &CreateToken,
     passkey: Option<PasskeyProof>,
-) -> ActionResult<String, CreateTokenProblem> {
+) -> ActionResult<RevealedToken, CreateTokenProblem> {
     authorize!(caller.require(Permission::ManageApiTokens));
     let name = match check_request(env, caller, input, passkey).await? {
         Ok(name) => name,
@@ -134,7 +134,7 @@ async fn store_token(
     tx: &mut sqlx::PgConnection,
 ) -> Result<Option<String>, sqlx::Error> {
     let public_id = PublicIdKind::ApiToken.generate();
-    let scopes = vec![input.access.as_str().to_string()];
+    let scopes = [input.access];
     let row = NewApiTokenRow {
         user_id: caller.owner_id(),
         public_id: &public_id,
@@ -142,7 +142,7 @@ async fn store_token(
         token_hash: &token.hash,
         last_four: &token.last_four,
         scopes: &scopes,
-        audience: input.audience.as_str(),
+        audience: input.audience,
         expires_at: env.now() + time::Duration::days(input.lifetime.days()),
         max_per_user: MAX_TOKENS_PER_USER,
     };

@@ -5,10 +5,12 @@ paths:
 
 # Where things live (the parts the code doesn't make obvious)
 
-- `src/server.rs` is the composition root: it builds `App`, registers job
-  handlers in `job_handlers()` and starts workers. Features plug in there;
-  `web/middleware.rs` (`inject_globals`) is the one place infrastructure may
-  import a feature.
+- `src/server.rs` + `src/server/` is the composition root: it builds `App`,
+  registers job handlers in `job_handlers()`, lists the API/MCP tools
+  (`server/tools.rs`), runs the hourly cleanup across features
+  (`server/cleanup.rs`) and starts workers. Features plug in there; besides
+  it, only `web/middleware.rs` (`inject_globals`), `api/v1/*.rs` (one route
+  file per feature) and `api/auth.rs` (bearer lookup) may import a feature.
 - `src/app.rs` writes `unknown_page` out by hand instead of using
   `not_found!`, because `not_found!` can't take `with(...)` (its own title).
 - `src/seed.rs` (`webserver seed`) refuses any database not named `*_test`.

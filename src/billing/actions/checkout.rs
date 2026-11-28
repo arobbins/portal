@@ -4,8 +4,11 @@ use serde_json::json;
 use topcoat::router::StatusCode;
 
 use super::customer::ensure_customer;
+use super::stripe_call::{StripeCall, split};
 use super::{Unavailable, too_many_attempts};
-use crate::action::{ActionProblem, ActionResult, Caller, Outcome, ProblemSpec, authorize, fail};
+use crate::action::{
+    ActionProblem, ActionResult, Caller, ListedProblem, Outcome, ProblemSpec, authorize, fail,
+};
 use crate::api_tokens::lifecycle::token_name;
 use crate::billing::catalog::{PaidPrice, is_price_id, load_catalog};
 use crate::billing::queries::{
@@ -15,7 +18,7 @@ use crate::billing::queries::{
 use crate::env::Env;
 use crate::permission::Permission;
 use crate::routes::{CHECKOUT_CANCELLED_PATH, CHECKOUT_PAID_PATH};
-use crate::stripe::{Request, Stripe, StripeError};
+use crate::stripe::{Request, Stripe, url_in};
 use crate::user::events::{AccountEventKind, BillingEventKind, EventSource, record_event};
 
 pub const PRICE_FIELD: &str = "price";
@@ -60,6 +63,12 @@ impl CheckoutProblem {
         Self::TooManyAttempts,
         Self::Unavailable,
     ];
+}
+
+impl ListedProblem for CheckoutProblem {
+    fn all() -> &'static [Self] {
+        &Self::ALL
+    }
 }
 
 impl ActionProblem for CheckoutProblem {
@@ -114,7 +123,7 @@ pub async fn start_checkout(
         Ok(price) => price,
         Err(problem) => return fail(problem),
     };
-    let url = match create_session(env, stripe, caller, &price, key.as_deref()).await? {
+    let url = match split(create_session(env, stripe, caller, &price, key.as_deref()).await)? {
         Ok(url) => url,
         Err(error) => {
             tracing::warn!("checkout unavailable: {error}");
@@ -186,11 +195,8 @@ async fn create_session(
     caller: &Caller,
     price: &PaidPrice,
     key: Option<&str>,
-) -> topcoat::Result<Result<String, StripeError>> {
-    let customer = match ensure_customer(env, stripe, &caller.user).await? {
-        Ok(customer) => customer,
-        Err(error) => return Ok(Err(error)),
-    };
+) -> StripeCall<String> {
+    let customer = ensure_customer(env, stripe, &caller.user).await?;
     let success = env.app.url(CHECKOUT_PAID_PATH);
     let cancel = env.app.url(CHECKOUT_CANCELLED_PATH);
     let user = caller.user.public_id.as_str();
@@ -207,14 +213,8 @@ async fn create_session(
     ];
     let scoped_key = key.map(|key| format!("checkout-{user}-{key}"));
     let request = Request::post("/v1/checkout/sessions", &form).idempotent(scoped_key.as_deref());
-    let session = match stripe.send(request).await {
-        Ok(session) => session,
-        Err(error) => return Ok(Err(error)),
-    };
-    Ok(session["url"]
-        .as_str()
-        .map(str::to_string)
-        .ok_or_else(|| StripeError::Unreachable("Stripe returned no Checkout URL".to_string())))
+    let session = stripe.send(request).await?;
+    Ok(url_in(&session, "Checkout")?)
 }
 
 async fn store_checkout(

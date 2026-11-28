@@ -4,6 +4,8 @@ mod link_sent;
 pub mod login;
 pub mod logout;
 pub mod new_password_form;
+pub mod password_card;
+pub mod password_routes;
 pub mod reauth_field;
 pub mod register;
 pub mod reset_password;

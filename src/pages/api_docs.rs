@@ -10,7 +10,8 @@ use topcoat::{
 };
 
 use crate::account::tabs::AccountSection;
-use crate::api::catalog::{Endpoint, HttpMethod, VERSION, common_errors, endpoints, groups};
+use crate::api::catalog::{Endpoint, HttpMethod, VERSION, common_errors, groups};
+use crate::api::registry::endpoints;
 use crate::api::v1::docs::openapi_document;
 use crate::app::page_title;
 use crate::components::tone::Tone;

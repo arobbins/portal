@@ -2,7 +2,7 @@ use sqlx::PgPool;
 
 use super::queries::{NewApiTokenRow, query_delete_api_token, query_insert_api_token};
 use super::token::generate_api_token;
-use crate::api::scope::TokenAudience;
+use crate::api::scope::{ApiScope, TokenAudience};
 use crate::secret::PublicIdKind;
 
 pub struct IssuedToken {
@@ -19,7 +19,10 @@ pub async fn issue_token(
 ) -> IssuedToken {
     let token = generate_api_token();
     let public_id = PublicIdKind::ApiToken.generate();
-    let scopes: Vec<String> = scopes.iter().map(|scope| scope.to_string()).collect();
+    let scopes: Vec<ApiScope> = scopes
+        .iter()
+        .map(|scope| ApiScope::from_str(scope).expect("a known scope"))
+        .collect();
     let row = NewApiTokenRow {
         user_id,
         public_id: &public_id,
@@ -27,14 +30,14 @@ pub async fn issue_token(
         token_hash: &token.hash,
         last_four: &token.last_four,
         scopes: &scopes,
-        audience: TokenAudience::Api.as_str(),
+        audience: TokenAudience::Api,
         expires_at: time::OffsetDateTime::now_utc() + expires_in,
         max_per_user: 50,
     };
     let id = query_insert_api_token(&row, db).await.unwrap().unwrap();
 
     IssuedToken {
-        raw: token.raw,
+        raw: token.raw.into_inner(),
         id,
         public_id,
     }

@@ -1,6 +1,6 @@
 use crate::action::{ActionResult, Caller};
-use crate::api::catalog::{ErrorDoc, HttpMethod};
-use crate::api::registry::ApiAction;
+use crate::api::action::ApiAction;
+use crate::api::catalog::HttpMethod;
 use crate::env::Env;
 use crate::feedback::actions::{
     FeedbackCategory, FeedbackProblem, FeedbackReceipt, SendApiFeedback, send_api_feedback,
@@ -44,9 +44,5 @@ impl ApiAction for SendFeedbackAction {
         FeedbackReceipt {
             id: "fbk_4f9a2c7e1b8d3f60a2Kq".to_string(),
         }
-    }
-
-    fn problems() -> Vec<ErrorDoc> {
-        FeedbackProblem::ALL.into_iter().map(ErrorDoc::of).collect()
     }
 }

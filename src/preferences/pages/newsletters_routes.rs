@@ -11,14 +11,14 @@ use topcoat::{
 };
 
 use crate::account::tabs::AccountSection;
-use crate::action::{FieldError, browser_caller, require_browser_caller};
+use crate::action::{FieldError, ForPage, browser_caller, require_browser_caller};
 use crate::flash::{Flash, set_flash};
 use crate::preferences::actions::{UpdateNewsletters, update_newsletters};
 use crate::preferences::newsletters::Newsletter;
 use crate::web::{env, session};
 
 #[derive(Debug, Deserialize)]
-pub struct NewslettersForm {
+struct NewslettersForm {
     #[serde(default, deserialize_with = "crate::utils::checkbox")]
     general_newsletter: bool,
     #[serde(default, deserialize_with = "crate::utils::checkbox")]
@@ -53,10 +53,10 @@ async fn save_one(cx: &Cx, newsletter: Newsletter, on: bool) -> Result<Result<St
     };
     let input = UpdateNewsletters::one(newsletter, on);
 
-    match update_newsletters(&env(cx), &caller, &input).await? {
-        Ok(_) => Ok(Ok(String::new())),
-        Err(error) => match error.for_browser()? {},
-    }
+    update_newsletters(&env(cx), &caller, &input)
+        .await?
+        .for_page()?;
+    Ok(Ok(String::new()))
 }
 
 #[route(POST "/account/newsletters/update")]
@@ -66,13 +66,11 @@ pub async fn update_newsletters_submit(
 ) -> Result<SeeOther> {
     let caller = require_browser_caller(cx)?;
 
-    match update_newsletters(&env(cx), &caller, &form.into()).await? {
-        Ok(_) => {
-            set_flash(&session(cx)?, Flash::NewslettersSaved).await?;
-            Ok(see_other(AccountSection::Newsletters.path()))
-        }
-        Err(error) => match error.for_browser()? {},
-    }
+    update_newsletters(&env(cx), &caller, &form.into())
+        .await?
+        .for_page()?;
+    set_flash(&session(cx)?, Flash::NewslettersSaved).await?;
+    Ok(see_other(AccountSection::Newsletters.path()))
 }
 
 #[cfg(test)]

@@ -1,10 +1,11 @@
 use serde_json::Value;
 
-use crate::stripe::{Request, Stripe, StripeError};
+use super::period::Interval;
+use crate::stripe::{Request, Stripe, StripeError, is_id};
 
 pub const FREE_PLAN_KEY: &str = "free";
 pub const FREE_PLAN_NAME: &str = "Free";
-pub const PLAN_KEY_METADATA: &str = "plan_key";
+const PLAN_KEY_METADATA: &str = "plan_key";
 const PRICES_PATH: &str = "/v1/prices?active=true&type=recurring&limit=100&expand[]=data.product";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,15 +15,15 @@ pub struct PaidPrice {
     pub price_id: String,
     pub amount: i64,
     pub currency: String,
-    pub interval: String,
+    pub interval: Interval,
     pub interval_count: i64,
 }
 
 impl PaidPrice {
     pub fn label(&self) -> String {
         let every = match self.interval_count {
-            1 => self.interval.clone(),
-            count => format!("{count} {}s", self.interval),
+            1 => self.interval.as_str().to_string(),
+            count => format!("{count} {}s", self.interval.as_str()),
         };
         format!("{} / {every}", money(self.amount, &self.currency))
     }
@@ -76,11 +77,7 @@ pub async fn find_price(stripe: &Stripe, price_id: &str) -> Result<Option<PaidPr
 }
 
 pub fn is_price_id(value: &str) -> bool {
-    value.len() <= 255
-        && value.starts_with("price_")
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+    is_id(value, "price_")
 }
 
 fn offered_price(price: &Value) -> Option<PaidPrice> {
@@ -102,7 +99,7 @@ fn plan_price(price: &Value) -> Option<PaidPrice> {
         price_id: price["id"].as_str()?.to_string(),
         amount: price["unit_amount"].as_i64()?,
         currency: price["currency"].as_str()?.to_lowercase(),
-        interval: price["recurring"]["interval"].as_str()?.to_string(),
+        interval: Interval::parse(price["recurring"]["interval"].as_str()?)?,
         interval_count: price["recurring"]["interval_count"].as_i64().unwrap_or(1),
     })
 }
@@ -174,5 +171,15 @@ mod tests {
         assert!(is_price_id("price_pro_monthly"));
         assert!(!is_price_id("prod_pro"));
         assert!(!is_price_id("price_../../customers"));
+        assert!(!is_price_id("price_"));
+    }
+
+    #[test]
+    fn a_price_with_an_unknown_interval_is_left_out() {
+        let mut odd = price("price_odd", 1200, product("Pro", Some("pro")));
+        odd["recurring"]["interval"] = json!("fortnight");
+        let list = json!({ "data": [odd] });
+
+        assert!(Catalog::from_list(&list).prices.is_empty());
     }
 }

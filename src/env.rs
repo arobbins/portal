@@ -47,15 +47,10 @@ impl App {
         }
     }
 
-    #[cfg(test)]
-    pub fn for_tests(db: PgPool) -> Self {
-        let config = Config::for_tests();
+    pub fn new(db: PgPool, config: Config, webauthn: Webauthn) -> Self {
         Self {
-            limits: Arc::new(RateLimits::new(
-                db.clone(),
-                crate::rate_limit::RateLimitMode::Strict,
-            )),
-            webauthn: Arc::new(crate::passkeys::webauthn::relying_party(&config)),
+            limits: Arc::new(RateLimits::new(db.clone(), config.rate_limit_mode)),
+            webauthn: Arc::new(webauthn),
             config: Arc::new(config),
             clock: Clock::System,
             db,
@@ -95,9 +90,24 @@ impl<'a> Env<'a> {
     }
 }
 
+pub fn is_within(stamped_at: i64, now: OffsetDateTime, window: time::Duration) -> bool {
+    (0..=window.whole_seconds()).contains(&(now.unix_timestamp() - stamped_at))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_stamp_is_within_its_window_from_zero_to_the_end_inclusive() {
+        let now = OffsetDateTime::from_unix_timestamp(1_000).unwrap();
+        let window = time::Duration::seconds(60);
+
+        assert!(is_within(1_000, now, window));
+        assert!(is_within(940, now, window));
+        assert!(!is_within(939, now, window));
+        assert!(!is_within(1_001, now, window));
+    }
 
     #[test]
     fn a_fixed_clock_never_moves() {

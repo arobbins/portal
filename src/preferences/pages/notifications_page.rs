@@ -8,7 +8,7 @@ use topcoat::{
 use super::newsletters_card::{newsletters_card, newsletters_saved_toast};
 use super::notifications_routes::{save_notifications, update_notifications_submit};
 use crate::account::tabs::AccountSection;
-use crate::action::require_browser_caller;
+use crate::action::{ForPage, require_browser_caller};
 use crate::components::button::{ButtonType, ButtonVariant, button};
 use crate::components::card::{card, card_body, card_header};
 use crate::components::form::{form, form_actions};
@@ -24,14 +24,8 @@ const UNREACHABLE: &str = "We couldn't save that setting. Please try again.";
 #[component]
 pub async fn notifications_page(cx: &Cx) -> Result<impl View> {
     let caller = require_browser_caller(cx)?;
-    let settings = match get_notifications(&env(cx), &caller).await? {
-        Ok(settings) => settings,
-        Err(error) => match error.for_browser()? {},
-    };
-    let newsletters = match get_newsletters(&env(cx), &caller).await? {
-        Ok(newsletters) => newsletters,
-        Err(error) => match error.for_browser()? {},
-    };
+    let settings = get_notifications(&env(cx), &caller).await?.for_page()?;
+    let newsletters = get_newsletters(&env(cx), &caller).await?.for_page()?;
     let toast = flash_toast(cx, take_flash(cx, FLASHES).await?);
     let action = href!(update_notifications_submit).resolve(cx);
     let save = InlineSave {

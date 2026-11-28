@@ -5,12 +5,13 @@ use topcoat::{
 };
 
 use crate::account::tabs::AccountSection;
-use crate::api::catalog::{TITLE, endpoints};
-use crate::api::registry::feedback_tool;
+use crate::api::catalog::TITLE;
+use crate::api::registry::endpoints;
 use crate::api::v1::docs::openapi_document;
 use crate::app::SITE_NAME;
 use crate::mcp::{PROTOCOL_VERSION, mcp_endpoint};
 use crate::pages::api_docs::api_docs_page;
+use crate::server::tools::feedback_tool;
 use crate::web::app;
 
 fn endpoint_lines() -> Vec<String> {

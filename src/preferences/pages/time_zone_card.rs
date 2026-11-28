@@ -55,7 +55,7 @@ pub(super) async fn time_zone_card(
         value,
         draft,
     } = drafts;
-    let error_message = &form.error_message;
+    let (error_field, error_message) = (&form.error_field, &form.error_message);
 
     Ok(view! {
         card(
@@ -71,6 +71,7 @@ pub(super) async fn time_zone_card(
                         @click=$(|_e: Event| {
                             value.set(saved.get());
                             draft.set(saved.get());
+                            error_field.set("".to_owned());
                             error_message.set("".to_owned());
                         })
                     },

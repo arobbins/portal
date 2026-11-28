@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT public_id, name, last_four, scopes, audience, created_at, expires_at, last_used_at FROM api_tokens WHERE user_id = $1 ORDER BY created_at DESC",
+  "query": "SELECT o.public_id, c.name, o.return_host, o.scopes AS \"scopes: Vec<ApiScope>\", o.created_at, o.last_used_at FROM oauth_connections o JOIN oauth_clients c ON c.id = o.client_id WHERE o.user_id = $1 ORDER BY o.created_at DESC, o.id DESC",
   "describe": {
     "columns": [
       {
@@ -15,31 +15,21 @@
       },
       {
         "ordinal": 2,
-        "name": "last_four",
+        "name": "return_host",
         "type_info": "Text"
       },
       {
         "ordinal": 3,
-        "name": "scopes",
+        "name": "scopes: Vec<ApiScope>",
         "type_info": "TextArray"
       },
       {
         "ordinal": 4,
-        "name": "audience",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 5,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 6,
-        "name": "expires_at",
-        "type_info": "Timestamptz"
-      },
-      {
-        "ordinal": 7,
+        "ordinal": 5,
         "name": "last_used_at",
         "type_info": "Timestamptz"
       }
@@ -55,10 +45,8 @@
       false,
       false,
       false,
-      false,
-      false,
       true
     ]
   },
-  "hash": "8cf2aca78b136ede71725628ef353f9b3261c11af8f3d16b9d8d524f888af02d"
+  "hash": "f5cac551c2a39f474c1f3fc23e9f647a9cbea745d38b0d03636b958012077219"
 }

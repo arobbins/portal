@@ -5,10 +5,10 @@ use time::Duration;
 
 use super::*;
 use crate::action::{Caller, Denied};
-use crate::api::registry::tools;
 use crate::api::scope::ApiScope;
 use crate::api_tokens::testing::issue_token;
 use crate::env::App;
+use crate::server::tools::tools;
 use crate::state_machines::testing::{Browser, admin_caller, assets};
 use crate::state_machines::{CellResult, failures, write_results};
 use crate::user::model::User;

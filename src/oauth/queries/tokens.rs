@@ -1,9 +1,12 @@
 use sqlx::PgExecutor;
+
+use crate::api::scope::ApiScope;
+use crate::oauth::secrets::SecretKind;
 use time::OffsetDateTime;
 
 pub struct NewToken<'a> {
     pub connection_id: i32,
-    pub kind: &'a str,
+    pub kind: SecretKind,
     pub token_hash: &'a str,
     pub expires_at: OffsetDateTime,
 }
@@ -12,7 +15,7 @@ pub struct NewToken<'a> {
 pub struct AppGrant {
     pub connection_id: i32,
     pub user_id: i32,
-    pub scopes: Vec<String>,
+    pub scopes: Vec<ApiScope>,
     pub name: String,
     pub return_host: String,
 }
@@ -40,7 +43,7 @@ pub async fn query_insert_token(
     sqlx::query!(
         "INSERT INTO oauth_tokens (connection_id, kind, token_hash, expires_at) VALUES ($1, $2, $3, $4)",
         token.connection_id,
-        token.kind,
+        token.kind.as_str(),
         token.token_hash,
         token.expires_at,
     )
@@ -56,7 +59,7 @@ pub async fn query_get_access_grant(
 ) -> Result<Option<AppGrant>, sqlx::Error> {
     sqlx::query_as!(
         AppGrant,
-        "SELECT o.id AS connection_id, o.user_id, o.scopes, c.name, o.return_host FROM oauth_tokens t JOIN oauth_connections o ON o.id = t.connection_id JOIN oauth_clients c ON c.id = o.client_id WHERE t.token_hash = $1 AND t.kind = 'access' AND t.expires_at > $2",
+        r#"SELECT o.id AS connection_id, o.user_id, o.scopes AS "scopes: Vec<ApiScope>", c.name, o.return_host FROM oauth_tokens t JOIN oauth_connections o ON o.id = t.connection_id JOIN oauth_clients c ON c.id = o.client_id WHERE t.token_hash = $1 AND t.kind = 'access' AND t.expires_at > $2"#,
         token_hash,
         now,
     )

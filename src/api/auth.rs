@@ -14,11 +14,10 @@ use topcoat::{
 use crate::action::Channel;
 use crate::action::{ActionProblem, Caller, ProblemSpec};
 use crate::api::problem::{ApiProblem, ApiResponse, REALM};
-use crate::api::scope::{ApiScope, TokenAudience, parse_scopes};
+use crate::api::scope::{ApiScope, TokenAudience};
 use crate::api_tokens::lifecycle::{find_grant, record_use};
 use crate::env::Env;
-use crate::oauth::lifecycle::{app_caller, is_app_token, record_app_use};
-use crate::user::model::AccountStatus;
+use crate::oauth::access::{app_caller, is_app_token, record_app_use};
 use crate::user::queries::query_get_user_by_id;
 use crate::web::env;
 
@@ -115,23 +114,29 @@ async fn authenticate_header(
             return Ok(Err(problem));
         }
     };
-    let allowed = match &caller.via {
-        Channel::App(app) => limits.allow_app_call(app.connection_id).await?,
-        _ => {
-            limits
-                .allow_api_call(caller.api_token_id().unwrap_or_default())
-                .await?
-        }
-    };
+    let allowed = take_call(env, &caller.via).await?;
     if !allowed {
         return Ok(Err(ApiAuthProblem::RateLimited));
     }
-    match &caller.via {
-        Channel::App(app) => record_app_use(app.connection_id, env.now(), env.db()).await?,
-        _ => record_use(caller.api_token_id().unwrap_or_default(), env.db()).await?,
-    }
 
     Ok(Ok(caller))
+}
+
+async fn take_call(env: &Env<'_>, via: &Channel) -> std::result::Result<bool, sqlx::Error> {
+    let limits = env.limits();
+    let allowed = match via {
+        Channel::App(app) => limits.allow_app_call(app.connection_id).await?,
+        Channel::ApiToken { id, .. } => limits.allow_api_call(*id).await?,
+        Channel::Browser => false,
+    };
+    match via {
+        Channel::App(app) if allowed => {
+            record_app_use(app.connection_id, env.now(), env.db()).await?
+        }
+        Channel::ApiToken { id, .. } if allowed => record_use(*id, env.now(), env.db()).await?,
+        _ => {}
+    }
+    Ok(allowed)
 }
 
 async fn check_bearer(
@@ -150,17 +155,18 @@ async fn check_bearer(
             .await?
             .ok_or(ApiAuthProblem::InvalidToken));
     }
-    let Some(grant) = find_grant(raw, audience, db).await? else {
+    let Some(grant) = find_grant(raw, audience, now, db).await? else {
         return Ok(Err(ApiAuthProblem::InvalidToken));
     };
     let Some(user) = query_get_user_by_id(grant.user_id, db).await? else {
         return Ok(Err(ApiAuthProblem::InvalidToken));
     };
-    if !matches!(user.status(), AccountStatus::Active { .. }) {
+    if !user.is_active() {
         return Ok(Err(ApiAuthProblem::InvalidToken));
     }
 
-    let scopes: Vec<ApiScope> = parse_scopes(&grant.scopes)
+    let scopes: Vec<ApiScope> = grant
+        .scopes
         .into_iter()
         .filter(|scope| scope.available_to(&user))
         .collect();
@@ -329,7 +335,9 @@ mod tests {
         let (revoked, _, revoked_id) =
             issue(&user, &["profile:read"], time::Duration::days(1), &db).await;
         delete_token(&revoked_id, user.id, &db).await;
-        let unknown = crate::api_tokens::token::generate_api_token().raw;
+        let unknown = crate::api_tokens::token::generate_api_token()
+            .raw
+            .into_inner();
 
         for raw in [
             expired,

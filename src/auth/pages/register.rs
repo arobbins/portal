@@ -65,7 +65,7 @@ pub async fn register_page(cx: &Cx) -> Result<impl View> {
     let handoff = failed
         .and_then(|failed| failed.handoff.clone())
         .or_else(|| handoff_param(cx));
-    keep_handoff_alive(cx, handoff.as_ref()).await?;
+    keep_handoff_alive(&env(cx), handoff.as_ref()).await?;
     let sent_to = match flash {
         Some(_) => take_link_sent_to(cx).await?,
         None => None,
@@ -126,7 +126,7 @@ pub async fn register_submit(cx: &Cx, Form(form): Form<RegisterForm>) -> Result<
         authorize: Some(form.authorize).filter(|request| !request.is_empty()),
     };
     let handoff = Handoff::chosen(input.price.as_deref(), input.authorize.as_deref());
-    keep_handoff_alive(cx, handoff.as_ref()).await?;
+    keep_handoff_alive(&env(cx), handoff.as_ref()).await?;
     match register(&env(cx), &input).await? {
         Ok(()) => {
             let session = session(cx)?;

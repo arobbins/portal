@@ -1,35 +1,21 @@
 use topcoat::{
     Result,
-    context::{Cx, try_context},
-    router::href,
-    runtime::{Event, Signal, signal},
-    view::{View, attributes, component, view},
+    context::Cx,
+    view::{View, component, view},
 };
 
-use super::password_routes::{ChangePasswordFailed, change_password_submit, save_new_password};
 use super::placeholder_page::coming_soon_card;
 use crate::account::tabs::AccountSection;
 use crate::action::ActionProblem;
-use crate::action::require_browser_caller;
-use crate::auth::actions::{PasswordAge, password_age};
-use crate::auth::pages::new_password_form::new_password_fields;
-use crate::auth::password::{CONFIRMATION_FIELD, CURRENT_PASSWORD_FIELD, PASSWORD_FIELD};
-use crate::components::button::{ButtonSize, ButtonVariant, button};
-use crate::components::card::{card, card_body, card_header};
-use crate::components::form::{Autocomplete, InputType, form_field};
-use crate::components::form::{
-    DialogForm, ModalSubmit, dialog_error_toast, dialog_input, modal_form, page_toast,
-};
-use crate::components::icon::{IconName, icon};
+use crate::auth::pages::password_card::{PasswordDrafts, change_password_dialog, password_card};
+use crate::auth::pages::password_routes::password_failure;
+use crate::components::form::{DialogForm, dialog_error_toast, page_toast};
 use crate::flash::{Flash, flash_toasts, take_flash};
 use crate::passkeys::pages::passkey_routes::{remove_problem, rename_problem};
 use crate::passkeys::pages::passkeys_card::passkeys_card;
 use crate::two_factor::pages::two_factor_card::two_factor_card;
 use crate::two_factor::pages::two_factor_routes::two_factor_failure;
-use crate::web::env;
 
-const MODAL_ID: &str = "change-password";
-const UNREACHABLE: &str = "We couldn't change your password. Please try again.";
 const FLASHES: &[Flash] = &[
     Flash::PasswordChanged,
     Flash::PasskeyAdded,
@@ -38,29 +24,10 @@ const FLASHES: &[Flash] = &[
     Flash::TwoFactorDisabled,
 ];
 
-struct PasswordDrafts {
-    blank: Signal<String>,
-    current: Signal<String>,
-    password: Signal<String>,
-    confirmation: Signal<String>,
-}
-
-impl PasswordDrafts {
-    fn new(cx: &Cx) -> Self {
-        Self {
-            blank: signal(cx, String::new),
-            current: signal(cx, String::new),
-            password: signal(cx, String::new),
-            confirmation: signal(cx, String::new),
-        }
-    }
-}
-
 #[component]
 pub async fn sign_in_page(cx: &Cx) -> Result<impl View> {
     let flash = take_flash(cx, FLASHES).await?;
-    let password_failure =
-        try_context::<ChangePasswordFailed>(cx).map(|failed| failed.problem.spec());
+    let password_failure = password_failure(cx);
     let failure = password_failure
         .or_else(|| rename_problem(cx).map(ActionProblem::spec))
         .or_else(|| remove_problem(cx).map(ActionProblem::spec))
@@ -83,134 +50,5 @@ pub async fn sign_in_page(cx: &Cx) -> Result<impl View> {
             flash_toasts(toast: &toast, flashes: FLASHES)
             dialog_error_toast(failure: failure, toast: &toast)
         </div>
-    })
-}
-
-#[component]
-async fn password_card(cx: &Cx, form: &DialogForm, drafts: &PasswordDrafts) -> Result<impl View> {
-    let note = password_note(cx).await?;
-    let PasswordDrafts {
-        blank,
-        current,
-        password,
-        confirmation,
-    } = drafts;
-    let DialogForm {
-        error_field,
-        error_message,
-        ..
-    } = form;
-
-    Ok(view! {
-        card(
-            id: Some(AccountSection::Password.anchor()),
-            card_header(
-                title: AccountSection::Password.label(),
-                button(
-                    variant: ButtonVariant::Secondary,
-                    size: ButtonSize::Sm,
-                    attrs: attributes! {
-                        command="show-modal"
-                        commandfor=(MODAL_ID)
-                        @click=$(|_e: Event| {
-                            blank.set("".to_owned());
-                            current.set("".to_owned());
-                            password.set("".to_owned());
-                            confirmation.set("".to_owned());
-                            error_field.set("".to_owned());
-                            error_message.set("".to_owned());
-                        })
-                    },
-                    icon(name: IconName::Edit)
-                    "Change password"
-                )
-            )
-            card_body(
-                <p class="p-account__card-note">(note)</p>
-                <p>
-                    "Use a long password you don't use anywhere else. Changing it signs you out on your other devices."
-                </p>
-            )
-        )
-    })
-}
-
-#[component]
-async fn change_password_dialog(
-    cx: &Cx,
-    form: &DialogForm,
-    drafts: &PasswordDrafts,
-    toast: &Signal<String>,
-) -> Result<impl View> {
-    let PasswordDrafts {
-        current,
-        password,
-        confirmation,
-        ..
-    } = drafts;
-    let submit = ModalSubmit {
-        procedure: save_new_password,
-        action: href!(change_password_submit).resolve(cx),
-        label: "Change password",
-        success_toast: Flash::PasswordChanged.name(),
-        unreachable: UNREACHABLE,
-    };
-
-    Ok(view! {
-        modal_form(
-            id: MODAL_ID,
-            heading: "Change password",
-            form: form,
-            toast: toast,
-            submit: submit,
-            args: $((current.get(), password.get(), confirmation.get())),
-            password_fields(form: form, drafts: drafts)
-        )
-    })
-}
-
-#[component]
-async fn password_fields(cx: &Cx, form: &DialogForm, drafts: &PasswordDrafts) -> Result<impl View> {
-    let PasswordDrafts {
-        blank,
-        current,
-        password,
-        confirmation,
-    } = drafts;
-
-    Ok(view! {
-        form_field(
-            label: "Current password",
-            id: "current-password",
-            autocomplete: Some(Autocomplete::CurrentPassword),
-            name: CURRENT_PASSWORD_FIELD,
-            input_type: InputType::Password,
-            required: true,
-            attrs: dialog_input(cx, form, CURRENT_PASSWORD_FIELD, blank, current)
-        )
-        new_password_fields(
-            password_attrs: dialog_input(cx, form, PASSWORD_FIELD, blank, password),
-            confirmation_attrs: dialog_input(
-                cx,
-                form,
-                CONFIRMATION_FIELD,
-                blank,
-                confirmation,
-            )
-        )
-    })
-}
-
-async fn password_note(cx: &Cx) -> Result<String> {
-    let caller = require_browser_caller(cx)?;
-    let age = match password_age(&env(cx), &caller).await? {
-        Ok(age) => age,
-        Err(error) => match error.for_browser()? {},
-    };
-    let zone = caller.user.zone();
-    Ok(match age {
-        PasswordAge::Changed(at) => format!("Last changed {}.", zone.date(at)),
-        PasswordAge::Set(at) => format!("Set {}.", zone.date(at)),
-        PasswordAge::OverAYear => "Last changed more than a year ago.".to_string(),
     })
 }

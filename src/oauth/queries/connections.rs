@@ -1,4 +1,6 @@
 use sqlx::PgExecutor;
+
+use crate::api::scope::ApiScope;
 use time::OffsetDateTime;
 
 pub struct NewConnection<'a> {
@@ -6,7 +8,7 @@ pub struct NewConnection<'a> {
     pub user_id: i32,
     pub client_id: i32,
     pub return_host: &'a str,
-    pub scopes: &'a [String],
+    pub scopes: &'a [ApiScope],
     pub max_per_user: i64,
     pub now: OffsetDateTime,
 }
@@ -22,7 +24,7 @@ pub struct ConnectionRow {
     pub public_id: String,
     pub name: String,
     pub return_host: String,
-    pub scopes: Vec<String>,
+    pub scopes: Vec<ApiScope>,
     pub created_at: OffsetDateTime,
     pub last_used_at: Option<OffsetDateTime>,
 }
@@ -46,7 +48,7 @@ pub async fn query_upsert_connection(
         connection.user_id,
         connection.client_id,
         connection.return_host,
-        connection.scopes,
+        connection.scopes as &[ApiScope],
         connection.max_per_user,
         connection.now,
     )
@@ -57,10 +59,13 @@ pub async fn query_upsert_connection(
 pub async fn query_get_connection_scopes(
     id: i32,
     db: impl PgExecutor<'_>,
-) -> Result<Option<Vec<String>>, sqlx::Error> {
-    sqlx::query_scalar!("SELECT scopes FROM oauth_connections WHERE id = $1", id)
-        .fetch_optional(db)
-        .await
+) -> Result<Option<Vec<ApiScope>>, sqlx::Error> {
+    sqlx::query_scalar!(
+        r#"SELECT scopes AS "scopes: Vec<ApiScope>" FROM oauth_connections WHERE id = $1"#,
+        id
+    )
+    .fetch_optional(db)
+    .await
 }
 
 pub async fn query_list_connections(
@@ -69,7 +74,7 @@ pub async fn query_list_connections(
 ) -> Result<Vec<ConnectionRow>, sqlx::Error> {
     sqlx::query_as!(
         ConnectionRow,
-        "SELECT o.public_id, c.name, o.return_host, o.scopes, o.created_at, o.last_used_at FROM oauth_connections o JOIN oauth_clients c ON c.id = o.client_id WHERE o.user_id = $1 ORDER BY o.created_at DESC, o.id DESC",
+        r#"SELECT o.public_id, c.name, o.return_host, o.scopes AS "scopes: Vec<ApiScope>", o.created_at, o.last_used_at FROM oauth_connections o JOIN oauth_clients c ON c.id = o.client_id WHERE o.user_id = $1 ORDER BY o.created_at DESC, o.id DESC"#,
         user_id,
     )
     .fetch_all(db)

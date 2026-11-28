@@ -7,7 +7,7 @@ use topcoat::{
 
 use super::disconnect_route::disconnect_app_submit;
 use crate::account::tabs::AccountSection;
-use crate::action::{ID_FIELD, require_browser_caller};
+use crate::action::{ForPage, ID_FIELD, require_browser_caller};
 use crate::components::button::{ButtonSize, ButtonVariant, button};
 use crate::components::card::{card, card_body, card_header};
 use crate::components::confirm_dialog::confirm_dialog;
@@ -55,10 +55,7 @@ impl AppRow {
 #[component]
 pub async fn connected_apps_card(cx: &Cx) -> Result<impl View> {
     let caller = require_browser_caller(cx)?;
-    let connections = match list_connected_apps(&env(cx), &caller).await? {
-        Ok(connections) => connections,
-        Err(error) => match error.for_browser()? {},
-    };
+    let connections = list_connected_apps(&env(cx), &caller).await?.for_page()?;
     let zone = caller.user.zone();
     let rows: Vec<AppRow> = connections
         .iter()

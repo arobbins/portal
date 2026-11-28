@@ -17,9 +17,10 @@ use crate::app::SITE_NAME;
 use crate::mcp::mcp_endpoint;
 use crate::oauth::authorize::issuer;
 use crate::oauth::client::{ClientMetadata, register_client};
-use crate::oauth::grant::{TokenProblem, TokenRequest, issue_tokens, revoke_token};
+use crate::oauth::grant::{TokenProblem, TokenRequest, issue_tokens};
 use crate::oauth::pages::authorize_page::authorize_page;
 use crate::oauth::response::{oauth_error, oauth_json};
+use crate::oauth::revoke::revoke_token;
 use crate::web::{config, env};
 
 const MAX_FORM_BODY: usize = 16 * 1024;

@@ -6,7 +6,7 @@ use topcoat::{
 
 use crate::api::body::MAX_JSON_BODY;
 use crate::api::problem::ApiResponse;
-use crate::api::registry::{serve, serve_public, serve_with_body};
+use crate::api::serve::{serve, serve_public, serve_with_body};
 use crate::billing::api::{GetBillingAction, ListPlansAction, StartCheckoutAction};
 
 #[route(GET "/api/v1/billing/plans")]

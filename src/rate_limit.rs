@@ -1,21 +1,20 @@
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::IpAddr;
 
-use sqlx::{PgConnection, PgPool};
+use sqlx::PgPool;
 
+mod key;
 mod limit;
 mod queries;
+mod window;
 
+use key::{account_key, client_key, failed_login_key, ip_key};
 use limit::Limit;
-
 use queries::{
-    query_count_rate_limit_hits, query_delete_newest_rate_limit_hit,
-    query_delete_old_rate_limit_hits, query_delete_rate_limit_hits, query_insert_rate_limit_hit,
-    query_lock_rate_limit_key, query_take_rate_limit_slot,
+    query_delete_newest_rate_limit_hit, query_delete_old_rate_limit_hits,
+    query_delete_rate_limit_hits,
 };
 
-const UNKNOWN_IP: IpAddr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
 const RELAXED_SCALE: u32 = 1000;
-const MAX_KEY_LENGTH: usize = 254;
 pub const API_CALLS_PER_MINUTE: u32 = 600;
 pub const FEEDBACK_PER_TOKEN_PER_HOUR: u32 = 20;
 pub const FEEDBACK_PER_ACCOUNT_PER_DAY: u32 = 100;
@@ -27,7 +26,7 @@ pub const AUTHORIZATION_STARTS_PER_IP_PER_HOUR: u32 = 30;
 pub const TOKEN_REQUESTS_PER_CLIENT_PER_MINUTE: u32 = 60;
 pub const BAD_API_TOKENS_PER_WINDOW: u32 = 20;
 pub const BAD_API_TOKEN_WINDOW_MINUTES: u64 = 10;
-pub const KEEP_HITS_FOR: time::Duration = time::Duration::days(1);
+const KEEP_HITS_FOR: time::Duration = time::Duration::days(1);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RateLimitMode {
@@ -40,61 +39,9 @@ pub struct RateLimits {
     mode: RateLimitMode,
 }
 
-fn ip_key(ip: Option<IpAddr>) -> String {
-    ip.unwrap_or(UNKNOWN_IP).to_string()
-}
-
-fn failed_login_key(email: &str, ip: Option<IpAddr>) -> String {
-    format!("{} {}", account_key(email), ip_key(ip))
-}
-
-fn account_key(email: &str) -> String {
-    email
-        .trim()
-        .chars()
-        .take(MAX_KEY_LENGTH)
-        .collect::<String>()
-        .to_lowercase()
-}
-
 impl RateLimits {
     pub fn new(db: PgPool, mode: RateLimitMode) -> Self {
         Self { db, mode }
-    }
-
-    async fn allow(&self, limit: Limit, key: &str) -> Result<bool, sqlx::Error> {
-        let mut tx = self.db.begin().await?;
-        let taken = self.take_slot(limit, key, &mut tx).await?;
-        tx.commit().await?;
-        Ok(taken)
-    }
-
-    async fn take_slot(
-        &self,
-        limit: Limit,
-        key: &str,
-        tx: &mut PgConnection,
-    ) -> Result<bool, sqlx::Error> {
-        query_lock_rate_limit_key(limit.bucket(), key, &mut *tx).await?;
-        query_take_rate_limit_slot(
-            limit.bucket(),
-            key,
-            limit.window_seconds(),
-            limit.max(self.mode),
-            &mut *tx,
-        )
-        .await
-    }
-
-    async fn blocked(&self, limit: Limit, key: &str) -> Result<bool, sqlx::Error> {
-        let hits =
-            query_count_rate_limit_hits(limit.bucket(), key, limit.window_seconds(), &self.db)
-                .await?;
-        Ok(hits >= limit.max(self.mode))
-    }
-
-    async fn record(&self, limit: Limit, key: &str) -> Result<(), sqlx::Error> {
-        query_insert_rate_limit_hit(limit.bucket(), key, &self.db).await
     }
 
     pub async fn allow_password_submission(&self, ip: Option<IpAddr>) -> Result<bool, sqlx::Error> {
@@ -136,11 +83,8 @@ impl RateLimits {
     }
 
     pub async fn allow_token_request(&self, client_id: &str) -> Result<bool, sqlx::Error> {
-        let key = match client_id.len() {
-            length if length <= MAX_KEY_LENGTH => client_id.to_string(),
-            _ => crate::secret::hash_secret(client_id),
-        };
-        self.allow(Limit::TokenRequestsByClient, &key).await
+        self.allow(Limit::TokenRequestsByClient, &client_key(client_id))
+            .await
     }
 
     pub async fn allow_feedback(
@@ -251,6 +195,7 @@ impl RateLimits {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::Ipv4Addr;
 
     fn ip(last: u8) -> Option<IpAddr> {
         Some(IpAddr::V4(Ipv4Addr::new(203, 0, 113, last)))

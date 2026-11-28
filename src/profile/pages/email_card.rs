@@ -2,7 +2,7 @@ use topcoat::{
     Result,
     context::Cx,
     router::href,
-    runtime::{Event, Signal, signal},
+    runtime::{Signal, signal},
     view::{View, attributes, component, view},
 };
 
@@ -12,7 +12,7 @@ use crate::auth::pages::reauth_field::reauth_field;
 use crate::auth::password::CURRENT_PASSWORD_FIELD;
 use crate::components::button::{ButtonSize, ButtonVariant, button};
 use crate::components::form::{Autocomplete, InputType, form_field};
-use crate::components::form::{DialogForm, ModalSubmit, dialog_input, modal_form};
+use crate::components::form::{DialogForm, ModalSubmit, dialog_input, dialog_opener, modal_form};
 use crate::components::icon::{IconName, icon};
 use crate::components::property_list::property;
 use crate::flash::Flash;
@@ -49,11 +49,6 @@ pub async fn email_row(
         password,
         ..
     } = drafts;
-    let DialogForm {
-        error_field,
-        error_message,
-        ..
-    } = form;
 
     Ok(view! {
         property(
@@ -66,17 +61,7 @@ pub async fn email_row(
             button(
                 variant: ButtonVariant::Secondary,
                 size: ButtonSize::Sm,
-                attrs: attributes! {
-                    command="show-modal"
-                    commandfor=(MODAL_ID)
-                    @click=$(|_e: Event| {
-                        blank.set("".to_owned());
-                        new_email.set("".to_owned());
-                        password.set("".to_owned());
-                        error_field.set("".to_owned());
-                        error_message.set("".to_owned());
-                    })
-                },
+                attrs: dialog_opener(cx, form, MODAL_ID, &[blank, new_email, password]),
                 icon(name: IconName::Edit)
                 "Change email"
             )

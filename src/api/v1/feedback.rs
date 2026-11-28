@@ -6,7 +6,7 @@ use topcoat::{
 
 use crate::api::body::MAX_JSON_BODY;
 use crate::api::problem::ApiResponse;
-use crate::api::registry::serve_with_body;
+use crate::api::serve::serve_with_body;
 use crate::feedback::api::SendFeedbackAction;
 
 #[route(POST "/api/v1/feedback", with(BodyLimit::max(MAX_JSON_BODY)))]

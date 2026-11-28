@@ -1,4 +1,4 @@
-use crate::action::{ActionProblem, ProblemSpec};
+use crate::action::{ActionProblem, ListedProblem, ProblemSpec};
 
 pub const MAX_NAME_LENGTH: usize = 100;
 pub const NAME_FIELD: &str = "name";
@@ -11,6 +11,12 @@ pub enum NameProblem {
 
 impl NameProblem {
     pub const ALL: [Self; 2] = [Self::Missing, Self::TooLong];
+}
+
+impl ListedProblem for NameProblem {
+    fn all() -> &'static [Self] {
+        &Self::ALL
+    }
 }
 
 impl ActionProblem for NameProblem {

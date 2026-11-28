@@ -7,8 +7,8 @@ use topcoat::{
 };
 
 use crate::account::tabs::{AccountArea, AccountTab};
-use crate::admin::pages::admin_shell::AdminSection;
 use crate::admin::pages::admin_unlock_dialog::ADMIN_UNLOCK_MODAL;
+use crate::admin::sections::AdminSection;
 use crate::components::icon::{IconName, icon};
 use crate::web::config;
 
@@ -23,7 +23,6 @@ struct NavSection {
     admin: bool,
     icon: IconName,
     href: String,
-    active: bool,
     current: bool,
     pages: Vec<NavPage>,
 }
@@ -38,7 +37,6 @@ impl NavSection {
             admin: false,
             icon,
             href,
-            active,
             current: single && active,
             pages: if single { Vec::new() } else { pages },
         }
@@ -101,7 +99,6 @@ pub async fn account_nav(
                 <li class="l-nav__list-item l-nav__list-item-group">
                     nav_link(
                         href: section.href.as_str(),
-                        active: section.active,
                         current: section.current,
                         leading_icon: Some(section.icon),
                         unlock: admin_unlock.filter(|_| section.admin),
@@ -113,7 +110,6 @@ pub async fn account_nav(
                                 <li class="l-nav__list-item">
                                     nav_link(
                                         href: page.href.as_str(),
-                                        active: page.current,
                                         current: page.current,
                                         unlock: admin_unlock.filter(|_| section.admin),
                                         text: page.label
@@ -152,15 +148,15 @@ fn external_links(cx: &Cx) -> Vec<(&'static str, String)> {
 async fn nav_link(
     cx: &Cx,
     href: &str,
-    active: bool,
     current: bool,
     #[default] leading_icon: Option<IconName>,
     #[default] unlock: Option<&Signal<String>>,
     text: &str,
 ) -> Result<impl View> {
-    let class = match (active, current) {
-        (_, true) => "l-nav__link p-account__nav-link--is-current",
-        _ => "l-nav__link",
+    let class = if current {
+        "l-nav__link p-account__nav-link--is-current"
+    } else {
+        "l-nav__link"
     };
     let target = href.to_string();
     let modal_id = ADMIN_UNLOCK_MODAL.to_string();

@@ -9,7 +9,7 @@ use crate::action::Caller;
 use crate::admin::actions::{TargetUser, delete_user, disable_user, enable_user, sign_out_user};
 use crate::api::scope::ApiScope;
 use crate::env::App;
-use crate::oauth::lifecycle::app_caller;
+use crate::oauth::access::app_caller;
 use crate::oauth::testing::test_client;
 use crate::routes::OAUTH_AUTHORIZE_PATH;
 use crate::state_machines::testing::oauth::{

@@ -1,8 +1,8 @@
 use std::convert::Infallible;
 
 use crate::action::{ActionResult, Caller};
-use crate::api::catalog::{ErrorDoc, HttpMethod};
-use crate::api::registry::{ApiAction, NoInput};
+use crate::api::action::{ApiAction, NoInput};
+use crate::api::catalog::HttpMethod;
 use crate::env::Env;
 use crate::permission::Permission;
 use crate::preferences::actions::{
@@ -42,10 +42,6 @@ impl ApiAction for GetNewslettersAction {
             product_updates: true,
         }
     }
-
-    fn problems() -> Vec<ErrorDoc> {
-        Vec::new()
-    }
 }
 
 pub struct UpdateNewslettersAction;
@@ -83,9 +79,5 @@ impl ApiAction for UpdateNewslettersAction {
             general_newsletter: true,
             product_updates: false,
         }
-    }
-
-    fn problems() -> Vec<ErrorDoc> {
-        Vec::new()
     }
 }

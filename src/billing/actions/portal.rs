@@ -9,7 +9,7 @@ use crate::billing::queries::query_get_customer_id;
 use crate::env::Env;
 use crate::permission::Permission;
 use crate::routes::PRICING_PATH;
-use crate::stripe::{Request, Stripe, StripeError};
+use crate::stripe::{Request, Stripe, StripeError, url_in};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum BillingPage {
@@ -119,8 +119,5 @@ async fn portal_session(
     let session = stripe
         .send(Request::post("/v1/billing_portal/sessions", &form))
         .await?;
-    session["url"]
-        .as_str()
-        .map(str::to_string)
-        .ok_or_else(|| StripeError::Unreachable("Stripe returned no portal URL".to_string()))
+    url_in(&session, "portal")
 }

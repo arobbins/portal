@@ -68,7 +68,7 @@ const REPLACE: &str = "src/auth/links.rs:replace_user_token";
 const CHANGE: &str = "src/auth/actions/change_password.rs:change_password";
 const RESET: &str = "src/auth/actions/link_password.rs:revoke_access";
 const RESET_LINK: &str = "src/auth/actions/link_password.rs:consume_link";
-const DISABLE: &str = "src/admin/actions/manage.rs:disable_user";
+const DISABLE: &str = "src/auth/links.rs:delete_every_link";
 const CLEANUP: &str = "src/auth/links.rs:delete_stale_sign_ups";
 
 pub const OPENING_KEEPS_THE_LINK: &str =

@@ -48,6 +48,10 @@ pub enum AccountEventKind {
 }
 
 impl AccountEventKind {
+    pub fn parse(kind: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|known| known.as_str() == kind)
+    }
+
     pub const ALL: [Self; 42] = [
         Self::AccountCreated,
         Self::ApiTokenCreated,

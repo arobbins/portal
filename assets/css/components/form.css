@@ -4,7 +4,7 @@
 
 .a-form--page {
   max-width: var(--width-form);
-  margin: 2em auto 0;
+  margin: var(--space-8) auto 0;
 }
 
 .a-form-group {
@@ -98,7 +98,7 @@
 
 .a-form-input--code {
   max-width: 12em;
-  font-size: 1.3em;
+  font-size: var(--text-xl);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.35em;
 }

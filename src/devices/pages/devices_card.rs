@@ -8,7 +8,7 @@ use topcoat::{
 
 use super::device_routes::{sign_out_device_submit, sign_out_other_devices_submit};
 use crate::account::tabs::AccountSection;
-use crate::action::{ID_FIELD, require_browser_caller};
+use crate::action::{ForPage, ID_FIELD, require_browser_caller};
 use crate::auth::session::current_device;
 use crate::components::button::{ButtonSize, ButtonVariant, button};
 use crate::components::card::{card, card_body, card_header};
@@ -58,10 +58,9 @@ impl DeviceRow {
 pub async fn devices_card(cx: &Cx) -> Result<impl View> {
     let caller = require_browser_caller(cx)?;
     let current = current_device(&session(cx)?).await?;
-    let devices = match list_devices(&env(cx), &caller, current.as_deref()).await? {
-        Ok(devices) => devices,
-        Err(error) => match error.for_browser()? {},
-    };
+    let devices = list_devices(&env(cx), &caller, current.as_deref())
+        .await?
+        .for_page()?;
     let now = app(cx).clock.now();
     let zone = caller.user.zone();
     let rows: Vec<DeviceRow> = devices

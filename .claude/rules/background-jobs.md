@@ -1,6 +1,6 @@
 ---
 paths:
-  - "src/cleanup.rs"
+  - "src/server/cleanup.rs"
   - "src/jobs.rs"
   - "src/jobs/**"
   - "src/mail.rs"
@@ -10,7 +10,7 @@ paths:
 
 # Cleanup and email jobs
 
-- **Cleanup** (`src/cleanup.rs`, run hourly as one `cleanup` job, so once
+- **Cleanup** (`src/server/cleanup.rs`, run hourly as one `cleanup` job, so once
   per cluster): deletes expired `user_tokens`, expired sessions, sign-ups
   that never set a password after 7 days and have no live link, API tokens
   7 days past expiry, rate-limit hits older than a day, account events older

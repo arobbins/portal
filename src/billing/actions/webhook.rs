@@ -1,8 +1,8 @@
 use topcoat::router::StatusCode;
 
+use super::stripe_call::{StripeCall, split};
 use super::sync::{Applied, Delivery, apply_change};
 use crate::billing::catalog::find_price;
-use crate::billing::jobs::is_stripe_id;
 use crate::billing::queries::{query_get_subscription_plan, query_stripe_event_seen};
 use crate::billing::webhook::{
     Change, EventKind, PlanRef, Snapshot, StripeEvent, SubscriptionChange, SubscriptionPayload,
@@ -10,6 +10,7 @@ use crate::billing::webhook::{
 };
 use crate::env::Env;
 use crate::secret::PublicIdKind;
+use crate::stripe::is_id;
 use crate::stripe::{Request, Stripe, StripeError, verify_signature};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,7 +51,7 @@ pub async fn receive_stripe_event(
     if query_stripe_event_seen(&event.id, env.db()).await? {
         return Ok(WebhookReply::Accepted(Applied::Repeated));
     }
-    let change = match resolve(env, stripe, &event).await? {
+    let change = match split(resolve(env, stripe, &event).await)? {
         Ok(change) => change,
         Err(error) => {
             tracing::warn!(event = %event.id, "Stripe event not applied yet: {error}");
@@ -66,21 +67,11 @@ pub async fn receive_stripe_event(
     Ok(WebhookReply::Accepted(applied))
 }
 
-async fn resolve(
-    env: &Env<'_>,
-    stripe: &Stripe,
-    event: &StripeEvent,
-) -> topcoat::Result<Result<Change, StripeError>> {
-    Ok(Ok(match &event.kind {
+async fn resolve(env: &Env<'_>, stripe: &Stripe, event: &StripeEvent) -> StripeCall<Change> {
+    Ok(match &event.kind {
         EventKind::Subscription(payload) => {
-            let (current, snapshot) = match current_state(stripe, payload).await {
-                Ok(current) => current,
-                Err(error) => return Ok(Err(error)),
-            };
-            let plan = match plan_for(env, stripe, &current).await? {
-                Ok(plan) => plan,
-                Err(error) => return Ok(Err(error)),
-            };
+            let (current, snapshot) = current_state(stripe, payload).await?;
+            let plan = plan_for(env, stripe, &current).await?;
             let created_for = created_for(env, &current, snapshot);
             plan.and_then(|plan| subscription_state(&current, &plan))
                 .map_or(Change::Nothing, |state| {
@@ -98,7 +89,7 @@ async fn resolve(
             subscription: subscription.clone(),
         },
         EventKind::Other => Change::Nothing,
-    }))
+    })
 }
 
 async fn current_state(
@@ -106,7 +97,7 @@ async fn current_state(
     payload: &SubscriptionPayload,
 ) -> Result<(SubscriptionPayload, Snapshot), StripeError> {
     let as_sent = (payload.clone(), Snapshot::AsSent);
-    if !is_stripe_id(&payload.id, "sub_") {
+    if !is_id(&payload.id, "sub_") {
         return Ok(as_sent);
     }
     let path = format!("/v1/subscriptions/{}?expand[]=customer", payload.id);
@@ -131,21 +122,13 @@ async fn plan_for(
     env: &Env<'_>,
     stripe: &Stripe,
     current: &SubscriptionPayload,
-) -> topcoat::Result<Result<Option<PlanRef>, StripeError>> {
-    let stored = query_get_subscription_plan(&current.id, env.db()).await?;
-    if let Some(stored) = stored
-        .as_ref()
-        .filter(|plan| plan.price_id == current.price_id)
-    {
-        return Ok(Ok(Some(PlanRef {
-            plan_key: stored.plan_key.clone(),
-            plan_name: stored.plan_name.clone(),
-            price_id: stored.price_id.clone(),
-        })));
-    }
-    Ok(match find_price(stripe, &current.price_id).await {
-        Ok(Some(price)) => Ok(Some(price.into())),
-        Ok(None) => Ok(stored.map(PlanRef::from)),
-        Err(error) => Err(error),
+) -> StripeCall<Option<PlanRef>> {
+    let stored = match query_get_subscription_plan(&current.id, env.db()).await? {
+        Some(plan) if plan.price_id == current.price_id => return Ok(Some(plan.into())),
+        stored => stored,
+    };
+    Ok(match find_price(stripe, &current.price_id).await? {
+        Some(price) => Some(price.into()),
+        None => stored.map(PlanRef::from),
     })
 }

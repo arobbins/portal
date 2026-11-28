@@ -10,7 +10,7 @@ use super::two_factor_routes::{
     shown_recovery_codes, two_factor_failure,
 };
 use crate::account::tabs::AccountSection;
-use crate::action::require_browser_caller;
+use crate::action::{ForPage, require_browser_caller};
 use crate::auth::pages::reauth_field::reauth_field;
 use crate::components::button::{ButtonSize, ButtonType, ButtonVariant, button};
 use crate::components::card::{card, card_body, card_header};
@@ -31,10 +31,7 @@ const OFF_MODAL: &str = "turn-off-two-factor";
 #[component]
 pub async fn two_factor_card(cx: &Cx) -> Result<impl View> {
     let caller = require_browser_caller(cx)?;
-    let summary = match get_two_factor(&env(cx), &caller).await? {
-        Ok(summary) => summary,
-        Err(error) => match error.for_browser()? {},
-    };
+    let summary = get_two_factor(&env(cx), &caller).await?.for_page()?;
     let section = AccountSection::TwoFactor;
     let codes = shown_recovery_codes(cx).map(|shown| shown.codes.join("\n"));
     let status = summary.enabled_at.map(|enabled_at| {

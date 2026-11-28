@@ -8,10 +8,12 @@ use topcoat::{
 };
 
 use super::admin_access::require_admin;
-use super::admin_shell::{AdminSection, admin_shell};
+use super::admin_shell::admin_shell;
 use super::user_page::{admin_user_page, id};
 use super::user_view::UserRow;
+use crate::action::ForPage;
 use crate::admin::actions::{FindUsers, UserSort, list_users};
+use crate::admin::sections::AdminSection;
 use crate::app::page_title;
 use crate::components::badge::badge;
 use crate::components::button::{ButtonType, ButtonVariant, button};
@@ -50,10 +52,9 @@ fn columns() -> [Column; 6] {
 pub async fn admin_users_page(cx: &Cx) -> Result<impl View> {
     let caller = require_admin(cx).await?;
     let list: ListQuery<UserSort> = ListQuery::parse(request::uri(cx).query());
-    let page = match list_users(&env(cx), &caller, &FindUsers::from(list.clone())).await? {
-        Ok(page) => page,
-        Err(error) => match error.for_browser()? {},
-    };
+    let page = list_users(&env(cx), &caller, &FindUsers::from(list.clone()))
+        .await?
+        .for_page()?;
     let zone = caller.user.zone();
     let rows: Vec<UserRow> = page
         .users

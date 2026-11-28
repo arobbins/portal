@@ -194,9 +194,49 @@ async fn read_response(response: reqwest::Response) -> Result<Value, StripeError
     })
 }
 
+pub fn is_id(value: &str, prefix: &str) -> bool {
+    value.len() <= 255
+        && value.strip_prefix(prefix).is_some_and(|rest| {
+            !rest.is_empty()
+                && rest
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        })
+}
+
+pub fn expandable_id(value: &Value) -> Option<&str> {
+    value.as_str().or_else(|| value["id"].as_str())
+}
+
+pub fn url_in(object: &Value, what: &str) -> Result<String, StripeError> {
+    object["url"]
+        .as_str()
+        .map(str::to_string)
+        .ok_or_else(|| StripeError::Unreachable(format!("Stripe returned no {what} URL")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ids_need_the_prefix_and_a_safe_suffix() {
+        assert!(is_id("price_pro_monthly", "price_"));
+        assert!(!is_id("price_", "price_"));
+        assert!(!is_id("prod_pro", "price_"));
+        assert!(!is_id("price_../../customers", "price_"));
+        assert!(!is_id(&format!("cus_{}", "a".repeat(252)), "cus_"));
+    }
+
+    #[test]
+    fn expandable_fields_give_their_id_either_way() {
+        assert_eq!(expandable_id(&serde_json::json!("ch_1")), Some("ch_1"));
+        assert_eq!(
+            expandable_id(&serde_json::json!({"id": "ch_2"})),
+            Some("ch_2")
+        );
+        assert_eq!(expandable_id(&Value::Null), None);
+    }
 
     #[test]
     fn debug_output_never_shows_the_keys() {

@@ -128,8 +128,6 @@ impl Endpoint {
     }
 }
 
-pub use crate::api::registry::endpoints;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NavLink {
     pub href: String,
@@ -226,7 +224,7 @@ mod tests {
 
     #[test]
     fn request_fields_come_from_the_action_types() {
-        let update = endpoints()
+        let update = crate::api::registry::endpoints()
             .into_iter()
             .find(|endpoint| endpoint.id == "update-profile")
             .unwrap();

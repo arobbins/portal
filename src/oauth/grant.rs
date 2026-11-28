@@ -5,16 +5,16 @@ use sqlx::{PgConnection, Postgres, Transaction};
 use topcoat::router::StatusCode;
 
 use crate::action::{ActionProblem, Outcome, ProblemSpec, fail};
+use crate::api::scope::scope_names;
 use crate::env::Env;
+use crate::oauth::access::active_owner;
 use crate::oauth::authorize::mcp_resource;
-use crate::oauth::lifecycle::{active_owner, record_disconnected};
 use crate::oauth::queries::{
-    NewToken, query_consume_code, query_delete_access_tokens, query_delete_connection_by_id,
-    query_get_connection_scopes, query_get_refresh_token, query_get_token_owner,
-    query_insert_token, query_replace_refresh_token,
+    NewToken, query_consume_code, query_delete_access_tokens, query_get_connection_scopes,
+    query_get_refresh_token, query_insert_token, query_replace_refresh_token,
 };
+use crate::oauth::revoke::end_connection;
 use crate::oauth::secrets::{ACCESS_TOKEN_LIFETIME, CODE_LIFETIME, SecretKind};
-use crate::user::events::{EventChannel, EventSource};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenProblem {
@@ -171,7 +171,7 @@ async fn exchange_code(
     Ok(Granted::Connection(issued.connection_id))
 }
 
-pub fn challenge_of(verifier: &str) -> String {
+pub(crate) fn challenge_of(verifier: &str) -> String {
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()))
 }
 
@@ -220,7 +220,7 @@ async fn store_tokens(
     ] {
         let token = NewToken {
             connection_id,
-            kind: kind.as_str(),
+            kind,
             token_hash: &secret.hash,
             expires_at: env.now() + kind.lifetime(),
         };
@@ -232,37 +232,8 @@ async fn store_tokens(
         refresh_token: refresh.raw,
         token_type: "Bearer",
         expires_in: ACCESS_TOKEN_LIFETIME.whole_seconds(),
-        scope: scopes.join(" "),
+        scope: scope_names(&scopes),
     }))
-}
-
-pub async fn end_connection(env: &Env<'_>, connection_id: i32) -> topcoat::Result<()> {
-    let mut tx = env.db().begin().await?;
-    if let Some(ended) = query_delete_connection_by_id(connection_id, &mut *tx).await? {
-        let source = EventSource {
-            user_id: ended.user_id,
-            channel: EventChannel::App,
-            app: Some(crate::oauth::app_label(&ended.name, &ended.return_host)),
-        };
-        record_disconnected(env, &source, &ended, &mut tx).await?;
-    }
-    tx.commit().await?;
-    Ok(())
-}
-
-pub async fn revoke_token(env: &Env<'_>, token: &str, client_id: &str) -> topcoat::Result<()> {
-    let hash = SecretKind::AccessToken
-        .hash_of(token)
-        .or_else(|| SecretKind::RefreshToken.hash_of(token));
-    let Some(hash) = hash else {
-        return Ok(());
-    };
-    match query_get_token_owner(&hash, env.db()).await? {
-        Some(owner) if owner.client_id == client_id => {
-            end_connection(env, owner.connection_id).await
-        }
-        _ => Ok(()),
-    }
 }
 
 #[cfg(test)]

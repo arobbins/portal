@@ -118,7 +118,7 @@ pub(in crate::billing) fn billing_of(current: Option<&Subscription>, zone: &Zone
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdminBilling {
     pub plan_name: String,
-    pub status: &'static str,
+    pub status: BillingStatus,
     pub stripe_url: Option<String>,
 }
 
@@ -136,12 +136,12 @@ pub async fn admin_billing(
 
     Ok(Ok(AdminBilling {
         plan_name: billing.plan_name,
-        status: billing.status.label(),
+        status: billing.status,
         stripe_url,
     }))
 }
 
-pub fn dashboard_url(customer_id: &str, test_mode: bool) -> String {
+fn dashboard_url(customer_id: &str, test_mode: bool) -> String {
     let mode = if test_mode { "test/" } else { "" };
     format!("https://dashboard.stripe.com/{mode}customers/{customer_id}")
 }

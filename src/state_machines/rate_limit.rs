@@ -39,12 +39,12 @@ pub const RATE_LIMIT: Machine<LockState, LockEvent> = Machine {
     ],
     writers: &[
         writer(
-            "src/rate_limit.rs:record",
+            "src/rate_limit/window.rs:record",
             "query_insert_rate_limit_hit",
             &[],
         ),
         writer(
-            "src/rate_limit.rs:take_slot",
+            "src/rate_limit/window.rs:take_slot",
             "query_take_rate_limit_slot",
             &[E::WrongPassword, E::RightPassword],
         ),

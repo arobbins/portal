@@ -3,12 +3,12 @@ use time::OffsetDateTime;
 use tower_sessions::Session;
 
 use crate::devices::lifecycle::SignInMethod;
-use crate::env::Env;
-use crate::user::model::{AccountStatus, User};
+use crate::env::{Env, is_within};
+use crate::user::model::User;
 use crate::user::queries::query_get_user_by_id;
 
 pub const PENDING_SECOND_FACTOR: &str = "pending_second_factor";
-pub const PENDING_WINDOW_SECONDS: i64 = 5 * 60;
+pub const PENDING_WINDOW: time::Duration = time::Duration::minutes(5);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 struct PendingSecondFactor {
@@ -44,17 +44,13 @@ pub async fn pending_user(
     else {
         return Ok(None);
     };
-    let age = env.now().unix_timestamp() - pending.started_at;
-    if !(0..=PENDING_WINDOW_SECONDS).contains(&age) {
+    if !is_within(pending.started_at, env.now(), PENDING_WINDOW) {
         end_second_factor(session).await?;
         return Ok(None);
     }
     let user = query_get_user_by_id(pending.user_id, env.db()).await?;
     Ok(user
-        .filter(|user| {
-            user.session_version == pending.session_version
-                && matches!(user.status(), AccountStatus::Active { .. })
-        })
+        .filter(|user| user.session_version == pending.session_version && user.is_active())
         .map(|user| (user, pending.method)))
 }
 

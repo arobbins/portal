@@ -4,7 +4,8 @@ use super::{
     FeedbackCategory, FeedbackProblem, FeedbackReceipt, MAX_FEEDBACK_LENGTH, SendApiFeedback,
 };
 use crate::action::{ActionResult, Caller, authorize, fail};
-use crate::api::catalog::{common_errors, endpoints};
+use crate::api::catalog::common_errors;
+use crate::api::registry::endpoints;
 use crate::env::Env;
 use crate::feedback::queries::{NewFeedback, query_insert_api_feedback};
 use crate::feedback::redact::redact_secrets;

@@ -16,6 +16,7 @@ use crate::api_tokens::actions::{
     CreateToken, CreateTokenProblem, RevokeToken, create_api_token, revoke_api_token,
 };
 use crate::api_tokens::lifetime::TokenLifetime;
+use crate::api_tokens::token::RevealedToken;
 use crate::auth::reauth::{return_passkey_proof, take_passkey_proof};
 use crate::flash::{Flash, set_flash};
 use crate::web::{env, redisplay, session};
@@ -25,7 +26,7 @@ pub(super) struct CreateTokenFailed {
 }
 
 pub(super) struct TokenCreated {
-    pub token: String,
+    pub token: RevealedToken,
 }
 
 #[route(POST "/account/api-tokens/create")]
@@ -83,7 +84,7 @@ pub(super) async fn create_api_token_js(
     };
 
     match create_token(cx, &caller, &input).await? {
-        Ok(token) => Ok(Ok(token)),
+        Ok(token) => Ok(Ok(token.expose().to_string())),
         Err(error) => Ok(Err(FieldError::of(error.for_browser()?))),
     }
 }
@@ -92,7 +93,7 @@ async fn create_token(
     cx: &Cx,
     caller: &Caller,
     input: &CreateToken,
-) -> ActionResult<String, CreateTokenProblem> {
+) -> ActionResult<RevealedToken, CreateTokenProblem> {
     let env = env(cx);
     let session = session(cx)?;
     let passkey = take_passkey_proof(&session, &caller.user, env.now()).await?;

@@ -4,16 +4,21 @@ use crate::api::scope::ApiScope;
 use crate::env::Env;
 use crate::oauth::client::find_client;
 use crate::oauth::queries::{
-    NewRequest, RequestRow, query_get_request, query_insert_request, query_touch_request,
+    NewRequest, RequestRow, RequestStatus, query_get_request, query_insert_request,
+    query_touch_request,
 };
 use crate::oauth::redirect::with_params;
 use crate::oauth::secrets::REQUEST_IDLE_LIMIT;
-use crate::routes::MCP_PATH;
+use crate::routes::{MCP_PATH, OAUTH_AUTHORIZE_PATH};
 use crate::secret::PublicIdKind;
 
 const MAX_STATE_LENGTH: usize = 1024;
 const CHALLENGE_LENGTH: usize = 43;
 pub const REQUEST_PARAM: &str = "request";
+
+pub fn request_path(request: &str) -> String {
+    format!("{OAUTH_AUTHORIZE_PATH}?{REQUEST_PARAM}={request}")
+}
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct AuthorizeParams {
@@ -42,7 +47,7 @@ pub enum Started {
     ReturnError(String),
 }
 
-pub fn requested_scopes(scope: &str) -> Vec<ApiScope> {
+fn requested_scopes(scope: &str) -> Vec<ApiScope> {
     let mut scopes: Vec<ApiScope> = Vec::new();
     for scope in scope.split_whitespace().filter_map(ApiScope::from_str) {
         if scope.offered_by_sign_in() && !scopes.contains(&scope) {
@@ -93,10 +98,7 @@ async fn store_request(
     redirect_uri: &str,
     params: &AuthorizeParams,
 ) -> Result<String, sqlx::Error> {
-    let scopes: Vec<String> = requested_scopes(params.scope.as_deref().unwrap_or_default())
-        .into_iter()
-        .map(|scope| scope.as_str().to_string())
-        .collect();
+    let scopes = requested_scopes(params.scope.as_deref().unwrap_or_default());
     let public_id = PublicIdKind::AuthorizationRequest.generate();
     let request = NewRequest {
         public_id: &public_id,
@@ -146,7 +148,7 @@ fn request_error(env: &Env<'_>, params: &AuthorizeParams) -> Option<&'static str
     None
 }
 
-pub fn error_redirect(
+pub(super) fn error_redirect(
     env: &Env<'_>,
     redirect_uri: &str,
     error: &str,
@@ -166,7 +168,8 @@ pub async fn live_request(env: &Env<'_>, public_id: &str) -> topcoat::Result<Opt
     }
     let request = query_get_request(public_id, env.db()).await?;
     Ok(request.filter(|request| {
-        request.status == "pending" && env.now() - request.acted_at < REQUEST_IDLE_LIMIT
+        request.status == RequestStatus::Pending
+            && env.now() - request.acted_at < REQUEST_IDLE_LIMIT
     }))
 }
 

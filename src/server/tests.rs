@@ -167,7 +167,7 @@ async fn other_hosts_are_sent_to_the_canonical_address() {
 async fn every_documented_endpoint_exists_and_needs_a_token_unless_public(db: PgPool) {
     let app = test_app_with(db);
 
-    for endpoint in crate::api::catalog::endpoints() {
+    for endpoint in crate::api::registry::endpoints() {
         let request = Request::builder()
             .method(endpoint.method.as_str())
             .uri(endpoint.path)

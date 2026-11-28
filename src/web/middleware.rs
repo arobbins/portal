@@ -118,3 +118,19 @@ pub async fn inject_globals(
     }
     response
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_canonical_host_keeps_a_port_and_drops_a_trailing_slash() {
+        let host = CanonicalHost::from_base_url("http://localhost:3000/").unwrap();
+        assert_eq!(host.authority, "localhost:3000");
+        assert_eq!(host.base_url, "http://localhost:3000");
+
+        let host = CanonicalHost::from_base_url("https://example.test").unwrap();
+        assert_eq!(host.authority, "example.test");
+        assert!(CanonicalHost::from_base_url("not a url").is_none());
+    }
+}

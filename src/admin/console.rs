@@ -1,10 +1,6 @@
-use serde_json::json;
 use sqlx::PgPool;
 
 use super::log::{AdminLogAction, log_admin_action};
-use crate::user::events::{
-    AccountEventKind, EventSource, NewAccountEvent, query_insert_account_event,
-};
 use crate::user::model::Role;
 use crate::user::queries::{
     query_get_user_by_email, query_get_user_by_id, query_set_role_by_email,
@@ -32,13 +28,6 @@ impl Change {
         match self {
             Self::Grant => Role::Admin,
             Self::Revoke => Role::Subscriber,
-        }
-    }
-
-    fn event(self) -> AccountEventKind {
-        match self {
-            Self::Grant => AccountEventKind::AdminGranted,
-            Self::Revoke => AccountEventKind::AdminRevoked,
         }
     }
 
@@ -100,14 +89,7 @@ pub async fn change_role(
     let Some(user) = query_get_user_by_id(user_id, &mut *tx).await? else {
         return Ok(RoleOutcome::NoAccount);
     };
-    log_admin_action(None, change.action(), &user, None, &mut *tx).await?;
-    let event = NewAccountEvent {
-        source: &EventSource::console(user_id),
-        kind: change.event(),
-        detail: &json!({}),
-        ip: None,
-    };
-    query_insert_account_event(&event, &mut *tx).await?;
+    log_admin_action(None, change.action(), &user, None, &mut tx).await?;
     tx.commit().await?;
 
     Ok(RoleOutcome::Changed)

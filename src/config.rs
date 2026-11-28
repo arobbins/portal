@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use url::{Host, Url};
 
-use crate::mail::Mailer;
+use crate::mail::{Mailer, Postmark};
 use crate::rate_limit::RateLimitMode;
 use crate::stripe::{DEFAULT_API_BASE, Stripe};
 
@@ -69,7 +69,7 @@ fn parse_mailer(reader: &mut Reader<'_>) -> Mailer {
 
 fn postmark_mailer(reader: &mut Reader<'_>) -> Mailer {
     let why = "when MAIL_TRANSPORT=postmark";
-    Mailer::Postmark {
+    Mailer::Postmark(Postmark {
         client: reqwest::Client::builder()
             .timeout(MAIL_TIMEOUT)
             .build()
@@ -77,7 +77,7 @@ fn postmark_mailer(reader: &mut Reader<'_>) -> Mailer {
         server_token: reader.require("POSTMARK_SERVER_TOKEN", why),
         base_url: reader.require("POSTMARK_BASE_URL", why),
         from: reader.require("POSTMARK_FROM_EMAIL", why),
-    }
+    })
 }
 
 fn parse_stripe(reader: &mut Reader<'_>) -> Option<Stripe> {

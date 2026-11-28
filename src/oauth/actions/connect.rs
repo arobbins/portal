@@ -8,7 +8,7 @@ use crate::auth::reauth::{PasskeyProof, ReauthProblem, check_reauth};
 use crate::env::Env;
 use crate::jobs::enqueue;
 use crate::mail::SendEmail;
-use crate::oauth::authorize::{error_redirect, issuer, live_request, requested_scopes};
+use crate::oauth::authorize::{error_redirect, issuer, live_request};
 use crate::oauth::emails::app_connected_email;
 use crate::oauth::queries::{
     NewConnection, RequestRow, StoredConnection, query_approve_request,
@@ -115,8 +115,10 @@ pub async fn deny_app(
 }
 
 fn granted_scopes(request: &RequestRow, ticked: &[ApiScope]) -> Vec<ApiScope> {
-    requested_scopes(&request.scopes.join(" "))
-        .into_iter()
+    request
+        .scopes
+        .iter()
+        .copied()
         .filter(|scope| ticked.contains(scope))
         .collect()
 }
@@ -129,17 +131,13 @@ async fn store_connection(
     tx: &mut PgConnection,
 ) -> Result<Option<StoredConnection>, sqlx::Error> {
     let public_id = PublicIdKind::ConnectedApp.generate();
-    let scopes: Vec<String> = granted
-        .iter()
-        .map(|scope| scope.as_str().to_string())
-        .collect();
     let host = return_host(&request.redirect_uri);
     let row = NewConnection {
         public_id: &public_id,
         user_id: caller.owner_id(),
         client_id: request.client_id,
         return_host: &host,
-        scopes: &scopes,
+        scopes: granted,
         max_per_user: MAX_CONNECTIONS_PER_USER,
         now: env.now(),
     };

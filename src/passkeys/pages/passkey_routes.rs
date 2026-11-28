@@ -10,7 +10,7 @@ use topcoat::{
 
 use crate::account::tabs::AccountSection;
 use crate::action::require_browser_caller;
-use crate::auth::reauth::{forget_passkey_proof, return_passkey_proof, take_passkey_proof};
+use crate::auth::reauth::{return_passkey_proof, take_passkey_proof};
 use crate::flash::{Flash, set_flash};
 use crate::passkeys::actions::{
     RemovePasskey, RemovePasskeyProblem, RenamePasskey, RenamePasskeyProblem, remove_passkey,
@@ -62,7 +62,6 @@ pub async fn remove_passkey_submit(cx: &Cx, Form(input): Form<RemovePasskey>) ->
             )),
         };
     }
-    forget_passkey_proof(&session).await?;
     set_flash(&session, Flash::PasskeyRemoved).await?;
 
     Ok(see_other(AccountSection::Passkeys.path()))

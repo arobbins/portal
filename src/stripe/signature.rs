@@ -1,7 +1,7 @@
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 
-pub const SIGNATURE_TOLERANCE_SECONDS: i64 = 5 * 60;
+const SIGNATURE_TOLERANCE_SECONDS: i64 = 5 * 60;
 
 pub fn verify_signature(secret: &str, header: Option<&str>, payload: &[u8], now: i64) -> bool {
     let Some(header) = header else {

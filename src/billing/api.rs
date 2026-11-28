@@ -3,12 +3,13 @@ use std::convert::Infallible;
 use topcoat::router::StatusCode;
 
 use crate::action::{ActionError, ActionResult, Caller, Outcome};
-use crate::api::catalog::{ErrorDoc, HttpMethod};
-use crate::api::registry::{ApiAction, NoInput, PublicApiAction};
+use crate::api::action::{ApiAction, NoInput, PublicApiAction};
+use crate::api::catalog::HttpMethod;
 use crate::billing::actions::{
     Billing, BillingStatus, CheckoutLink, CheckoutProblem, PlanList, PlanPrice, PlansProblem,
     StartCheckout, get_billing, list_plans, start_checkout,
 };
+use crate::billing::period::Interval;
 use crate::env::Env;
 use crate::permission::Permission;
 
@@ -49,17 +50,13 @@ impl ApiAction for ListPlansAction {
                 price: "price_1QPro".to_string(),
                 amount: 1200,
                 currency: "usd".to_string(),
-                interval: "month".to_string(),
+                interval: Interval::Month,
                 label: String::new(),
                 decimal_amount: String::new(),
                 period: None,
             }],
             next_cursor: None,
         }
-    }
-
-    fn problems() -> Vec<ErrorDoc> {
-        PlansProblem::ALL.into_iter().map(ErrorDoc::of).collect()
     }
 }
 
@@ -109,10 +106,6 @@ impl ApiAction for GetBillingAction {
             ever_paid: true,
         }
     }
-
-    fn problems() -> Vec<ErrorDoc> {
-        Vec::new()
-    }
 }
 
 pub struct StartCheckoutAction;
@@ -149,9 +142,5 @@ impl ApiAction for StartCheckoutAction {
         CheckoutLink {
             checkout_url: "https://checkout.stripe.com/c/pay/cs_test_a1b2c3".to_string(),
         }
-    }
-
-    fn problems() -> Vec<ErrorDoc> {
-        CheckoutProblem::ALL.into_iter().map(ErrorDoc::of).collect()
     }
 }

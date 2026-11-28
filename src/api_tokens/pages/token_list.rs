@@ -16,7 +16,7 @@ use crate::components::card::{card, card_body, card_header};
 use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::copy_field::copy_field;
 use crate::components::empty_state::empty_state;
-use crate::components::form::DialogForm;
+use crate::components::form::{DialogForm, dialog_opener};
 use crate::components::icon::{IconName, icon};
 use crate::components::notice::notice;
 use crate::components::property_list::{property, property_list};
@@ -90,11 +90,6 @@ async fn create_token_button(
     form: &DialogForm,
     drafts: &TokenDrafts,
 ) -> Result<impl View> {
-    let DialogForm {
-        error_field,
-        error_message,
-        ..
-    } = form;
     let TokenDrafts {
         blank,
         name,
@@ -107,18 +102,12 @@ async fn create_token_button(
         button(
             variant: ButtonVariant::Secondary,
             size: ButtonSize::Sm,
-            attrs: attributes! {
-                command="show-modal"
-                commandfor=(CREATE_MODAL)
-                @click=$(|_e: topcoat::runtime::Event| {
-                    blank.set("".to_owned());
-                    name.set("".to_owned());
-                    password.set("".to_owned());
-                    error_field.set("".to_owned());
-                    error_message.set("".to_owned());
-                    created.set("".to_owned());
-                })
-            },
+            attrs: dialog_opener(
+                cx,
+                form,
+                CREATE_MODAL,
+                &[blank, name, password, created],
+            ),
             icon(name: IconName::Plus)
             "Create API token"
         )

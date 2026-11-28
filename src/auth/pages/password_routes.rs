@@ -1,6 +1,6 @@
 use topcoat::{
     Result,
-    context::Cx,
+    context::{Cx, try_context},
     router::{
         content::Form,
         error::{SeeOther, see_other},
@@ -10,14 +10,20 @@ use topcoat::{
 };
 
 use crate::account::tabs::AccountSection;
-use crate::action::{FieldError, browser_caller, require_browser_caller};
+use crate::action::{
+    ActionProblem, FieldError, ProblemSpec, browser_caller, require_browser_caller,
+};
 use crate::auth::actions::{ChangePassword, ChangePasswordProblem, change_password};
 use crate::auth::session::stay_signed_in;
 use crate::flash::{Flash, set_flash};
 use crate::web::{app, env, redisplay, session};
 
-pub(super) struct ChangePasswordFailed {
-    pub problem: ChangePasswordProblem,
+struct ChangePasswordFailed {
+    problem: ChangePasswordProblem,
+}
+
+pub fn password_failure(cx: &Cx) -> Option<ProblemSpec> {
+    try_context::<ChangePasswordFailed>(cx).map(|failed| failed.problem.spec())
 }
 
 #[procedure]

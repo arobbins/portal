@@ -4,15 +4,15 @@ use topcoat::{Result, context::Cx, router::request};
 use tower_sessions::Session;
 
 use crate::billing::catalog::is_price_id;
-use crate::billing::pages::handoff::checkout_for_price;
-use crate::oauth::authorize::{REQUEST_PARAM, keep_request_alive};
-use crate::routes::OAUTH_AUTHORIZE_PATH;
+use crate::billing::checkout_for_price;
+use crate::env::{Env, is_within};
+use crate::oauth::authorize::{keep_request_alive, request_path};
+use crate::routes::PRICE_PARAM;
 use crate::secret::PublicIdKind;
 use crate::user::model::User;
 use crate::web::env;
 
-pub const PRICE_PARAM: &str = "price";
-pub const AUTHORIZE_PARAM: &str = "authorize";
+const AUTHORIZE_PARAM: &str = "authorize";
 const AFTER_SIGN_IN: &str = "after_sign_in";
 const HANDOFF_LASTS: Duration = Duration::hours(1);
 
@@ -75,19 +75,23 @@ pub fn with_handoff(path: &str, handoff: Option<&Handoff>) -> String {
     }
 }
 
-pub async fn keep_handoff_alive(cx: &Cx, handoff: Option<&Handoff>) -> Result<()> {
+pub async fn keep_handoff_alive(env: &Env<'_>, handoff: Option<&Handoff>) -> Result<()> {
     if let Some(Handoff::Authorize(request)) = handoff {
-        keep_request_alive(&env(cx), request).await?;
+        keep_request_alive(env, request).await?;
     }
     Ok(())
 }
 
-pub async fn remember_handoff(cx: &Cx, session: &Session, handoff: Option<Handoff>) -> Result<()> {
+pub async fn remember_handoff(
+    env: &Env<'_>,
+    session: &Session,
+    handoff: Option<Handoff>,
+) -> Result<()> {
     let Some(handoff) = handoff else {
         return Ok(());
     };
-    keep_handoff_alive(cx, Some(&handoff)).await?;
-    let at = env(cx).now().unix_timestamp();
+    keep_handoff_alive(env, Some(&handoff)).await?;
+    let at = env.now().unix_timestamp();
     session
         .insert(AFTER_SIGN_IN, StoredHandoff { handoff, at })
         .await?;
@@ -97,7 +101,7 @@ pub async fn remember_handoff(cx: &Cx, session: &Session, handoff: Option<Handof
 async fn take_handoff(session: &Session, now: OffsetDateTime) -> Result<Option<Handoff>> {
     let stored = session.remove::<StoredHandoff>(AFTER_SIGN_IN).await?;
     Ok(stored
-        .filter(|stored| now.unix_timestamp() - stored.at < HANDOFF_LASTS.whole_seconds())
+        .filter(|stored| is_within(stored.at, now, HANDOFF_LASTS))
         .map(|stored| stored.handoff))
 }
 
@@ -108,10 +112,8 @@ pub async fn destination_after_sign_in(
 ) -> Result<Option<String>> {
     match take_handoff(session, env(cx).now()).await? {
         None => Ok(None),
-        Some(Handoff::Checkout(price)) => checkout_for_price(cx, user, price).await,
-        Some(Handoff::Authorize(request)) => Ok(Some(format!(
-            "{OAUTH_AUTHORIZE_PATH}?{REQUEST_PARAM}={request}"
-        ))),
+        Some(Handoff::Checkout(price)) => checkout_for_price(&env(cx), user.id, price).await,
+        Some(Handoff::Authorize(request)) => Ok(Some(request_path(&request))),
     }
 }
 

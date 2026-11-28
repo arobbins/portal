@@ -188,18 +188,6 @@ async fn find_target(env: &Env<'_>, id: &str) -> Outcome<User, AdminUserProblem>
     }
 }
 
-async fn changeable_target(
-    env: &Env<'_>,
-    caller: &Caller,
-    id: &str,
-) -> Outcome<User, AdminUserProblem> {
-    let user = match find_target(env, id).await? {
-        Ok(user) => user,
-        Err(problem) => return fail(problem),
-    };
-    Ok(guard_target(caller, user))
-}
-
 async fn locked_target(
     caller: &Caller,
     id: &str,

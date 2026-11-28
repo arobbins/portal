@@ -48,7 +48,7 @@ pub async fn login_page(cx: &Cx) -> Result<impl View> {
     end_second_factor(&session).await?;
     let handoff = handoff_param(cx);
     let register_href = with_handoff(&href!(register_page).resolve(cx), handoff.as_ref());
-    remember_handoff(cx, &session, handoff).await?;
+    remember_handoff(&env(cx), &session, handoff).await?;
 
     let flash = take_flash(cx, FLASHES).await?;
     let toast = flash_toast(cx, flash);

@@ -1,14 +1,23 @@
 use sqlx::PgExecutor;
+
+use crate::api::scope::ApiScope;
 use time::OffsetDateTime;
 
 pub struct NewRequest<'a> {
     pub public_id: &'a str,
     pub client_id: i32,
     pub redirect_uri: &'a str,
-    pub scopes: &'a [String],
+    pub scopes: &'a [ApiScope],
     pub state: Option<&'a str>,
     pub code_challenge: &'a str,
     pub now: OffsetDateTime,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(type_name = "text", rename_all = "lowercase")]
+pub enum RequestStatus {
+    Pending,
+    Approved,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,9 +27,9 @@ pub struct RequestRow {
     pub client_id: i32,
     pub client_name: String,
     pub redirect_uri: String,
-    pub scopes: Vec<String>,
+    pub scopes: Vec<ApiScope>,
     pub state: Option<String>,
-    pub status: String,
+    pub status: RequestStatus,
     pub acted_at: OffsetDateTime,
 }
 
@@ -42,7 +51,7 @@ pub async fn query_insert_request(
         request.public_id,
         request.client_id,
         request.redirect_uri,
-        request.scopes,
+        request.scopes as &[ApiScope],
         request.state,
         request.code_challenge,
         request.now,
@@ -58,7 +67,7 @@ pub async fn query_get_request(
 ) -> Result<Option<RequestRow>, sqlx::Error> {
     sqlx::query_as!(
         RequestRow,
-        "SELECT r.id, r.public_id, r.client_id, c.name AS client_name, r.redirect_uri, r.scopes, r.state, r.status, r.acted_at FROM oauth_requests r JOIN oauth_clients c ON c.id = r.client_id WHERE r.public_id = $1",
+        "SELECT r.id, r.public_id, r.client_id, c.name AS client_name, r.redirect_uri, r.scopes AS \"scopes: Vec<ApiScope>\", r.state, r.status AS \"status: RequestStatus\", r.acted_at FROM oauth_requests r JOIN oauth_clients c ON c.id = r.client_id WHERE r.public_id = $1",
         public_id,
     )
     .fetch_optional(db)

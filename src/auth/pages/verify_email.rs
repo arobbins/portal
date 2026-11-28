@@ -52,7 +52,7 @@ pub async fn verify_email_page(cx: &Cx) -> Result<impl View> {
         .boxed());
     }
 
-    keep_handoff_alive(cx, link_handoff(cx).await?.as_ref()).await?;
+    keep_handoff_alive(&env(cx), link_handoff(cx).await?.as_ref()).await?;
     let problem = try_context::<LinkPasswordFailed>(cx).map(|failed| failed.problem);
 
     Ok(view! {
@@ -79,7 +79,7 @@ pub async fn set_password_submit(cx: &Cx, Form(input): Form<NewPassword>) -> Res
         Ok(user) => {
             let session = session(cx)?;
             sign_in(cx, &session, &user, SignInMethod::NewAccount).await?;
-            remember_handoff(cx, &session, handoff).await?;
+            remember_handoff(&env(cx), &session, handoff).await?;
             set_flash(&session, Flash::EmailConfirmed).await?;
             Ok(see_other(
                 after_password_sign_in(cx, &session, &user).await?,

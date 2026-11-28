@@ -2,21 +2,22 @@ use topcoat::{
     Result,
     context::Cx,
     router::href,
-    runtime::{Event, Signal},
+    runtime::Signal,
     view::{View, attributes, component, view},
 };
 
 use super::token_fields::{TokenDrafts, choice_fields};
 use super::token_routes::{create_api_token_js, create_api_token_submit};
 use crate::account::tabs::AccountTab;
-use crate::action::FieldError;
 use crate::auth::pages::reauth_field::reauth_field;
 use crate::auth::password::CURRENT_PASSWORD_FIELD;
 use crate::components::button::{ButtonType, button};
 use crate::components::copy_field::copy_field;
-use crate::components::form::{DialogForm, dialog_form_error, dialog_input};
-use crate::components::form::{form, form_actions, form_field};
-use crate::components::modal::{modal, modal_cancel};
+use crate::components::form::{
+    DialogForm, ModalSubmit, ModalSuccess, SubmitSettings, dialog_input,
+};
+use crate::components::form::{dialog_submit_form, form, form_actions, form_field};
+use crate::components::modal::modal;
 use crate::components::notice::notice;
 use crate::components::toaster::NO_TOAST;
 use crate::components::tone::Tone;
@@ -72,11 +73,6 @@ async fn create_token_form(
     drafts: &TokenDrafts,
     toast: &Signal<String>,
 ) -> Result<impl View> {
-    let DialogForm {
-        error_field,
-        error_message,
-        is_submitting,
-    } = form;
     let TokenDrafts {
         blank,
         name,
@@ -86,55 +82,36 @@ async fn create_token_form(
         password,
         created,
     } = drafts;
-    let create_failed: std::result::Result<String, FieldError> =
-        Err(FieldError::general(UNREACHABLE));
+    let submit = ModalSubmit {
+        procedure: create_api_token_js,
+        action: href!(create_api_token_submit).resolve(cx),
+        label: "Create API token",
+        success_toast: NO_TOAST,
+        unreachable: UNREACHABLE,
+    };
+    let settings = SubmitSettings {
+        modal_id: CREATE_MODAL,
+        on_success: ModalSuccess::KeepOpen,
+        saved: Some(created),
+        clear: Some((blank, password)),
+    };
 
     Ok(view! {
-        form(
-            attrs: attributes! {
-                method="post"
-                action=(href!(create_api_token_submit))
-                @submit=$(async |e: Event| {
-                    e.prevent_default();
-                    is_submitting.set(true);
-                    error_field.set("".to_owned());
-                    error_message.set("".to_owned());
-                    toast.set(NO_TOAST.to_owned());
-                    let _pending = create_api_token_js(
-                        name.get(),
-                        access.get(),
-                        lifetime.get(),
-                        audience.get(),
-                        password.get(),
-                    );
-                    let result = raw!(
-                        "await Promise.resolve(${_pending}).catch(() => ${create_failed})",
-                        create_failed.clone(),
-                    );
-                    is_submitting.set(false);
-                    if result.is_ok() {
-                        blank.set("".to_owned());
-                        password.set("".to_owned());
-                        created.set(result.unwrap());
-                    } else {
-                        let failure = result.unwrap_err();
-                        error_field.set(failure.field);
-                        error_message.set(failure.message);
-                    }
-                })
-            },
+        dialog_submit_form(
+            form: form,
+            toast: toast,
+            submit: submit,
+            args: $((
+                name.get(),
+                access.get(),
+                lifetime.get(),
+                audience.get(),
+                password.get(),
+            )),
+            settings: settings,
             text_fields(form: form, drafts: drafts)
             choice_fields(drafts: drafts)
             password_field(form: form, drafts: drafts)
-            dialog_form_error(form: form)
-            form_actions(
-                modal_cancel(modal_id: CREATE_MODAL)
-                button(
-                    button_type: ButtonType::Submit,
-                    busy: $(is_submitting.get()),
-                    "Create API token"
-                )
-            )
         )
     })
 }
