@@ -423,3 +423,19 @@ async fn refreshing_while_disabled_is_refused_and_keeps_the_connection(db: PgPoo
     );
     assert_eq!(connections(&db).await, 1);
 }
+
+#[sqlx::test]
+async fn an_unknown_grant_type_is_unsupported(db: PgPool) {
+    let app = App::for_tests(db.clone());
+    let env = app.env(None);
+    let client = test_client(&db).await;
+
+    let request = TokenRequest {
+        grant_type: Some("password".to_string()),
+        ..refresh_request(&env, &client, "wsr_unused")
+    };
+    assert_eq!(
+        issue_tokens(&env, &request).await.unwrap().err(),
+        Some(TokenProblem::UnsupportedGrantType)
+    );
+}

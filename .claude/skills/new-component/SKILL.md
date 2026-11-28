@@ -76,5 +76,7 @@ page body.
 - Format: `topcoat fmt --rustfmt <files>` (the edit hook does this automatically for `.rs`).
 - If the component has behavior, add a Playwright spec in `e2e/` that drives the styleguide
   demo by role/label (import `test`/`expect` from `e2e/support/test.ts`).
+- Accessibility: the styleguide demo is already scanned by `e2e/tests/accessibility.spec.ts`
+  (via `/styleguide`); a new page or a new dialog that uses the component gets added there.
 - Add a line to the component list in CLAUDE.md only if it introduces a new convention.
 - Run `./check.sh` before calling it done.

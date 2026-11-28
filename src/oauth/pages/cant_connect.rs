@@ -11,8 +11,10 @@ use crate::oauth::authorize::CantConnect;
 impl CantConnect {
     pub fn heading(self) -> &'static str {
         match self {
+            Self::UnregisteredRedirect | Self::UnknownClient | Self::Expired => {
+                "Can't connect this app"
+            }
             Self::TooManyRequests => "Too many sign-in requests",
-            _ => "Can't connect this app",
         }
     }
 
@@ -33,8 +35,10 @@ impl CantConnect {
 
     pub fn status(self) -> StatusCode {
         match self {
+            Self::UnregisteredRedirect | Self::UnknownClient | Self::Expired => {
+                StatusCode::BAD_REQUEST
+            }
             Self::TooManyRequests => StatusCode::TOO_MANY_REQUESTS,
-            _ => StatusCode::BAD_REQUEST,
         }
     }
 }

@@ -38,36 +38,32 @@ pub async fn theme_switcher(cx: &Cx, #[default] compact: bool) -> Result<impl Vi
     };
 
     Ok(view! {
-        <form
-            class=(class)
-            method="post"
-            action=(href!(set_theme))
-            role="group"
-            aria-label="Color theme"
-        >
+        <form class="a-theme-switcher__form" method="post" action=(href!(set_theme))>
             <input type="hidden" name="return_to" value=(return_to)>
-            #[key(theme.as_str())]
-            for theme in Theme::ALL {
-                <button
-                    type="submit"
-                    class="a-theme-switcher__option"
-                    name="theme"
-                    value=(theme.as_str())
-                    title=(theme.label())
-                    aria-label=(theme.label())
-                    aria-pressed=(if theme == current { "true" } else { "false" })
-                    @click=$(|e: Event| {
-                        e.prevent_default();
-                        let _selected = e.current_target.value;
-                        raw!("window.setTheme(String(${_selected}))", ())
-                    })
-                >
-                    icon(name: theme_icon(theme))
-                    if !compact {
-                        <span class="a-theme-switcher__label">(theme.label())</span>
-                    }
-                </button>
-            }
+            <div class=(class) role="group" aria-label="Color theme">
+                #[key(theme.as_str())]
+                for theme in Theme::ALL {
+                    <button
+                        type="submit"
+                        class="a-theme-switcher__option"
+                        name="theme"
+                        value=(theme.as_str())
+                        title=(theme.label())
+                        aria-label=(theme.label())
+                        aria-pressed=(if theme == current { "true" } else { "false" })
+                        @click=$(|e: Event| {
+                            e.prevent_default();
+                            let _selected = e.current_target.value;
+                            raw!("window.setTheme(String(${_selected}))", ())
+                        })
+                    >
+                        icon(name: theme_icon(theme))
+                        if !compact {
+                            <span class="a-theme-switcher__label">(theme.label())</span>
+                        }
+                    </button>
+                }
+            </div>
         </form>
     })
 }

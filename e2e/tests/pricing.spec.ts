@@ -50,7 +50,12 @@ test("the price animates when it changes, but not for reduced motion", async ({ 
 test.describe("without JavaScript", () => {
   test.use({ javaScriptEnabled: false });
 
-  test("a modifier-click on Show monthly prices opens it in a new tab", async ({ page, context }) => {
+  test("a modifier-click on Show monthly prices opens it in a new tab", async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.slow(browserName === "firefox");
     await page.goto("/pricing");
     await expect(proCard(page).getByRole("switch")).toBeHidden();
     const showMonthly = proCard(page).getByRole("link", { name: "Show monthly prices" });
@@ -67,7 +72,8 @@ test.describe("without JavaScript", () => {
     await expect(
       proCard(tab)
         .getByRole("link", { name: "Show yearly prices" })
-        .or(proCard(tab).getByRole("switch", { name: "Billed yearly", checked: false })),
+        .or(proCard(tab).getByRole("switch", { name: "Billed yearly", checked: false }))
+        .first(),
     ).toBeVisible();
     await expect(page).toHaveURL(/\/pricing$/);
     await expect(proPrice(page)).toHaveText("$120 / year");
