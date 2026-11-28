@@ -65,10 +65,14 @@ Stripe, and lets AI agents discover plans and start a Checkout for their user.
   JavaScript, the page checks every few seconds after paying and updates in place, without
   reloading, as soon as Stripe confirms; without it, a reload does.
 - R7 The plan changes only when Stripe sends a signed event. Unsigned, wrongly signed,
-  repeated or out-of-order events never change state or move it backwards. A valid event
-  gets 200; a bad or missing signature gets 400; an event id already processed gets 200
-  and is ignored; events for an unknown customer get 200 and are ignored (server-tested
-  for out-of-order and unknown customers).
+  or repeated events never change state. A subscription event applies the
+  subscription's current state as Stripe reports it when the event is handled, whatever
+  the event's age; an invoice event older than the last one applied changes nothing. A
+  valid event gets 200; a bad or missing signature gets 400; an event id already
+  processed gets 200 and is ignored; events for an unknown customer get 200 and are
+  ignored, except that a live subscription for a customer this app created, whose
+  account has since been deleted, is cancelled at Stripe and its payment refunded
+  (server-tested: late events, unknown customers, deleted accounts).
 - R8 The Plan and payment page shows the current plan. On Free it says "You're on the
   Free plan." with a **See plans** link to `/pricing`. With a subscription it shows the
   plan, "Status: Active" (or Cancelling, Past due), the next renewal date in the
@@ -131,7 +135,9 @@ Stripe, and lets AI agents discover plans and start a Checkout for their user.
   done; when there's nothing paid to refund yet, it's cancelled without a refund and a
   warning is logged for the server (server-tested, except the log line).
 - R21 The data export includes the account's plan (see export-my-data R3).
-- R18 Changing the account's email updates the Stripe customer's email (server-tested).
+- R18 Changing the account's email updates the Stripe customer's email to the account's
+  email at the time the update is sent, so a retried older update never overwrites a
+  newer one (server-tested).
 
 ## Placement
 - **Pricing** (`/pricing`): a public page linked as "Pricing" from the site header
@@ -260,6 +266,9 @@ until the user adds a card in the portal (R9); no special handling.
 - 2026-11-27: approved R21.
 - 2026-11-27: billing is in the data export (R21).
 - 2026-11-27: approved the yearly amount display.
+- 2026-11-27: approved the R7 and R18 amendment.
+- 2026-11-27: R7: late subscription events apply Stripe's current state; deleted accounts'
+  subscriptions are cancelled and refunded. R18: the email sent is the current one.
 - 2026-11-27: with Billed yearly on, prices show the yearly amount ("$120 / year"), not per month.
 - 2026-11-27: approved R20.
 - 2026-11-26: Choose Free on the Free plan for signed-out visitors (R20).
