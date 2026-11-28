@@ -124,14 +124,14 @@ pub async fn query_set_password_and_verify_user(
     user_id: i32,
     password_hash: &str,
     db: impl PgExecutor<'_>,
-) -> Result<User, sqlx::Error> {
+) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as!(
         User,
-        "UPDATE users SET password = $1, verified_at = now(), session_version = session_version + 1, updated_at = now() WHERE id = $2 RETURNING id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at, time_zone",
+        "UPDATE users SET password = $1, verified_at = now(), session_version = session_version + 1, updated_at = now() WHERE id = $2 AND password IS NULL RETURNING id, name, email, password, role AS \"role: Role\", verified_at, session_version, webauthn_id, public_id, disabled_at, admin_granted_at, time_zone",
         password_hash,
         user_id,
     )
-    .fetch_one(db)
+    .fetch_optional(db)
     .await
 }
 

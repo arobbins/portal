@@ -54,4 +54,6 @@ paths:
   - *Delete account* (`delete_account.rs`): `DELETE` typed plus
     `check_reauth`; immediate, one transaction (goodbye email + delete row,
     everything cascades, so it's logged with `tracing`, not an event).
-  - A password change or reset deletes pending email-change links.
+  - A password change or reset deletes pending email-change and
+    password-reset links. A verification link only sets a password on an
+    account that has none (`password IS NULL`); otherwise it's expired.

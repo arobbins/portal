@@ -96,6 +96,7 @@ pub async fn set_password_from_link(
         return fail(LinkPasswordProblem::ExpiredLink);
     };
     let Some(user) = apply_password(env, purpose, user_id, &password_hash, &mut tx).await? else {
+        tx.commit().await?;
         return fail(LinkPasswordProblem::ExpiredLink);
     };
     tx.commit().await?;
@@ -126,7 +127,11 @@ async fn apply_password(
     let source = EventSource::browser(user_id);
     match purpose {
         TokenPurpose::EmailVerification => {
-            let user = query_set_password_and_verify_user(user_id, password_hash, &mut *tx).await?;
+            let Some(user) =
+                query_set_password_and_verify_user(user_id, password_hash, &mut *tx).await?
+            else {
+                return Ok(None);
+            };
             record_event(
                 env,
                 &source,

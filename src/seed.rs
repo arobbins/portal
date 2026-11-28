@@ -61,6 +61,7 @@ pub async fn run(database_url: &str) {
             let password_hash = hash_password(password).unwrap();
             query_set_password_and_verify_user(user_id, &password_hash, &db)
                 .await
+                .unwrap()
                 .unwrap();
             never_prompt_for_passkeys(user_id, &db).await.unwrap();
         }

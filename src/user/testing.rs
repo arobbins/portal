@@ -21,6 +21,7 @@ pub async fn activate(user_id: i32, db: &PgPool) -> Arc<User> {
     let password_hash = hash_password(TEST_PASSWORD).unwrap();
     let user = query_set_password_and_verify_user(user_id, &password_hash, db)
         .await
+        .unwrap()
         .unwrap();
     Arc::new(user)
 }

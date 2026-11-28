@@ -69,6 +69,7 @@ pub async fn change_password(
         .await?
         .ok_or_else(|| topcoat::Error::msg("signed-in user is not active"))?;
     query_delete_user_tokens(caller.user.id, TokenPurpose::EmailChange, &mut *tx).await?;
+    query_delete_user_tokens(caller.user.id, TokenPurpose::PasswordReset, &mut *tx).await?;
     let source = EventSource::of(caller);
     record_event(
         env,

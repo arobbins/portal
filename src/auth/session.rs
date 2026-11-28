@@ -205,7 +205,7 @@ mod tests {
     use super::*;
     use crate::auth::password::hash_password;
     use crate::user::queries::{
-        NewUser, query_get_user_by_id, query_insert_user, query_set_password_and_verify_user,
+        NewUser, query_get_user_by_id, query_insert_user, query_update_password,
     };
     use crate::user::testing::active_user;
     use sqlx::PgPool;
@@ -276,8 +276,9 @@ mod tests {
         assert!(load_signed_in_user(&session, &app).await.unwrap().is_some());
 
         let password_hash = hash_password("a-new-test-password").unwrap();
-        query_set_password_and_verify_user(user.id, &password_hash, &db)
+        query_update_password(user.id, &password_hash, &db)
             .await
+            .unwrap()
             .unwrap();
 
         assert!(load_signed_in_user(&session, &app).await.unwrap().is_none());
