@@ -1,5 +1,21 @@
 use sqlx::PgExecutor;
 
+pub(super) async fn query_lock_rate_limit_key(
+    bucket: &str,
+    key: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query_scalar!(
+        r#"SELECT true AS "locked!" FROM pg_advisory_xact_lock(hashtextextended($1 || ' ' || $2, 0))"#,
+        bucket,
+        key,
+    )
+    .fetch_one(db)
+    .await?;
+
+    Ok(())
+}
+
 pub(super) async fn query_take_rate_limit_slot(
     bucket: &str,
     key: &str,
@@ -66,6 +82,25 @@ pub(super) async fn query_delete_rate_limit_hits(
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
         "DELETE FROM rate_limit_hits WHERE bucket = $1 AND key = $2",
+        bucket,
+        key,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(())
+}
+
+pub(super) async fn query_delete_newest_rate_limit_hit(
+    bucket: &str,
+    key: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "DELETE FROM rate_limit_hits WHERE ctid = (
+            SELECT ctid FROM rate_limit_hits WHERE bucket = $1 AND key = $2
+            ORDER BY at DESC LIMIT 1
+        )",
         bucket,
         key,
     )

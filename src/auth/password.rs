@@ -94,7 +94,8 @@ pub async fn check_current_password(
 ) -> Outcome<(), CurrentPasswordProblem> {
     let limits = env.limits();
     let ip = env.ip;
-    if !limits.allow_password_submission(ip).await? || limits.login_blocked(&user.email, ip).await?
+    if !limits.allow_password_submission(ip).await?
+        || !limits.take_login_attempt(&user.email, ip).await?
     {
         return fail(CurrentPasswordProblem::TooManyAttempts);
     }
@@ -104,7 +105,6 @@ pub async fn check_current_password(
         AccountStatus::AwaitingPassword | AccountStatus::Disabled { .. } => None,
     };
     if !password_matches(hash, password) {
-        limits.record_failed_login(&user.email, ip).await?;
         return fail(CurrentPasswordProblem::Wrong);
     }
     limits.clear_failed_logins(&user.email, ip).await?;

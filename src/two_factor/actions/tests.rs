@@ -1,10 +1,36 @@
+use std::net::{IpAddr, Ipv4Addr};
+use std::sync::Arc;
+
 use sqlx::PgPool;
 
 use super::*;
 use crate::auth::password::CurrentPasswordProblem;
 use crate::env::App;
 use crate::two_factor::codes::{code_at, new_secret};
+use crate::user::model::User;
 use crate::user::testing::{TEST_PASSWORD, active_user};
+
+async fn with_two_factor(email: &str, db: &PgPool) -> (Arc<User>, String) {
+    let app = App::for_tests(db.clone());
+    let env = app.env(None);
+    let user = active_user(email, db).await;
+    let secret = new_secret();
+    let now = env.now().unix_timestamp();
+    enable_two_factor(
+        &env,
+        &Caller::browser(user.clone()),
+        &enable(&secret, &code_at(&secret, now - 30), TEST_PASSWORD),
+        None,
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    (user, secret)
+}
+
+fn from(last: u8) -> Option<IpAddr> {
+    Some(IpAddr::V4(Ipv4Addr::new(203, 0, 113, last)))
+}
 
 fn enable(secret: &str, code: &str, password: &str) -> EnableTwoFactor {
     EnableTwoFactor {
@@ -209,6 +235,65 @@ async fn wrong_codes_lock_the_second_step_even_after_a_correct_password(db: PgPo
 
     assert_eq!(
         verify_second_factor(&env, &user, &code_at(&secret, now))
+            .await
+            .unwrap(),
+        Err(SecondFactorProblem::TooManyAttempts)
+    );
+}
+
+#[sqlx::test]
+async fn concurrent_wrong_codes_are_checked_at_most_five_times(db: PgPool) {
+    let app = App::for_tests(db.clone());
+    let (user, secret) = with_two_factor("totp-race@example.test", &db).await;
+    let mut guesses = tokio::task::JoinSet::new();
+    for _ in 0..10 {
+        let app = app.clone();
+        let user = user.clone();
+        guesses.spawn(async move {
+            verify_second_factor(&app.env(from(1)), &user, "000000")
+                .await
+                .unwrap()
+                .unwrap_err()
+        });
+    }
+
+    let answers = guesses.join_all().await;
+
+    let wrong = answers
+        .iter()
+        .filter(|&&answer| answer == SecondFactorProblem::Wrong)
+        .count();
+    assert_eq!(wrong, 5, "{answers:?}");
+    let env = app.env(from(2));
+    assert_eq!(
+        verify_second_factor(&env, &user, &code_at(&secret, env.now().unix_timestamp()))
+            .await
+            .unwrap(),
+        Err(SecondFactorProblem::TooManyAttempts)
+    );
+}
+
+#[sqlx::test]
+async fn codes_from_one_address_are_limited_across_accounts(db: PgPool) {
+    let app = App::for_tests(db.clone());
+    let env = app.env(from(3));
+    let mut users = Vec::new();
+    for name in ["one", "two", "three"] {
+        let (user, _) = with_two_factor(&format!("totp-ip-{name}@example.test"), &db).await;
+        users.push(user);
+    }
+
+    for attempt in 0..10 {
+        assert_eq!(
+            verify_second_factor(&env, &users[attempt % 3], "000000")
+                .await
+                .unwrap(),
+            Err(SecondFactorProblem::Wrong)
+        );
+    }
+
+    assert_eq!(
+        verify_second_factor(&env, &users[1], "000000")
             .await
             .unwrap(),
         Err(SecondFactorProblem::TooManyAttempts)

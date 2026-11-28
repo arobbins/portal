@@ -1,6 +1,6 @@
 use std::net::{IpAddr, Ipv4Addr};
 
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 
 mod limit;
 mod queries;
@@ -8,8 +8,9 @@ mod queries;
 use limit::Limit;
 
 use queries::{
-    query_count_rate_limit_hits, query_delete_old_rate_limit_hits, query_delete_rate_limit_hits,
-    query_insert_rate_limit_hit, query_take_rate_limit_slot,
+    query_count_rate_limit_hits, query_delete_newest_rate_limit_hit,
+    query_delete_old_rate_limit_hits, query_delete_rate_limit_hits, query_insert_rate_limit_hit,
+    query_lock_rate_limit_key, query_take_rate_limit_slot,
 };
 
 const UNKNOWN_IP: IpAddr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
@@ -62,12 +63,25 @@ impl RateLimits {
     }
 
     async fn allow(&self, limit: Limit, key: &str) -> Result<bool, sqlx::Error> {
+        let mut tx = self.db.begin().await?;
+        let taken = self.take_slot(limit, key, &mut tx).await?;
+        tx.commit().await?;
+        Ok(taken)
+    }
+
+    async fn take_slot(
+        &self,
+        limit: Limit,
+        key: &str,
+        tx: &mut PgConnection,
+    ) -> Result<bool, sqlx::Error> {
+        query_lock_rate_limit_key(limit.bucket(), key, &mut *tx).await?;
         query_take_rate_limit_slot(
             limit.bucket(),
             key,
             limit.window_seconds(),
             limit.max(self.mode),
-            &self.db,
+            &mut *tx,
         )
         .await
     }
@@ -175,18 +189,26 @@ impl RateLimits {
                 .await?)
     }
 
-    pub async fn record_failed_login(
+    pub async fn take_login_attempt(
         &self,
         email: &str,
         ip: Option<IpAddr>,
-    ) -> Result<(), sqlx::Error> {
-        self.record(
-            Limit::FailedLoginsByAccountAndIp,
-            &failed_login_key(email, ip),
-        )
-        .await?;
-        self.record(Limit::FailedLoginsByAccount, &account_key(email))
-            .await
+    ) -> Result<bool, sqlx::Error> {
+        let mut tx = self.db.begin().await?;
+        let taken = self
+            .take_slot(
+                Limit::FailedLoginsByAccountAndIp,
+                &failed_login_key(email, ip),
+                &mut tx,
+            )
+            .await?
+            && self
+                .take_slot(Limit::FailedLoginsByAccount, &account_key(email), &mut tx)
+                .await?;
+        if taken {
+            tx.commit().await?;
+        }
+        Ok(taken)
     }
 
     pub async fn clear_failed_logins(
@@ -195,17 +217,16 @@ impl RateLimits {
         ip: Option<IpAddr>,
     ) -> Result<(), sqlx::Error> {
         let key = failed_login_key(email, ip);
-        query_delete_rate_limit_hits(Limit::FailedLoginsByAccountAndIp.bucket(), &key, &self.db)
-            .await
+        let mut tx = self.db.begin().await?;
+        query_delete_rate_limit_hits(Limit::FailedLoginsByAccountAndIp.bucket(), &key, &mut *tx)
+            .await?;
+        let bucket = Limit::FailedLoginsByAccount.bucket();
+        query_delete_newest_rate_limit_hit(bucket, &account_key(email), &mut *tx).await?;
+        tx.commit().await
     }
 
-    pub async fn second_factor_blocked(&self, email: &str) -> Result<bool, sqlx::Error> {
-        self.blocked(Limit::FailedSecondFactorsByAccount, &account_key(email))
-            .await
-    }
-
-    pub async fn record_failed_second_factor(&self, email: &str) -> Result<(), sqlx::Error> {
-        self.record(Limit::FailedSecondFactorsByAccount, &account_key(email))
+    pub async fn take_second_factor_attempt(&self, email: &str) -> Result<bool, sqlx::Error> {
+        self.allow(Limit::FailedSecondFactorsByAccount, &account_key(email))
             .await
     }
 
@@ -260,6 +281,20 @@ mod tests {
     }
 
     #[sqlx::test]
+    async fn concurrent_takes_never_pass_the_limit(db: PgPool) {
+        let limits = std::sync::Arc::new(RateLimits::new(db, RateLimitMode::Strict));
+        let mut takes = tokio::task::JoinSet::new();
+        for _ in 0..50 {
+            let limits = limits.clone();
+            takes.spawn(async move { limits.allow_email_request(ip(1)).await.unwrap() });
+        }
+
+        let allowed = takes.join_all().await.into_iter().filter(|&ok| ok).count();
+
+        assert_eq!(allowed, 5);
+    }
+
+    #[sqlx::test]
     async fn email_requests_are_limited_per_ip(db: PgPool) {
         let limits = RateLimits::new(db, RateLimitMode::Strict);
 
@@ -302,7 +337,7 @@ mod tests {
                     .unwrap()
             );
             limits
-                .record_failed_login("owner@example.test", ip(1))
+                .take_login_attempt("owner@example.test", ip(1))
                 .await
                 .unwrap();
         }
@@ -332,7 +367,7 @@ mod tests {
         let limits = RateLimits::new(db, RateLimitMode::Strict);
         for _ in 0..5 {
             limits
-                .record_failed_login("owner@example.test", ip(1))
+                .take_login_attempt("owner@example.test", ip(1))
                 .await
                 .unwrap();
         }
@@ -355,7 +390,7 @@ mod tests {
         let limits = RateLimits::new(db, RateLimitMode::Strict);
         for attempt in 0..50u8 {
             limits
-                .record_failed_login("owner@example.test", ip(attempt))
+                .take_login_attempt("owner@example.test", ip(attempt))
                 .await
                 .unwrap();
         }
@@ -373,7 +408,7 @@ mod tests {
         let limits = RateLimits::new(db.clone(), RateLimitMode::Strict);
         for _ in 0..5 {
             limits
-                .record_failed_login("owner@example.test", ip(1))
+                .take_login_attempt("owner@example.test", ip(1))
                 .await
                 .unwrap();
         }
@@ -430,7 +465,7 @@ mod tests {
         );
         for _ in 0..5 {
             limits
-                .record_failed_login("owner@example.test", ip(1))
+                .take_login_attempt("owner@example.test", ip(1))
                 .await
                 .unwrap();
         }

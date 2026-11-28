@@ -37,14 +37,15 @@ pub async fn verify_second_factor(
     code: &str,
 ) -> Outcome<(), SecondFactorProblem> {
     let limits = env.limits();
-    if limits.second_factor_blocked(&user.email).await? {
+    if !limits.allow_password_submission(env.ip).await?
+        || !limits.take_second_factor_attempt(&user.email).await?
+    {
         return fail(SecondFactorProblem::TooManyAttempts);
     }
     if accepts_app_code(env, user, code).await? || accepts_recovery_code(env, user, code).await? {
         limits.clear_failed_second_factors(&user.email).await?;
         return Ok(Ok(()));
     }
-    limits.record_failed_second_factor(&user.email).await?;
     fail(SecondFactorProblem::Wrong)
 }
 

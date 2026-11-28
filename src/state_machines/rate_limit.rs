@@ -41,7 +41,12 @@ pub const RATE_LIMIT: Machine<LockState, LockEvent> = Machine {
         writer(
             "src/rate_limit.rs:record",
             "query_insert_rate_limit_hit",
-            &[E::WrongPassword],
+            &[],
+        ),
+        writer(
+            "src/rate_limit.rs:take_slot",
+            "query_take_rate_limit_slot",
+            &[E::WrongPassword, E::RightPassword],
         ),
         writer(
             "src/rate_limit.rs:clear_failed_logins",
@@ -49,11 +54,15 @@ pub const RATE_LIMIT: Machine<LockState, LockEvent> = Machine {
             &[E::RightPassword],
         ),
         writer(
+            "src/rate_limit.rs:clear_failed_logins",
+            "query_delete_newest_rate_limit_hit",
+            &[E::RightPassword],
+        ),
+        writer(
             "src/rate_limit.rs:clear_failed_second_factors",
             "query_delete_rate_limit_hits",
             &[],
         ),
-        writer("src/rate_limit.rs:allow", "query_take_rate_limit_slot", &[]),
         writer(
             "src/rate_limit.rs:forget_old_hits",
             "query_delete_old_rate_limit_hits",

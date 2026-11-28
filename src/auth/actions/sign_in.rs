@@ -58,7 +58,7 @@ pub async fn sign_in_with_password(env: &Env<'_>, input: &SignIn) -> Outcome<Use
     let Some(email) = parse_email(&input.email) else {
         return fail(SignInProblem::InvalidCredentials);
     };
-    if env.limits().login_blocked(&email, env.ip).await? {
+    if !env.limits().take_login_attempt(&email, env.ip).await? {
         return fail(SignInProblem::TooManyAttempts);
     }
 
@@ -70,10 +70,7 @@ pub async fn sign_in_with_password(env: &Env<'_>, input: &SignIn) -> Outcome<Use
             }
             Ok(Ok(user))
         }
-        None => {
-            env.limits().record_failed_login(&email, env.ip).await?;
-            fail(SignInProblem::InvalidCredentials)
-        }
+        None => fail(SignInProblem::InvalidCredentials),
     }
 }
 
@@ -92,3 +89,6 @@ async fn verified_user(
 
     Ok(user.filter(|_| matches))
 }
+
+#[cfg(test)]
+mod tests;

@@ -20,8 +20,10 @@ paths:
   `PendingSecondFactor` in the session and goes to `/login/two-factor`
   instead of signing in (it keeps the `SignInMethod`, so a reset still
   ends as a reset); wrong codes have their own limit, 5 per 15 minutes per
-  account (`FailedSecondFactorsByAccount`), which a correct password does
-  not clear. Each app code's time step is accepted once (`last_used_step`).
+  account (`FailedSecondFactorsByAccount`, reserved before the code is
+  checked), which a correct password does not clear; code submissions
+  also share the 10/min per-IP password-submission limit. Each app code's
+  time step is accepted once (`last_used_step`).
   The TOTP secret is stored as is (the server needs it to check codes; the
   SQL console hides it); encrypting it at rest is a later option. Turning
   two-factor on or off doesn't bump `session_version`. Passkey sign-in

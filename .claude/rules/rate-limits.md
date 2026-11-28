@@ -26,6 +26,12 @@ paths:
   address via `attach_remote_addr`); **behind a proxy/load balancer set
   `TRUSTED_PROXY_HOPS`** to the number of proxies, or every visitor shares
   the proxy's IP.
+- Taking a slot is atomic: `take_slot` holds `pg_advisory_xact_lock` on
+  (bucket, key) while it counts and inserts, so concurrent requests can't
+  all see the old count. Login and second-factor attempts are reserved
+  before the check (`take_login_attempt`, `take_second_factor_attempt`);
+  success gives it back (`clear_failed_logins`,
+  `clear_failed_second_factors`). `login_blocked` is read-only.
 - OAuth: `/oauth/authorize` 30 starts per hour per IP, client registration
   20 per hour per IP, the token endpoint 60 per minute per client
   (`connected-apps.md`).

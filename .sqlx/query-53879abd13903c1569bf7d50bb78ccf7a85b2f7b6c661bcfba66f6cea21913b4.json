@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM rate_limit_hits WHERE ctid = (\n            SELECT ctid FROM rate_limit_hits WHERE bucket = $1 AND key = $2\n            ORDER BY at DESC LIMIT 1\n        )",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "53879abd13903c1569bf7d50bb78ccf7a85b2f7b6c661bcfba66f6cea21913b4"
+}
