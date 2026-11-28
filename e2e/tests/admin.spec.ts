@@ -317,6 +317,18 @@ test("the sidebar's admin links ask to confirm in a dialog, not a page", async (
   await expect(page).toHaveURL("/admin/log");
 });
 
+test("the admin dialog's form never puts the password in a URL", async ({ page }) => {
+  await logIn(page, adminUser.email, adminUser.password);
+  await page
+    .getByRole("navigation", { name: "Account" })
+    .getByRole("link", { name: "Admin log", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Admin area" });
+  await expect(dialog).toBeVisible();
+
+  await expect(dialog.locator("form")).toHaveAttribute("method", "post");
+});
+
 test.describe("with a passkey-capable device", () => {
   test.skip(
     ({ browserName }) => browserName !== "chromium",

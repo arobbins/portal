@@ -7,7 +7,7 @@ use topcoat::{
 };
 
 use super::admin_access::ADMIN_IDLE_LIMIT;
-use super::admin_confirm::admin_confirm_page;
+use super::admin_confirm::admin_confirm_submit;
 use super::admin_unlock_routes::unlock_admin_js;
 use crate::action::FieldError;
 use crate::auth::pages::reauth_field::reauth_field;
@@ -65,8 +65,8 @@ pub async fn admin_unlock_dialog(
             heading: "Admin area",
             form(
                 attrs: attributes! {
-                    method="get"
-                    action=(href!(admin_confirm_page))
+                    method="post"
+                    action=(href!(admin_confirm_submit))
                     @submit=$(async |e: Event| {
                         e.prevent_default();
                         is_submitting.set(true);
