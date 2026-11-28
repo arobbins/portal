@@ -22,8 +22,10 @@ paths:
   before the transaction; the event id is recorded in the same transaction
   as the change, so a failed apply is retried by Stripe. Events record
   account events with channel `stripe`.
-- A subscription event is re-read from Stripe (`GET /v1/subscriptions/{id}`)
-  before the transaction and its current state applied; a known
+- A subscription event is re-read from Stripe (`GET /v1/subscriptions/{id}`,
+  customer expanded) before the transaction and its current state applied
+  whatever the event's age (`Snapshot::Current`); only data as sent (invoice
+  events, a 404 re-read) is refused when older than `last_event_at`. A known
   subscription keeps its stored plan when the price can't be found. One
   live subscription per account (partial unique index, customer row locked
   `FOR UPDATE`); a second is cancelled and refunded by a job, once per Stripe
@@ -40,9 +42,16 @@ paths:
 - `export.rs` gives the data export `billing.csv` from `billing_of` (the
   API's plan, status and dates) plus the customer id; nothing from Stripe.
 - Only a token's or a connected app's Checkout records an event (`checkout_started`).
-- Stripe calls never run inside a transaction. Deleting an account
-  enqueues `CancelStripeSubscription` in the deletion's transaction; an
-  email change enqueues `UpdateStripeCustomerEmail`.
+- Stripe calls never run inside a transaction. A transaction that locks
+  both a `billing_customers` row and its `users` row locks the customer
+  first (webhooks do; admin deletion uses `lock_before_deleting`), or they
+  deadlock. Deleting an account locks
+  its `billing_customers` row, then enqueues `CancelStripeSubscription` in
+  the deletion's transaction. A live subscription for an unknown customer is
+  cancelled and refunded only when the customer's metadata names this app
+  (`app` = `Config::origin()`) and a `usr_…` that no longer exists. An email
+  change enqueues `UpdateStripeCustomerEmail`, which sends the email the
+  account has when it runs (nothing if the customer is gone).
 - Checkout and the portal share 10 per hour per account; the public plans
   list 60 per minute per IP. `Idempotency-Key` (API) is stored in
   `checkout_requests` for a day and also sent to Stripe.

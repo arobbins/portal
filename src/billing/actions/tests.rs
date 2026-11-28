@@ -1,5 +1,6 @@
 mod checkout;
 mod deletion;
+mod deletion_races;
 mod duplicates;
 mod follow_ups;
 mod limits;

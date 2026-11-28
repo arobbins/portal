@@ -37,7 +37,16 @@ async fn checkout_uses_automatic_payment_methods_and_reuses_the_customer(db: PgP
         .unwrap();
 
     assert_ne!(first.checkout_url, second.checkout_url);
-    assert_eq!(stripe.seen_at("POST", "/v1/customers").len(), 1);
+    let customers = stripe.seen_at("POST", "/v1/customers");
+    assert_eq!(customers.len(), 1);
+    assert_eq!(
+        customers[0].field("metadata[user]"),
+        Some(user.public_id.as_str())
+    );
+    assert_eq!(
+        customers[0].field("metadata[app]"),
+        Some(app.config.origin())
+    );
     let sessions = stripe.seen_at("POST", "/v1/checkout/sessions");
     assert_eq!(sessions.len(), 2);
     let session = &sessions[0];

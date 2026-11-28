@@ -47,6 +47,42 @@ pub async fn query_lock_customer(
     .await
 }
 
+pub async fn query_lock_customer_of_user(
+    user_id: i32,
+    db: impl PgExecutor<'_>,
+) -> Result<Option<String>, sqlx::Error> {
+    sqlx::query_scalar!(
+        "SELECT stripe_customer_id FROM billing_customers WHERE user_id = $1 FOR UPDATE",
+        user_id,
+    )
+    .fetch_optional(db)
+    .await
+}
+
+pub async fn query_lock_customer_of_public_user(
+    public_id: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<Option<String>, sqlx::Error> {
+    sqlx::query_scalar!(
+        "SELECT c.stripe_customer_id FROM billing_customers c JOIN users u ON u.id = c.user_id WHERE u.public_id = $1 FOR UPDATE OF c",
+        public_id,
+    )
+    .fetch_optional(db)
+    .await
+}
+
+pub async fn query_get_user_of_customer(
+    customer_id: &str,
+    db: impl PgExecutor<'_>,
+) -> Result<Option<i32>, sqlx::Error> {
+    sqlx::query_scalar!(
+        "SELECT user_id FROM billing_customers WHERE stripe_customer_id = $1",
+        customer_id,
+    )
+    .fetch_optional(db)
+    .await
+}
+
 pub struct StoredPlan {
     pub plan_key: String,
     pub plan_name: String,
@@ -144,7 +180,8 @@ pub async fn query_update_subscription(
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
         "UPDATE subscriptions SET plan_key = $2, plan_name = $3, price_id = $4, status = $5,
-            current_period_end = $6, ends_at = $7, last_event_at = $8, updated_at = now()
+            current_period_end = $6, ends_at = $7, last_event_at = GREATEST(last_event_at, $8),
+            updated_at = now()
         WHERE id = $1",
         id,
         state.plan_key,

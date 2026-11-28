@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT c.stripe_customer_id FROM billing_customers c JOIN users u ON u.id = c.user_id WHERE u.public_id = $1 FOR UPDATE OF c",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "stripe_customer_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e56b124d07e3cb321b17499c27c881079354d388497dbb1704fb11d03ba0d4e6"
+}

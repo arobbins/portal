@@ -124,6 +124,7 @@ pub async fn delete_user(
 ) -> ActionResult<(), AdminUserProblem> {
     authorize!(caller.require(Permission::AdministerUsers));
     let mut tx = env.db().begin().await?;
+    crate::billing::lock_before_deleting(&input.id, &mut tx).await?;
     let user = match locked_target(caller, &input.id, &mut tx).await? {
         Ok(user) => user,
         Err(problem) => return fail(problem),

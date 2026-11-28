@@ -23,7 +23,11 @@ async fn an_email_change_updates_the_stripe_customer(db: PgPool) {
     let app = stripe.app(&db);
     let user = customer("before@example.test", CUSTOMER, &db).await;
     let mut tx = db.begin().await.unwrap();
-    crate::billing::follow_email_change(user.id, "after@example.test", &mut tx)
+    crate::user::queries::query_update_user_email(user.id, "after@example.test", &mut *tx)
+        .await
+        .unwrap()
+        .unwrap();
+    crate::billing::follow_email_change(user.id, &mut tx)
         .await
         .unwrap();
     tx.commit().await.unwrap();
@@ -39,11 +43,69 @@ async fn an_email_change_updates_the_stripe_customer(db: PgPool) {
     assert_eq!(updates[0].field("email"), Some("after@example.test"));
     let free = active_user("never-paid@example.test", &db).await;
     let mut tx = db.begin().await.unwrap();
-    crate::billing::follow_email_change(free.id, "x@example.test", &mut tx)
+    crate::billing::follow_email_change(free.id, &mut tx)
         .await
         .unwrap();
     tx.commit().await.unwrap();
     assert!(queued("update_stripe_customer_email", &db).await.is_empty());
+}
+
+async fn queue_email_update(email: &str, db: &PgPool) {
+    let payload = serde_json::json!({ "customer": CUSTOMER, "email": email });
+    sqlx::query!(
+        "INSERT INTO jobs (kind, payload) VALUES ($1, $2)",
+        UpdateStripeCustomerEmail::KIND,
+        payload,
+    )
+    .execute(db)
+    .await
+    .unwrap();
+}
+
+#[sqlx::test]
+async fn a_late_email_update_sends_the_email_the_account_has_now(db: PgPool) {
+    let stripe = FakeStripe::start().await;
+    let app = stripe.app(&db);
+    let user = customer("newest@example.test", CUSTOMER, &db).await;
+    queue_email_update("older@example.test", &db).await;
+    let worker = Worker::new(
+        app.clone(),
+        vec![Handler::of::<UpdateStripeCustomerEmail>()],
+    );
+
+    assert!(worker.run_next().await.unwrap());
+
+    let updates = stripe.seen_at("POST", &format!("/v1/customers/{CUSTOMER}"));
+    assert_eq!(updates.len(), 1);
+    assert_eq!(updates[0].field("email"), Some(user.email.as_str()));
+}
+
+#[sqlx::test]
+async fn an_email_update_for_a_deleted_customer_is_dropped(db: PgPool) {
+    let stripe = FakeStripe::start().await;
+    let app = stripe.app(&db);
+    let user = customer("gone-soon@example.test", CUSTOMER, &db).await;
+    queue_email_update("gone-soon@example.test", &db).await;
+    crate::user::queries::query_delete_user(user.id, &db)
+        .await
+        .unwrap();
+    let worker = Worker::new(
+        app.clone(),
+        vec![Handler::of::<UpdateStripeCustomerEmail>()],
+    );
+
+    assert!(worker.run_next().await.unwrap());
+
+    assert!(
+        stripe
+            .seen_at("POST", &format!("/v1/customers/{CUSTOMER}"))
+            .is_empty()
+    );
+    assert!(
+        queued(UpdateStripeCustomerEmail::KIND, &db)
+            .await
+            .is_empty()
+    );
 }
 
 #[sqlx::test]

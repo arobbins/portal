@@ -66,7 +66,7 @@ pub async fn confirm_email_change(
     let source = EventSource::browser(link.user_id);
     let kind = AccountEventKind::EmailChanged;
     record_event(env, &source, kind, json!({}), &mut *tx).await?;
-    crate::billing::follow_email_change(link.user_id, &link.payload, &mut tx).await?;
+    crate::billing::follow_email_change(link.user_id, &mut tx).await?;
     tx.commit().await?;
 
     Ok(Ok(user))

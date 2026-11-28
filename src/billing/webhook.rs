@@ -30,11 +30,31 @@ pub struct SubscriptionPayload {
     pub cancel_at_period_end: bool,
     pub cancel_at: Option<i64>,
     pub current_period_end: i64,
+    pub owner: Option<CustomerTag>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CustomerTag {
+    pub user: String,
+    pub app: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Snapshot {
+    Current,
+    AsSent,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubscriptionChange {
+    pub state: SubscriptionState,
+    pub snapshot: Snapshot,
+    pub created_for: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Change {
-    Subscription(SubscriptionState),
+    Subscription(SubscriptionChange),
     InvoicePaid { subscription: String },
     PaymentFailed { subscription: String },
     Nothing,
@@ -87,6 +107,15 @@ pub fn subscription(object: &Value, deleted: bool) -> Option<SubscriptionPayload
         current_period_end: object["current_period_end"]
             .as_i64()
             .or_else(|| item["current_period_end"].as_i64())?,
+        owner: customer_tag(&object["customer"]),
+    })
+}
+
+fn customer_tag(customer: &Value) -> Option<CustomerTag> {
+    let metadata = &customer["metadata"];
+    Some(CustomerTag {
+        user: metadata["user"].as_str()?.to_string(),
+        app: metadata["app"].as_str()?.to_string(),
     })
 }
 
@@ -205,6 +234,7 @@ mod tests {
             cancel_at_period_end: cancelling,
             cancel_at: None,
             current_period_end: 0,
+            owner: None,
         };
 
         assert_eq!(

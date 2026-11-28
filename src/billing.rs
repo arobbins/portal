@@ -18,7 +18,8 @@ use crate::jobs::enqueue;
 use jobs::{CancelStripeSubscription, UpdateStripeCustomerEmail};
 use queries::{
     query_delete_old_checkout_requests, query_delete_old_stripe_events,
-    query_get_current_subscription, query_get_customer_id,
+    query_get_current_subscription, query_get_customer_id, query_lock_customer_of_public_user,
+    query_lock_customer_of_user,
 };
 
 const STRIPE_EVENT_RETENTION: time::Duration = time::Duration::days(30);
@@ -32,10 +33,19 @@ pub async fn delete_expired(app: &App) -> Result<(u64, u64), sqlx::Error> {
     Ok((events, requests))
 }
 
+pub async fn lock_before_deleting(
+    public_id: &str,
+    tx: &mut PgConnection,
+) -> Result<(), sqlx::Error> {
+    query_lock_customer_of_public_user(public_id, &mut *tx).await?;
+    Ok(())
+}
+
 pub async fn cancel_before_deleting(
     user_id: i32,
     tx: &mut PgConnection,
 ) -> Result<(), sqlx::Error> {
+    query_lock_customer_of_user(user_id, &mut *tx).await?;
     let Some(subscription) = query_get_current_subscription(user_id, &mut *tx).await? else {
         return Ok(());
     };
@@ -46,17 +56,10 @@ pub async fn cancel_before_deleting(
     enqueue(&job, &mut *tx).await
 }
 
-pub async fn follow_email_change(
-    user_id: i32,
-    email: &str,
-    tx: &mut PgConnection,
-) -> Result<(), sqlx::Error> {
+pub async fn follow_email_change(user_id: i32, tx: &mut PgConnection) -> Result<(), sqlx::Error> {
     let Some(customer) = query_get_customer_id(user_id, &mut *tx).await? else {
         return Ok(());
     };
-    let job = UpdateStripeCustomerEmail {
-        customer,
-        email: email.to_string(),
-    };
+    let job = UpdateStripeCustomerEmail { customer };
     enqueue(&job, &mut *tx).await
 }

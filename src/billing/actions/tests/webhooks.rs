@@ -203,3 +203,35 @@ async fn an_end_still_applies_when_the_price_is_no_longer_offered(db: PgPool) {
     assert_eq!(plan_of(&app, &user).await.1, BillingStatus::Free);
     assert_eq!(activity_of(&app, &user).await[0], "Pro ended, back on Free");
 }
+
+#[sqlx::test]
+async fn a_retried_subscription_event_applies_after_a_newer_invoice(db: PgPool) {
+    let stripe = FakeStripe::start().await;
+    let app = stripe.app(&db);
+    let user = customer("retried-cancel@example.test", CUSTOMER, &db).await;
+    deliver(&app, &sub("created", 1, "active", false)).await;
+    deliver(&app, &invoice("invoice.payment_failed", "evt_10", T + 600)).await;
+    let now = sub("updated", 2, "past_due", true);
+    stripe.set_subscription("sub_1", now["data"]["object"].clone());
+
+    let retried = deliver(&app, &now).await;
+
+    assert_eq!(retried, WebhookReply::Accepted(Applied::Changed));
+    let stale_invoice = invoice("invoice.paid", "evt_5", T + 300);
+    assert_eq!(
+        deliver(&app, &stale_invoice).await,
+        WebhookReply::Accepted(Applied::OutOfOrder)
+    );
+    assert_eq!(plan_of(&app, &user).await.1, BillingStatus::PastDue);
+    let ends_at = sqlx::query_scalar!("SELECT ends_at FROM subscriptions")
+        .fetch_one(&db)
+        .await
+        .unwrap();
+    assert!(ends_at.is_some());
+    let expected = [
+        "Cancelled Pro (ends Mar 17, 2030)",
+        "Payment failed for Pro",
+        "Subscribed to Pro",
+    ];
+    assert_eq!(activity_of(&app, &user).await, expected);
+}

@@ -9,17 +9,18 @@ use crate::billing::queries::{
     query_update_subscription, query_update_subscription_status,
 };
 use crate::billing::subscription::{Subscription, SubscriptionState, SubscriptionStatus};
-use crate::billing::webhook::Change;
+use crate::billing::webhook::{Change, Snapshot, SubscriptionChange};
 use crate::env::Env;
 use crate::jobs::enqueue;
 use crate::user::events::{AccountEventKind, BillingEventKind, EventSource, record_event};
-use crate::user::queries::query_get_user_by_id;
+use crate::user::queries::{query_get_user_by_id, query_get_user_by_public_id};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Applied {
     Changed,
     Repeated,
     UnknownCustomer,
+    CancelledForGoneAccount,
     UnknownSubscription,
     OutOfOrder,
     AlreadyEnded,
@@ -40,7 +41,7 @@ pub async fn apply_change(env: &Env<'_>, delivery: &Delivery<'_>) -> topcoat::Re
     }
     let at = delivery.created;
     let applied = match delivery.change {
-        Change::Subscription(state) => apply_subscription(env, state, at, &mut tx).await?,
+        Change::Subscription(change) => apply_subscription(env, change, at, &mut tx).await?,
         Change::PaymentFailed { subscription } => {
             apply_invoice(env, subscription, false, at, &mut tx).await?
         }
@@ -55,18 +56,19 @@ pub async fn apply_change(env: &Env<'_>, delivery: &Delivery<'_>) -> topcoat::Re
 
 async fn apply_subscription(
     env: &Env<'_>,
-    state: &SubscriptionState,
+    change: &SubscriptionChange,
     at: OffsetDateTime,
     tx: &mut PgConnection,
 ) -> topcoat::Result<Applied> {
+    let state = &change.state;
     let Some(user_id) = query_lock_customer(&state.customer_id, &mut *tx).await? else {
-        return Ok(Applied::UnknownCustomer);
+        return cancel_for_gone_account(change, tx).await;
     };
     let existing = query_lock_subscription(&state.stripe_subscription_id, &mut *tx).await?;
     let Some(before) = existing else {
         return start_subscription(env, user_id, state, at, tx).await;
     };
-    if let Some(refused) = refusal(&before, at) {
+    if let Some(refused) = refusal(&before, at, change.snapshot) {
         return Ok(refused);
     }
     query_update_subscription(before.id, state, at, &mut *tx).await?;
@@ -120,11 +122,35 @@ async fn refund_duplicate(
     Ok(Applied::Duplicate)
 }
 
-fn refusal(before: &Subscription, at: OffsetDateTime) -> Option<Applied> {
+async fn cancel_for_gone_account(
+    change: &SubscriptionChange,
+    tx: &mut PgConnection,
+) -> topcoat::Result<Applied> {
+    let live = change.state.status != SubscriptionStatus::Ended;
+    let Some(owner) = change.created_for.as_deref().filter(|_| live) else {
+        return Ok(Applied::UnknownCustomer);
+    };
+    if query_get_user_by_public_id(owner, &mut *tx)
+        .await?
+        .is_some()
+    {
+        return Ok(Applied::UnknownCustomer);
+    }
+    let subscription = &change.state.stripe_subscription_id;
+    tracing::warn!(subscription = %subscription, "subscription for a deleted account: cancelling and refunding it at Stripe");
+    let job = CancelStripeSubscription {
+        subscription: subscription.clone(),
+        refund: true,
+    };
+    enqueue(&job, &mut *tx).await?;
+    Ok(Applied::CancelledForGoneAccount)
+}
+
+fn refusal(before: &Subscription, at: OffsetDateTime, snapshot: Snapshot) -> Option<Applied> {
     if before.status == SubscriptionStatus::Ended {
         return Some(Applied::AlreadyEnded);
     }
-    if at < before.last_event_at {
+    if snapshot == Snapshot::AsSent && at < before.last_event_at {
         return Some(Applied::OutOfOrder);
     }
     None
@@ -164,7 +190,7 @@ async fn apply_invoice(
     let Some(before) = query_lock_subscription(subscription, &mut *tx).await? else {
         return Ok(Applied::UnknownSubscription);
     };
-    if let Some(refused) = refusal(&before, at) {
+    if let Some(refused) = refusal(&before, at, Snapshot::AsSent) {
         return Ok(refused);
     }
     let status = match (paid, before.status) {

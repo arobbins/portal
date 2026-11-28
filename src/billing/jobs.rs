@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 
+use super::queries::query_get_user_of_customer;
 use crate::env::App;
 use crate::jobs::{Job, JobError};
 use crate::stripe::{Request, Stripe};
+use crate::user::queries::query_get_user_by_id;
 
 const RETRY_FOR_DAYS_OF_ATTEMPTS: i32 = 100;
 const ALREADY_REFUNDED: &str = "charge_already_refunded";
@@ -75,7 +77,6 @@ async fn refund_latest_invoice(stripe: &Stripe, subscription: &str) -> Result<()
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UpdateStripeCustomerEmail {
     pub customer: String,
-    pub email: String,
 }
 
 impl Job for UpdateStripeCustomerEmail {
@@ -85,14 +86,30 @@ impl Job for UpdateStripeCustomerEmail {
         if !is_stripe_id(&self.customer, "cus_") {
             return Err(JobError::new("not a Stripe customer id"));
         }
+        let Some(email) = current_email(app, &self.customer).await? else {
+            return Ok(());
+        };
         let path = format!("/v1/customers/{}", self.customer);
-        let form = [("email", self.email.as_str())];
+        let form = [("email", email.as_str())];
         configured(app)?
             .send(Request::post(&path, &form))
             .await
             .map(|_| ())
             .map_err(JobError::new)
     }
+}
+
+async fn current_email(app: &App, customer: &str) -> Result<Option<String>, JobError> {
+    let Some(user_id) = query_get_user_of_customer(customer, &app.db)
+        .await
+        .map_err(JobError::new)?
+    else {
+        return Ok(None);
+    };
+    let user = query_get_user_by_id(user_id, &app.db)
+        .await
+        .map_err(JobError::new)?;
+    Ok(user.map(|user| user.email))
 }
 
 fn configured(app: &App) -> Result<&Stripe, JobError> {

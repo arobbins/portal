@@ -5,10 +5,11 @@ use crate::billing::catalog::find_price;
 use crate::billing::jobs::is_stripe_id;
 use crate::billing::queries::{query_get_subscription_plan, query_stripe_event_seen};
 use crate::billing::webhook::{
-    Change, EventKind, PlanRef, StripeEvent, SubscriptionPayload, parse_event, subscription,
-    subscription_state,
+    Change, EventKind, PlanRef, Snapshot, StripeEvent, SubscriptionChange, SubscriptionPayload,
+    parse_event, subscription, subscription_state,
 };
 use crate::env::Env;
+use crate::secret::PublicIdKind;
 use crate::stripe::{Request, Stripe, StripeError, verify_signature};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,7 +73,7 @@ async fn resolve(
 ) -> topcoat::Result<Result<Change, StripeError>> {
     Ok(Ok(match &event.kind {
         EventKind::Subscription(payload) => {
-            let current = match current_state(stripe, payload).await {
+            let (current, snapshot) = match current_state(stripe, payload).await {
                 Ok(current) => current,
                 Err(error) => return Ok(Err(error)),
             };
@@ -80,8 +81,15 @@ async fn resolve(
                 Ok(plan) => plan,
                 Err(error) => return Ok(Err(error)),
             };
+            let created_for = created_for(env, &current, snapshot);
             plan.and_then(|plan| subscription_state(&current, &plan))
-                .map_or(Change::Nothing, Change::Subscription)
+                .map_or(Change::Nothing, |state| {
+                    Change::Subscription(SubscriptionChange {
+                        state,
+                        snapshot,
+                        created_for,
+                    })
+                })
         }
         EventKind::InvoicePaid { subscription } => Change::InvoicePaid {
             subscription: subscription.clone(),
@@ -96,16 +104,27 @@ async fn resolve(
 async fn current_state(
     stripe: &Stripe,
     payload: &SubscriptionPayload,
-) -> Result<SubscriptionPayload, StripeError> {
+) -> Result<(SubscriptionPayload, Snapshot), StripeError> {
+    let as_sent = (payload.clone(), Snapshot::AsSent);
     if !is_stripe_id(&payload.id, "sub_") {
-        return Ok(payload.clone());
+        return Ok(as_sent);
     }
-    let path = format!("/v1/subscriptions/{}", payload.id);
+    let path = format!("/v1/subscriptions/{}?expand[]=customer", payload.id);
     match stripe.send(Request::get(&path)).await {
-        Ok(object) => Ok(subscription(&object, payload.deleted).unwrap_or_else(|| payload.clone())),
-        Err(error) if error.is_not_found() => Ok(payload.clone()),
+        Ok(object) => Ok(subscription(&object, payload.deleted)
+            .map(|current| (current, Snapshot::Current))
+            .unwrap_or(as_sent)),
+        Err(error) if error.is_not_found() => Ok(as_sent),
         Err(error) => Err(error),
     }
+}
+
+fn created_for(env: &Env<'_>, current: &SubscriptionPayload, snapshot: Snapshot) -> Option<String> {
+    let owner = current.owner.as_ref()?;
+    let ours = snapshot == Snapshot::Current
+        && owner.app == env.app.config.origin()
+        && PublicIdKind::User.is_valid(&owner.user);
+    ours.then(|| owner.user.clone())
 }
 
 async fn plan_for(

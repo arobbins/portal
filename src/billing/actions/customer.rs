@@ -16,6 +16,7 @@ pub async fn ensure_customer(
         ("email", user.email.as_str()),
         ("name", user.name.as_str()),
         ("metadata[user]", user.public_id.as_str()),
+        ("metadata[app]", env.app.config.origin()),
     ];
     let key = format!("customer-{}", user.public_id);
     let request = Request::post("/v1/customers", &form).idempotent(Some(&key));
