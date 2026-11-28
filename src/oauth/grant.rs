@@ -86,11 +86,15 @@ pub async fn issue_tokens(
     if resource != mcp_resource(env) {
         return fail(TokenProblem::InvalidGrant);
     }
-    let mut tx = env.db().begin().await?;
-    let granted = match input.grant_type.as_deref() {
-        Some("authorization_code") => exchange_code(env, client_id, input, &mut tx).await?,
-        Some("refresh_token") => refresh(env, client_id, input, &mut tx).await?,
+    let grant_type = match input.grant_type.as_deref() {
+        Some("authorization_code") => GrantType::AuthorizationCode,
+        Some("refresh_token") => GrantType::RefreshToken,
         _ => return fail(TokenProblem::UnsupportedGrantType),
+    };
+    let mut tx = env.db().begin().await?;
+    let granted = match grant_type {
+        GrantType::AuthorizationCode => exchange_code(env, client_id, input, &mut tx).await?,
+        GrantType::RefreshToken => refresh(env, client_id, input, &mut tx).await?,
     };
     let connection_id = match granted {
         Granted::Connection(id) => id,
@@ -101,6 +105,11 @@ pub async fn issue_tokens(
     };
     tx.commit().await?;
     Ok(Ok(response))
+}
+
+enum GrantType {
+    AuthorizationCode,
+    RefreshToken,
 }
 
 enum Granted {
@@ -116,16 +125,23 @@ async fn refuse(
     tx: Transaction<'_, Postgres>,
 ) -> Outcome<TokenResponse, TokenProblem> {
     match granted {
-        Granted::CodeSpent => tx.commit().await?,
+        Granted::Refused(problem) => {
+            tx.rollback().await?;
+            fail(problem)
+        }
+        Granted::Connection(_) => {
+            tx.rollback().await?;
+            fail(TokenProblem::InvalidGrant)
+        }
+        Granted::CodeSpent => {
+            tx.commit().await?;
+            fail(TokenProblem::InvalidGrant)
+        }
         Granted::Reused(connection_id) => {
             tx.rollback().await?;
             end_connection(env, connection_id).await?;
+            fail(TokenProblem::InvalidGrant)
         }
-        _ => tx.rollback().await?,
-    }
-    match granted {
-        Granted::Refused(problem) => fail(problem),
-        _ => fail(TokenProblem::InvalidGrant),
     }
 }
 

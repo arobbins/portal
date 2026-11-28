@@ -109,5 +109,7 @@ Follow `profile/pages/profile_tab.rs` exactly (and `account/pages/security_tab.r
 - Write the spec with the `new-e2e-test` skill: success path, each problem message, the
   no-JS/rewrite path keeps the typed value, and for modals the "server can't be reached" case
   (`page.route("**/_topcoat/runtime/procedures/**", r => r.abort())`).
+- Add a new page or a new dialog to `e2e/tests/accessibility.spec.ts` (a new component's
+  styleguide demo is already scanned via `/styleguide`).
 - Add a row to `.claude/state-machines.md` if the flow adds state with more than two values.
 - Run the `verify` skill, then `./check.sh`, then the `convention-reviewer` agent.

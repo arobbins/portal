@@ -1,3 +1,7 @@
+.a-theme-switcher__form {
+  display: contents;
+}
+
 .a-theme-switcher {
   display: inline-flex;
   gap: var(--space-0-5);
