@@ -15,7 +15,8 @@ pub use change_password::{ChangePassword, ChangePasswordProblem, change_password
 pub use confirm_email::{ConfirmEmailProblem, confirm_email_change, pending_email_change};
 pub use delete_account::{CONFIRMATION_FIELD, DeleteAccount, DeleteAccountProblem, delete_account};
 pub use link_password::{
-    LinkPasswordProblem, NewPassword, link_is_valid, link_payload, set_password_from_link,
+    LinkPasswordProblem, NewPassword, link_is_valid, link_needs_code, link_payload,
+    set_password_from_link,
 };
 pub use password_age::{PasswordAge, password_age};
 pub use password_reset::{

@@ -15,14 +15,17 @@ paths:
   authenticator app, set up on Security → Authentication by scanning a QR code
   (the secret is generated per page view and only stored once a code and
   the password or a passkey confirm it) plus 10 single-use recovery codes
-  (hashed; shown once; regenerating replaces them). A correct password, or
-  a password-reset link, for a user with two-factor stores
-  `PendingSecondFactor` in the session and goes to `/login/two-factor`
-  instead of signing in (it keeps the `SignInMethod`, so a reset still
-  ends as a reset); wrong codes have their own limit, 5 per 15 minutes per
+  (hashed; shown once; regenerating replaces them). A correct password for
+  a user with two-factor stores `PendingSecondFactor` in the session and
+  goes to `/login/two-factor` instead of signing in. A password reset never
+  does: its form asks for the code (`link_needs_code`), and
+  `set_password_from_link` checks it in the reset's transaction
+  (`second_factor_matches`); a wrong code commits only the used-up links
+  (`WrongCode`, 400). Wrong codes have their own limit, 5 per 15 minutes per
   account (`FailedSecondFactorsByAccount`, reserved before the code is
-  checked), which a correct password does not clear; code submissions
-  also share the 10/min per-IP password-submission limit. Each app code's
+  checked, shared by sign-in and reset; past it the link is kept), which a
+  correct password does not clear; code submissions also share the 10/min
+  per-IP password-submission limit. Each app code's
   time step is accepted once (`last_used_step`).
   The TOTP secret is stored as is (the server needs it to check codes; the
   SQL console hides it); encrypting it at rest is a later option. Turning

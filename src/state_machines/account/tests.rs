@@ -236,6 +236,7 @@ impl Bench<'_> {
         let input = NewPassword {
             password: NEW_PASSWORD.to_string(),
             confirm_password: NEW_PASSWORD.to_string(),
+            code: String::new(),
         };
         let accepted = set_password_from_link(&self.env, purpose, &raw, &input)
             .await

@@ -291,6 +291,7 @@ async fn changing_or_resetting_the_password_cancels_a_pending_email_change(db: P
     let chosen = NewPassword {
         password: new_password.clone(),
         confirm_password: new_password,
+        code: String::new(),
     };
     set_password_from_link(
         &env,

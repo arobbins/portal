@@ -1,4 +1,5 @@
 use serde_json::json;
+use sqlx::PgConnection;
 
 use super::super::codes::{matching_step, normalize_recovery_code};
 use super::super::queries::{query_get_two_factor, query_use_recovery_code, query_use_step};
@@ -42,29 +43,51 @@ pub async fn verify_second_factor(
     {
         return fail(SecondFactorProblem::TooManyAttempts);
     }
-    if accepts_app_code(env, user, code).await? || accepts_recovery_code(env, user, code).await? {
+    let mut tx = env.db().begin().await?;
+    let accepted = second_factor_matches(env, user, code, &mut tx).await?;
+    tx.commit().await?;
+    if accepted {
         limits.clear_failed_second_factors(&user.email).await?;
         return Ok(Ok(()));
     }
     fail(SecondFactorProblem::Wrong)
 }
 
-async fn accepts_app_code(env: &Env<'_>, user: &User, code: &str) -> Result<bool, sqlx::Error> {
-    let Some(row) = query_get_two_factor(user.id, env.db()).await? else {
+pub async fn second_factor_matches(
+    env: &Env<'_>,
+    user: &User,
+    code: &str,
+    tx: &mut PgConnection,
+) -> topcoat::Result<bool> {
+    Ok(accepts_app_code(env, user, code, tx).await?
+        || accepts_recovery_code(env, user, code, tx).await?)
+}
+
+async fn accepts_app_code(
+    env: &Env<'_>,
+    user: &User,
+    code: &str,
+    tx: &mut PgConnection,
+) -> Result<bool, sqlx::Error> {
+    let Some(row) = query_get_two_factor(user.id, &mut *tx).await? else {
         return Ok(false);
     };
     let Some(step) = matching_step(&row.secret, code, env.now().unix_timestamp()) else {
         return Ok(false);
     };
-    query_use_step(user.id, step, env.db()).await
+    query_use_step(user.id, step, &mut *tx).await
 }
 
-async fn accepts_recovery_code(env: &Env<'_>, user: &User, code: &str) -> topcoat::Result<bool> {
+async fn accepts_recovery_code(
+    env: &Env<'_>,
+    user: &User,
+    code: &str,
+    tx: &mut PgConnection,
+) -> topcoat::Result<bool> {
     let normalized = normalize_recovery_code(code);
     if normalized.len() != 10 {
         return Ok(false);
     }
-    let mut tx = env.db().begin().await?;
     let used =
         query_use_recovery_code(user.id, &hash_secret(&normalized), env.now(), &mut *tx).await?;
     if used {
@@ -78,6 +101,5 @@ async fn accepts_recovery_code(env: &Env<'_>, user: &User, code: &str) -> topcoa
         )
         .await?;
     }
-    tx.commit().await?;
     Ok(used)
 }

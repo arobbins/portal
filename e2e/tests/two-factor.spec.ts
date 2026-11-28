@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
-import { ACCOUNT_PASSWORD, createAccount, logIn, logOut, setPassword } from "../support/flows";
-import { resetLink, waitForEmailAbout } from "../support/mail";
+import { ACCOUNT_PASSWORD, createAccount, logIn, logOut } from "../support/flows";
+import { waitForEmailAbout } from "../support/mail";
 import { totp, turnOnTwoFactor } from "../support/totp";
 import { expect, test } from "../support/test";
 
@@ -72,24 +72,6 @@ test("the second step can't be skipped by going to the account", async ({ page }
   await page.goto("/account");
 
   await expect(page).toHaveURL("/login");
-});
-
-test("resetting the password by email still asks for the code", async ({ page }, testInfo) => {
-  const email = await createAccount(page, testInfo, "Reset Keeper");
-  const { secret } = await turnOnTwoFactor(page);
-  await logOut(page, "Reset Keeper");
-
-  await page.goto("/reset-password");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Email").press("Enter");
-  await page.goto(resetLink(await waitForEmailAbout(email, "Reset your password")));
-  await setPassword(page, "a-different-strong-password");
-
-  await expect(page).toHaveURL("/login/two-factor");
-  await page.getByLabel("Code").fill(totp(secret, Date.now() + THIRTY_SECONDS));
-  await page.getByLabel("Code").press("Enter");
-  await expect(page).toHaveURL("/account");
-  await expect(page.getByText("Your password has been reset.")).toBeVisible();
 });
 
 test("the authentication page says what is set up", async ({ page }, testInfo) => {

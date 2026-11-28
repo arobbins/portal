@@ -44,7 +44,8 @@ paths:
   - *Password reset* (`password_reset.rs`, `link_password.rs`): the request
     is one job insert whatever the email (same answer and timing); the POST
     checks the link before argon2, bumps `session_version`, deletes every API
-    token and records one `password_reset` event.
+    token and records one `password_reset` event. With two-factor on, the
+    same POST needs the code (`two-factor.md`).
   - *Change email* (`change_email.rs`, `confirm_email.rs`): re-auth with
     `check_reauth`; the request only enqueues `EmailChangeJob`, so the answer
     never reveals whether the new address has an account. The new address
