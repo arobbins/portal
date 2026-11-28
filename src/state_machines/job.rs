@@ -72,7 +72,7 @@ pub const JOB: Machine<JobState, JobEvent> = Machine {
         writer(
             "src/jobs/worker.rs:repeat",
             "query_schedule_if_missing",
-            &[E::RunSucceeds],
+            &[E::RunSucceeds, E::RunFails],
         ),
         writer(
             "src/jobs/worker.rs:run_next",
@@ -80,7 +80,7 @@ pub const JOB: Machine<JobState, JobEvent> = Machine {
             &[E::RunSucceeds, E::RunFails, E::WorkerDies],
         ),
         writer(
-            "src/jobs/worker.rs:run_next",
+            "src/jobs/worker.rs:fail_abandoned",
             "query_fail_abandoned_jobs",
             &[E::RunSucceeds, E::RunFails],
         ),

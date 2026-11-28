@@ -69,15 +69,13 @@ pub(super) async fn query_claim_job(
 pub(super) async fn query_fail_abandoned_jobs(
     error: &str,
     db: impl PgExecutor<'_>,
-) -> Result<u64, sqlx::Error> {
-    let result = sqlx::query!(
-        "UPDATE jobs SET status = 'failed', locked_until = NULL, last_error = $1 WHERE status = 'queued' AND attempts >= max_attempts AND (locked_until IS NULL OR locked_until < now())",
+) -> Result<Vec<String>, sqlx::Error> {
+    sqlx::query_scalar!(
+        "UPDATE jobs SET status = 'failed', locked_until = NULL, last_error = $1 WHERE status = 'queued' AND attempts >= max_attempts AND (locked_until IS NULL OR locked_until < now()) RETURNING kind",
         error,
     )
-    .execute(db)
-    .await?;
-
-    Ok(result.rows_affected())
+    .fetch_all(db)
+    .await
 }
 
 pub(super) async fn query_delete_job(id: i64, db: impl PgExecutor<'_>) -> Result<(), sqlx::Error> {

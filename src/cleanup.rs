@@ -25,26 +25,63 @@ impl Job for CleanupJob {
     }
 }
 
+#[derive(Default)]
+struct Steps {
+    failed: Vec<&'static str>,
+}
+
+impl Steps {
+    fn count<T: Default, E: std::fmt::Display>(
+        &mut self,
+        step: &'static str,
+        result: Result<T, E>,
+    ) -> T {
+        result.unwrap_or_else(|error| {
+            tracing::error!(step, "cleanup step failed: {error}");
+            self.failed.push(step);
+            T::default()
+        })
+    }
+
+    fn finish(self) -> Result<(), JobError> {
+        if self.failed.is_empty() {
+            return Ok(());
+        }
+        Err(JobError::new(format!(
+            "cleanup steps failed: {}",
+            self.failed.join(", ")
+        )))
+    }
+}
+
 async fn run(app: &App) -> Result<(), JobError> {
-    let (links, sign_ups) = delete_stale_sign_ups(app).await?;
-    let api_tokens = delete_long_expired(app).await?;
-    let hits = app.limits.forget_old_hits(app.clock.now()).await?;
-    let events = delete_old_events(app).await?;
-    let jobs = delete_old_failed_jobs(app).await?;
-    let devices = delete_stale_devices(app).await?;
-    let known = forget_unseen_devices(app).await?;
-    let feedback = delete_old_feedback(app).await?;
-    let (stripe_events, checkouts) = delete_expired_billing_records(app).await?;
-    let sign_ins = delete_expired_sign_ins(app).await?;
-    PostgresStore::new(app.db.clone())
-        .delete_expired()
-        .await
-        .map_err(JobError::new)?;
+    let mut steps = Steps::default();
+    let (links, sign_ups) = steps.count(
+        "expired links and abandoned sign-ups",
+        delete_stale_sign_ups(app).await,
+    );
+    let api_tokens = steps.count("expired API tokens", delete_long_expired(app).await);
+    let hits = steps.count(
+        "rate-limit hits",
+        app.limits.forget_old_hits(app.clock.now()).await,
+    );
+    let events = steps.count("old account events", delete_old_events(app).await);
+    let jobs = steps.count("failed jobs", delete_old_failed_jobs(app).await);
+    let devices = steps.count("signed-out devices", delete_stale_devices(app).await);
+    let known = steps.count("long-unseen browsers", forget_unseen_devices(app).await);
+    let feedback = steps.count("old API feedback", delete_old_feedback(app).await);
+    let (stripe_events, checkouts) = steps.count(
+        "old billing records",
+        delete_expired_billing_records(app).await,
+    );
+    let sign_ins = steps.count("expired app sign-ins", delete_expired_sign_ins(app).await);
+    let store = PostgresStore::new(app.db.clone());
+    steps.count("expired sessions", store.delete_expired().await);
 
     tracing::info!(
         "cleanup removed {links} expired links, {sign_ups} abandoned sign-ups, {api_tokens} expired API tokens, {hits} rate-limit hits, {events} old account events, {jobs} failed jobs, {devices} signed-out devices, {known} long-unseen browsers, {feedback} old API feedback messages, {stripe_events} old Stripe event ids, {checkouts} old checkout requests and {sign_ins} expired app sign-in records"
     );
-    Ok(())
+    steps.finish()
 }
 
 #[cfg(test)]
@@ -85,5 +122,24 @@ mod tests {
         run(&App::for_tests(db.clone())).await.unwrap();
 
         assert_eq!(session_count(&db).await, 1);
+    }
+
+    #[sqlx::test]
+    async fn a_failing_step_does_not_skip_the_later_ones(db: PgPool) {
+        let store = session_store(&db).await;
+        save_session(&store, time::Duration::hours(-1)).await;
+        sqlx::query("ALTER TABLE user_tokens RENAME TO user_tokens_gone")
+            .execute(&db)
+            .await
+            .unwrap();
+
+        let error = run(&App::for_tests(db.clone())).await.unwrap_err();
+
+        assert_eq!(session_count(&db).await, 0);
+        assert!(
+            error
+                .to_string()
+                .contains("expired links and abandoned sign-ups")
+        );
     }
 }

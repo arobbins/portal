@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE jobs SET status = 'failed', locked_until = NULL, last_error = $1 WHERE status = 'queued' AND attempts >= max_attempts AND (locked_until IS NULL OR locked_until < now()) RETURNING kind",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b3b0dee43a733f38261594ce4c7dce47dee1b841015ab0f81cf82edcfa647fa0"
+}

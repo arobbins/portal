@@ -67,16 +67,24 @@ impl Worker {
     }
 
     pub async fn run_next(&self) -> Result<bool, sqlx::Error> {
-        let abandoned = query_fail_abandoned_jobs(ABANDONED, &self.app.db).await?;
-        if abandoned > 0 {
-            tracing::error!(count = abandoned, "{ABANDONED}");
-        }
+        let abandoned = self.fail_abandoned().await?;
         let Some(claimed) = query_claim_job(LOCK_FOR_SECONDS, &self.app.db).await? else {
-            return Ok(abandoned > 0);
+            return Ok(abandoned);
         };
         let outcome = self.perform(&claimed).await;
         self.settle(&claimed, outcome).await?;
         Ok(true)
+    }
+
+    async fn fail_abandoned(&self) -> Result<bool, sqlx::Error> {
+        let kinds = query_fail_abandoned_jobs(ABANDONED, &self.app.db).await?;
+        if !kinds.is_empty() {
+            tracing::error!(count = kinds.len(), "{ABANDONED}");
+        }
+        for kind in &kinds {
+            self.repeat(kind).await?;
+        }
+        Ok(!kinds.is_empty())
     }
 
     async fn perform(&self, claimed: &ClaimedJob) -> Result<(), JobError> {
@@ -104,7 +112,8 @@ impl Worker {
             }
             Err(error) if claimed.attempts >= claimed.max_attempts => {
                 tracing::error!(job = claimed.id, kind = %claimed.kind, "job failed for good: {error}");
-                query_fail_job(claimed.id, &error.to_string(), db).await
+                query_fail_job(claimed.id, &error.to_string(), db).await?;
+                self.repeat(&claimed.kind).await
             }
             Err(error) => {
                 tracing::warn!(job = claimed.id, kind = %claimed.kind, attempt = claimed.attempts, "job failed, will retry: {error}");
@@ -158,6 +167,37 @@ mod tests {
         async fn run(self, _app: &App) -> Result<(), JobError> {
             Err(JobError::new("boom"))
         }
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct FailsAndRepeats {}
+
+    impl Job for FailsAndRepeats {
+        const KIND: &'static str = "cleanup";
+        const REPEAT_EVERY: Option<time::Duration> = Some(time::Duration::hours(1));
+
+        async fn run(self, _app: &App) -> Result<(), JobError> {
+            Err(JobError::new("boom"))
+        }
+    }
+
+    fn repeating_worker(db: &PgPool) -> Worker {
+        Worker::new(
+            App::for_tests(db.clone()),
+            vec![Handler::of::<FailsAndRepeats>()],
+        )
+    }
+
+    async fn next_runs_in_minutes(db: &PgPool) -> Vec<(String, i64)> {
+        sqlx::query!(
+            r#"SELECT status, round(extract(epoch FROM run_at - now()) / 60)::BIGINT AS "minutes!" FROM jobs ORDER BY id"#
+        )
+        .fetch_all(db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|row| (row.status, row.minutes))
+        .collect()
     }
 
     fn worker(db: &PgPool) -> Worker {
@@ -227,5 +267,37 @@ mod tests {
         worker.schedule_repeating_jobs().await.unwrap();
 
         assert_eq!(jobs(&db).await.len(), 1);
+    }
+
+    #[sqlx::test]
+    async fn a_repeating_job_that_fails_for_good_still_schedules_its_next_run(db: PgPool) {
+        sqlx::query!("INSERT INTO jobs (kind, payload, max_attempts) VALUES ('cleanup', '{}', 1)")
+            .execute(&db)
+            .await
+            .unwrap();
+
+        assert!(repeating_worker(&db).run_next().await.unwrap());
+
+        assert_eq!(
+            next_runs_in_minutes(&db).await,
+            vec![("failed".to_string(), 0), ("queued".to_string(), 60)]
+        );
+    }
+
+    #[sqlx::test]
+    async fn an_abandoned_repeating_job_is_rescheduled(db: PgPool) {
+        sqlx::query!(
+            "INSERT INTO jobs (kind, payload, attempts, max_attempts, locked_until) VALUES ('cleanup', '{}', 1, 1, now() - interval '1 minute')"
+        )
+        .execute(&db)
+        .await
+        .unwrap();
+
+        assert!(repeating_worker(&db).run_next().await.unwrap());
+
+        assert_eq!(
+            next_runs_in_minutes(&db).await,
+            vec![("failed".to_string(), 0), ("queued".to_string(), 60)]
+        );
     }
 }

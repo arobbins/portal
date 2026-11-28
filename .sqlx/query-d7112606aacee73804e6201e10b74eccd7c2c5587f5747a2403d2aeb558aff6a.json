@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT status, round(extract(epoch FROM run_at - now()) / 60)::BIGINT AS \"minutes!\" FROM jobs ORDER BY id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "minutes!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "d7112606aacee73804e6201e10b74eccd7c2c5587f5747a2403d2aeb558aff6a"
+}

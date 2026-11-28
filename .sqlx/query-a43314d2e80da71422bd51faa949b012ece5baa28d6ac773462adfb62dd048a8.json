@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO jobs (kind, payload, max_attempts) VALUES ('cleanup', '{}', 1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "a43314d2e80da71422bd51faa949b012ece5baa28d6ac773462adfb62dd048a8"
+}
